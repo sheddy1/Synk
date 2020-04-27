@@ -2005,6 +2005,8 @@ void SceneTreeDock::_create() {
 		UndoRedo *ur = EditorNode::get_singleton()->get_undo_redo();
 		ur->create_action(TTR("Change type of node(s)"));
 
+		List<Node *> replaced;
+
 		for (List<Node *>::Element *E = selection.front(); E; E = E->next()) {
 			Node *n = E->get();
 			ERR_FAIL_COND(!n);
@@ -2015,13 +2017,24 @@ void SceneTreeDock::_create() {
 			Node *newnode = Object::cast_to<Node>(c);
 			ERR_FAIL_COND(!newnode);
 
+			if (!n->get_script().is_null() && newnode->get_script().is_null())
+				newnode->set_script(n->get_script());
+
 			ur->add_do_method(this, "replace_node", n, newnode, true, false);
 			ur->add_do_reference(newnode);
 			ur->add_undo_method(this, "replace_node", newnode, n, false, false);
 			ur->add_undo_reference(n);
+
+			replaced.push_back(newnode);
 		}
 
 		ur->commit_action();
+
+		editor_selection->clear();
+		for (List<Node *>::Element *E = replaced.front(); E; E = E->next()) {
+			editor_selection->add_node(E->get());
+		}
+
 	} else if (current_option == TOOL_REPARENT_TO_NEW_NODE) {
 		List<Node *> selection = editor_selection->get_selected_node_list();
 		ERR_FAIL_COND(selection.size() <= 0);
@@ -2078,45 +2091,8 @@ void SceneTreeDock::replace_node(Node *p_node, Node *p_by_node, bool p_keep_prop
 	Node *n = p_node;
 	Node *newnode = p_by_node;
 
-	if (p_keep_properties) {
-		Node *default_oldnode = Object::cast_to<Node>(ClassDB::instance(n->get_class()));
-		List<PropertyInfo> pinfo;
-		n->get_property_list(&pinfo);
-
-		for (List<PropertyInfo>::Element *E = pinfo.front(); E; E = E->next()) {
-			if (!(E->get().usage & PROPERTY_USAGE_STORAGE))
-				continue;
-			if (E->get().name == "__meta__")
-				continue;
-			if (default_oldnode->get(E->get().name) != n->get(E->get().name)) {
-				newnode->set(E->get().name, n->get(E->get().name));
-			}
-		}
-
-		memdelete(default_oldnode);
-	}
-
 	editor->push_item(nullptr);
-
-	//reconnect signals
-	List<MethodInfo> sl;
-
-	n->get_signal_list(&sl);
-	for (List<MethodInfo>::Element *E = sl.front(); E; E = E->next()) {
-
-		List<Object::Connection> cl;
-		n->get_signal_connection_list(E->get().name, &cl);
-
-		for (List<Object::Connection>::Element *F = cl.front(); F; F = F->next()) {
-
-			Object::Connection &c = F->get();
-			if (!(c.flags & Object::CONNECT_PERSIST))
-				continue;
-			newnode->connect(c.signal.get_name(), c.callable, c.binds, Object::CONNECT_PERSIST);
-		}
-	}
-
-	String newname = n->get_name();
+	String oldname = n->get_name();
 
 	List<Node *> to_erase;
 	for (int i = 0; i < n->get_child_count(); i++) {
@@ -2124,7 +2100,8 @@ void SceneTreeDock::replace_node(Node *p_node, Node *p_by_node, bool p_keep_prop
 			to_erase.push_back(n->get_child(i));
 		}
 	}
-	n->replace_by(newnode, true);
+
+	n->replace_by(newnode, p_keep_properties);
 
 	if (n == edited_scene) {
 		edited_scene = newnode;
@@ -2137,10 +2114,12 @@ void SceneTreeDock::replace_node(Node *p_node, Node *p_by_node, bool p_keep_prop
 		Node *c = newnode->get_child(i);
 		c->call("set_transform", c->call("get_transform"));
 	}
+
 	//p_remove_old was added to support undo
 	if (p_remove_old)
 		editor_data->get_undo_redo().clear_history();
-	newnode->set_name(newname);
+
+	newnode->set_name(oldname);
 
 	editor->push_item(newnode);
 
