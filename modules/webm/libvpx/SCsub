@@ -227,6 +227,7 @@ if env["platform"] == "uwp":
 else:
     import platform
 
+
     is_x11_or_server_arm = (env["platform"] == "x11" or env["platform"] == "server") and (
         platform.machine().startswith("arm") or platform.machine().startswith("aarch")
     )
@@ -242,6 +243,7 @@ else:
             env["platform"] == "windows"
             or env["platform"] == "x11"
             or env["platform"] == "haiku"
+            or env["platform"] == "sailfish"
             or is_macos_x86
             or is_android_x86
             or is_ios_x86
@@ -304,6 +306,7 @@ if webm_cpu_x86:
     webm_simd_optimizations = True
 
 if webm_cpu_arm:
+
     if env["platform"] == "iphone":
         env_libvpx["ASFLAGS"] = "-arch armv7"
     elif (
@@ -311,6 +314,7 @@ if webm_cpu_arm:
         and env["android_arch"] == "armv7"
         or env["platform"] == "x11"
         or env["platform"] == "server"
+        or (env["platform"] == "sailfish" and platform.machine().startswith("arm"))
     ):
         env_libvpx["ASFLAGS"] = "-mfpu=neon"
     elif env["platform"] == "uwp":

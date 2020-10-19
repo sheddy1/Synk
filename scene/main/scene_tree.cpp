@@ -1132,17 +1132,26 @@ void SceneTree::_update_root_rect() {
 
 		_update_font_oversampling(1.0);
 		root->set_size((last_screen_size / stretch_shrink).floor());
+#if SAILFISH_FORCE_LANDSCAPE && SAILFISH_ENABLED
+		// landscape orientation
+		if (OS::get_singleton()->get_screen_orientation() == OS::SCREEN_LANDSCAPE ||
+				OS::get_singleton()->get_screen_orientation() == OS::SCREEN_SENSOR_LANDSCAPE)
+			root->set_attach_to_screen_rect(Rect2(Point2(), Size2(last_screen_size.y, last_screen_size.x)));
+		else
+			root->set_attach_to_screen_rect(Rect2(Point2(), last_screen_size));
+#else // normal drawing
 		root->set_attach_to_screen_rect(Rect2(Point2(), last_screen_size));
+#endif
 		root->set_size_override_stretch(false);
 		root->set_size_override(false, Size2());
 		root->update_canvas_items();
+
 		return; //user will take care
 	}
 
 	//actual screen video mode
 	Size2 video_mode = Size2(OS::get_singleton()->get_window_size().width, OS::get_singleton()->get_window_size().height);
 	Size2 desired_res = stretch_min;
-
 	Size2 viewport_size;
 	Size2 screen_size;
 
@@ -1161,12 +1170,10 @@ void SceneTree::_update_root_rect() {
 		// screen ratio is smaller vertically
 
 		if (stretch_aspect == STRETCH_ASPECT_KEEP_HEIGHT || stretch_aspect == STRETCH_ASPECT_EXPAND) {
-
 			//will stretch horizontally
 			viewport_size.x = desired_res.y * video_mode_aspect;
 			viewport_size.y = desired_res.y;
 			screen_size = video_mode;
-
 		} else {
 			//will need black bars
 			viewport_size = desired_res;
@@ -1176,12 +1183,10 @@ void SceneTree::_update_root_rect() {
 	} else {
 		//screen ratio is smaller horizontally
 		if (stretch_aspect == STRETCH_ASPECT_KEEP_WIDTH || stretch_aspect == STRETCH_ASPECT_EXPAND) {
-
 			//will stretch horizontally
 			viewport_size.x = desired_res.x;
 			viewport_size.y = desired_res.x / video_mode_aspect;
 			screen_size = video_mode;
-
 		} else {
 			//will need black bars
 			viewport_size = desired_res;
@@ -1194,16 +1199,40 @@ void SceneTree::_update_root_rect() {
 	viewport_size = viewport_size.floor();
 
 	Size2 margin;
-	Size2 offset;
+	// Size2 offset; // FIXME: is it need?
 	//black bars and margin
 	if (stretch_aspect != STRETCH_ASPECT_EXPAND && screen_size.x < video_mode.x) {
-		margin.x = Math::round((video_mode.x - screen_size.x) / 2.0);
+		margin.x = Math::round((video_mode.x - screen_size.x) * 0.5);
+		// offset.x = Math::round(margin.x * viewport_size.y / screen_size.y);
+#if SAILFISH_FORCE_LANDSCAPE && SAILFISH_ENABLED
+		// landscape orientation
+		if (OS::get_singleton()->get_screen_orientation() == OS::SCREEN_LANDSCAPE ||
+				OS::get_singleton()->get_screen_orientation() == OS::SCREEN_SENSOR_LANDSCAPE ||
+				OS::get_singleton()->get_screen_orientation() == OS::SCREEN_REVERSE_LANDSCAPE) {
+			margin.y = margin.x;
+			margin.x = 0;
+			VisualServer::get_singleton()->black_bars_set_margins(0, margin.y, 0, margin.y);
+		} else
+			VisualServer::get_singleton()->black_bars_set_margins(margin.x, 0, margin.x, 0);
+#else //normal drawing
 		VisualServer::get_singleton()->black_bars_set_margins(margin.x, 0, margin.x, 0);
-		offset.x = Math::round(margin.x * viewport_size.y / screen_size.y);
+#endif
 	} else if (stretch_aspect != STRETCH_ASPECT_EXPAND && screen_size.y < video_mode.y) {
-		margin.y = Math::round((video_mode.y - screen_size.y) / 2.0);
+		margin.y = Math::round((video_mode.y - screen_size.y) * 0.5);
+		// offset.y = Math::round(margin.y * viewport_size.x / screen_size.x);
+#if SAILFISH_FORCE_LANDSCAPE && SAILFISH_ENABLED
+		if (OS::get_singleton()->get_screen_orientation() == OS::SCREEN_LANDSCAPE ||
+				OS::get_singleton()->get_screen_orientation() == OS::SCREEN_SENSOR_LANDSCAPE ||
+				OS::get_singleton()->get_screen_orientation() == OS::SCREEN_REVERSE_LANDSCAPE) { // landscape
+			margin.x = margin.y;
+			margin.y = 0;
+			VisualServer::get_singleton()->black_bars_set_margins(margin.x, 0, margin.x, 0);
+		} else {
+			VisualServer::get_singleton()->black_bars_set_margins(0, margin.y, 0, margin.y);
+		}
+#else
 		VisualServer::get_singleton()->black_bars_set_margins(0, margin.y, 0, margin.y);
-		offset.y = Math::round(margin.y * viewport_size.x / screen_size.x);
+#endif
 	} else {
 		VisualServer::get_singleton()->black_bars_set_margins(0, 0, 0, 0);
 	}
@@ -1214,19 +1243,31 @@ void SceneTree::_update_root_rect() {
 			_update_font_oversampling(1.0);
 		} break;
 		case STRETCH_MODE_2D: {
-
 			_update_font_oversampling(screen_size.x / viewport_size.x); //screen / viewport radio drives oversampling
 			root->set_size((screen_size / stretch_shrink).floor());
+#if SAILFISH_FORCE_LANDSCAPE && SAILFISH_ENABLED
+			// force landscape
+			if (OS::get_singleton()->get_screen_orientation() == OS::SCREEN_LANDSCAPE ||
+					OS::get_singleton()->get_screen_orientation() == OS::SCREEN_SENSOR_LANDSCAPE ||
+					OS::get_singleton()->get_screen_orientation() == OS::SCREEN_REVERSE_LANDSCAPE)
+				screen_size = Size2(screen_size.y, screen_size.x);
+#endif
 			root->set_attach_to_screen_rect(Rect2(margin, screen_size));
 			root->set_size_override_stretch(true);
 			root->set_size_override(true, (viewport_size / stretch_shrink).floor());
 			root->update_canvas_items(); //force them to update just in case
-
 		} break;
 		case STRETCH_MODE_VIEWPORT: {
 
 			_update_font_oversampling(1.0);
 			root->set_size((viewport_size / stretch_shrink).floor());
+#if SAILFISH_FORCE_LANDSCAPE && SAILFISH_ENABLED
+			// force landscape
+			if (OS::get_singleton()->get_screen_orientation() == OS::SCREEN_LANDSCAPE ||
+					OS::get_singleton()->get_screen_orientation() == OS::SCREEN_SENSOR_LANDSCAPE ||
+					OS::get_singleton()->get_screen_orientation() == OS::SCREEN_REVERSE_LANDSCAPE)
+				screen_size = Size2(screen_size.y, screen_size.x);
+#endif
 			root->set_attach_to_screen_rect(Rect2(margin, screen_size));
 			root->set_size_override_stretch(false);
 			root->set_size_override(false, Size2());
@@ -1235,7 +1276,6 @@ void SceneTree::_update_root_rect() {
 			if (use_font_oversampling) {
 				WARN_PRINT("Font oversampling does not work in 'Viewport' stretch mode, only '2D'.");
 			}
-
 		} break;
 	}
 }
