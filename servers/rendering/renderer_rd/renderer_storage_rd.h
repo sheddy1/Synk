@@ -779,7 +779,6 @@ private:
 
 		int fixed_fps = 30;
 		bool interpolate = true;
-		bool fractional_delta = false;
 		double frame_remainder = 0;
 		real_t collision_base_size = 0.01;
 
@@ -814,15 +813,15 @@ private:
 
 	struct ParticlesShader {
 		struct PushConstant {
-			float lifetime;
-			uint32_t clear;
-			uint32_t total_particles;
-			uint32_t trail_size;
+			float lifetime; // 4 - 4
+			uint32_t clear; // 4 - 8
+			uint32_t total_particles; // 4 - 12
+			uint32_t trail_size; // 4 - 16
 
-			uint32_t use_fractional_delta;
-			uint32_t sub_emitter_mode;
-			uint32_t can_emit;
-			uint32_t trail_pass;
+			uint32_t sub_emitter_mode; // 4 - 20
+			uint32_t can_emit; // 4 - 24
+			uint32_t trail_pass; // 4 - 28
+			uint32_t pad; // 4 - 32
 		};
 
 		ParticlesShaderRD shader;
@@ -2172,7 +2171,6 @@ public:
 	void particles_set_process_material(RID p_particles, RID p_material);
 	void particles_set_fixed_fps(RID p_particles, int p_fps);
 	void particles_set_interpolate(RID p_particles, bool p_enable);
-	void particles_set_fractional_delta(RID p_particles, bool p_enable);
 	void particles_set_collision_base_size(RID p_particles, real_t p_size);
 	void particles_set_transform_align(RID p_particles, RS::ParticlesTransformAlign p_transform_align);
 

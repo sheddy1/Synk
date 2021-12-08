@@ -2055,7 +2055,6 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("particles_set_process_material", "particles", "material"), &RenderingServer::particles_set_process_material);
 	ClassDB::bind_method(D_METHOD("particles_set_fixed_fps", "particles", "fps"), &RenderingServer::particles_set_fixed_fps);
 	ClassDB::bind_method(D_METHOD("particles_set_interpolate", "particles", "enable"), &RenderingServer::particles_set_interpolate);
-	ClassDB::bind_method(D_METHOD("particles_set_fractional_delta", "particles", "enable"), &RenderingServer::particles_set_fractional_delta);
 	ClassDB::bind_method(D_METHOD("particles_set_collision_base_size", "particles", "size"), &RenderingServer::particles_set_collision_base_size);
 	ClassDB::bind_method(D_METHOD("particles_set_transform_align", "particles", "align"), &RenderingServer::particles_set_transform_align);
 	ClassDB::bind_method(D_METHOD("particles_set_trails", "particles", "enable", "length_sec"), &RenderingServer::particles_set_trails);

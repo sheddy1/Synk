@@ -4740,13 +4740,6 @@ void RendererStorageRD::particles_set_interpolate(RID p_particles, bool p_enable
 	particles->interpolate = p_enable;
 }
 
-void RendererStorageRD::particles_set_fractional_delta(RID p_particles, bool p_enable) {
-	Particles *particles = particles_owner.get_or_null(p_particles);
-	ERR_FAIL_COND(!particles);
-
-	particles->fractional_delta = p_enable;
-}
-
 void RendererStorageRD::particles_set_trails(RID p_particles, bool p_enable, double p_length) {
 	Particles *particles = particles_owner.get_or_null(p_particles);
 	ERR_FAIL_COND(!particles);
@@ -5360,7 +5353,6 @@ void RendererStorageRD::_particles_process(Particles *p_particles, double p_delt
 	push_constant.total_particles = p_particles->amount;
 	push_constant.lifetime = p_particles->lifetime;
 	push_constant.trail_size = p_particles->trail_params.size();
-	push_constant.use_fractional_delta = p_particles->fractional_delta;
 	push_constant.sub_emitter_mode = !p_particles->emitting && p_particles->emission_buffer && (p_particles->emission_buffer->particle_count > 0 || p_particles->force_sub_emit);
 	push_constant.trail_pass = false;
 

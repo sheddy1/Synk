@@ -255,15 +255,6 @@ int GPUParticles3D::get_fixed_fps() const {
 	return fixed_fps;
 }
 
-void GPUParticles3D::set_fractional_delta(bool p_enable) {
-	fractional_delta = p_enable;
-	RS::get_singleton()->particles_set_fractional_delta(particles, p_enable);
-}
-
-bool GPUParticles3D::get_fractional_delta() const {
-	return fractional_delta;
-}
-
 void GPUParticles3D::set_interpolate(bool p_enable) {
 	interpolate = p_enable;
 	RS::get_singleton()->particles_set_interpolate(particles, p_enable);
@@ -511,7 +502,6 @@ void GPUParticles3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_visibility_aabb", "aabb"), &GPUParticles3D::set_visibility_aabb);
 	ClassDB::bind_method(D_METHOD("set_use_local_coordinates", "enable"), &GPUParticles3D::set_use_local_coordinates);
 	ClassDB::bind_method(D_METHOD("set_fixed_fps", "fps"), &GPUParticles3D::set_fixed_fps);
-	ClassDB::bind_method(D_METHOD("set_fractional_delta", "enable"), &GPUParticles3D::set_fractional_delta);
 	ClassDB::bind_method(D_METHOD("set_interpolate", "enable"), &GPUParticles3D::set_interpolate);
 	ClassDB::bind_method(D_METHOD("set_process_material", "material"), &GPUParticles3D::set_process_material);
 	ClassDB::bind_method(D_METHOD("set_speed_scale", "scale"), &GPUParticles3D::set_speed_scale);
@@ -527,7 +517,6 @@ void GPUParticles3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_visibility_aabb"), &GPUParticles3D::get_visibility_aabb);
 	ClassDB::bind_method(D_METHOD("get_use_local_coordinates"), &GPUParticles3D::get_use_local_coordinates);
 	ClassDB::bind_method(D_METHOD("get_fixed_fps"), &GPUParticles3D::get_fixed_fps);
-	ClassDB::bind_method(D_METHOD("get_fractional_delta"), &GPUParticles3D::get_fractional_delta);
 	ClassDB::bind_method(D_METHOD("get_interpolate"), &GPUParticles3D::get_interpolate);
 	ClassDB::bind_method(D_METHOD("get_process_material"), &GPUParticles3D::get_process_material);
 	ClassDB::bind_method(D_METHOD("get_speed_scale"), &GPUParticles3D::get_speed_scale);
@@ -576,7 +565,6 @@ void GPUParticles3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "randomness", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_randomness_ratio", "get_randomness_ratio");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fixed_fps", PROPERTY_HINT_RANGE, "0,1000,1"), "set_fixed_fps", "get_fixed_fps");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "interpolate"), "set_interpolate", "get_interpolate");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fract_delta"), "set_fractional_delta", "get_fractional_delta");
 	ADD_GROUP("Collision", "collision_");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_base_size", PROPERTY_HINT_RANGE, "0,128,0.01,or_greater"), "set_collision_base_size", "get_collision_base_size");
 	ADD_GROUP("Drawing", "");
@@ -625,7 +613,6 @@ GPUParticles3D::GPUParticles3D() {
 	set_amount(8);
 	set_lifetime(1);
 	set_fixed_fps(30);
-	set_fractional_delta(true);
 	set_interpolate(true);
 	set_pre_process_time(0);
 	set_explosiveness_ratio(0);

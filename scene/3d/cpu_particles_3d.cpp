@@ -1312,7 +1312,6 @@ void CPUParticles3D::convert_from_particles(Node *p_particles) {
 	set_randomness_ratio(particles->get_randomness_ratio());
 	set_use_local_coordinates(particles->get_use_local_coordinates());
 	set_fixed_fps(particles->get_fixed_fps());
-	set_fractional_delta(particles->get_fractional_delta());
 	set_speed_scale(particles->get_speed_scale());
 	set_draw_order(DrawOrder(particles->get_draw_order()));
 	set_mesh(particles->get_draw_pass_mesh(0));
