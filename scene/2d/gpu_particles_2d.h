@@ -57,7 +57,6 @@ private:
 	Rect2 visibility_rect;
 	bool local_coords;
 	int fixed_fps;
-	bool fractional_delta;
 #ifdef TOOLS_ENABLED
 	bool show_visibility_rect;
 #endif
@@ -129,9 +128,6 @@ public:
 
 	void set_fixed_fps(int p_count);
 	int get_fixed_fps() const;
-
-	void set_fractional_delta(bool p_enable);
-	bool get_fractional_delta() const;
 
 	void set_draw_order(DrawOrder p_order);
 	DrawOrder get_draw_order() const;

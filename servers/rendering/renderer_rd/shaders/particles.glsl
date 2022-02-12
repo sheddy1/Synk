@@ -169,14 +169,15 @@ layout(set = 3, binding = 0, std140) uniform MaterialUniforms{
 #endif
 
 layout(push_constant, binding = 0, std430) uniform Params {
-	float lifetime;
-	bool clear;
-	uint total_particles;
-	uint trail_size;
-	bool use_fractional_delta;
-	bool sub_emitter_mode;
-	bool can_emit;
-	bool trail_pass;
+	float lifetime; // 4 - 4
+	bool clear; // 4 - 8
+	uint total_particles; // 4 - 12
+	uint trail_size; // 4 - 16
+
+	bool sub_emitter_mode; // 4 - 20
+	bool can_emit; // 4 - 24
+	bool trail_pass; // 4 - 28
+	uint pad; // 4 - 32
 }
 params;
 
@@ -362,23 +363,16 @@ void main() {
 
 			if (restart_phase >= FRAME.prev_system_phase && restart_phase < FRAME.system_phase) {
 				restart = true;
-				if (params.use_fractional_delta) {
-					local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
-				}
+				local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
 			}
 
 		} else if (FRAME.delta > 0.0) {
 			if (restart_phase >= FRAME.prev_system_phase) {
 				restart = true;
-				if (params.use_fractional_delta) {
-					local_delta = (1.0 - restart_phase + FRAME.system_phase) * params.lifetime;
-				}
-
+				local_delta = (1.0 - restart_phase + FRAME.system_phase) * params.lifetime;
 			} else if (restart_phase < FRAME.system_phase) {
 				restart = true;
-				if (params.use_fractional_delta) {
-					local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
-				}
+				local_delta = (FRAME.system_phase - restart_phase) * params.lifetime;
 			}
 		}
 

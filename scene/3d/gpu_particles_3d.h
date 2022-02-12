@@ -70,7 +70,6 @@ private:
 	AABB visibility_aabb;
 	bool local_coords;
 	int fixed_fps;
-	bool fractional_delta;
 	bool interpolate = true;
 	NodePath sub_emitter;
 	real_t collision_base_size = 0.01;
@@ -132,9 +131,6 @@ public:
 
 	void set_fixed_fps(int p_count);
 	int get_fixed_fps() const;
-
-	void set_fractional_delta(bool p_enable);
-	bool get_fractional_delta() const;
 
 	void set_interpolate(bool p_enable);
 	bool get_interpolate() const;

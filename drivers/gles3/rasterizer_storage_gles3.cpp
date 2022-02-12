@@ -2667,9 +2667,6 @@ void RasterizerStorageGLES3::particles_set_fixed_fps(RID p_particles, int p_fps)
 void RasterizerStorageGLES3::particles_set_interpolate(RID p_particles, bool p_enable) {
 }
 
-void RasterizerStorageGLES3::particles_set_fractional_delta(RID p_particles, bool p_enable) {
-}
-
 void RasterizerStorageGLES3::particles_set_subemitter(RID p_particles, RID p_subemitter_particles) {
 }
 
