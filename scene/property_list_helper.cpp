@@ -114,11 +114,11 @@ void PropertyListHelper::get_property_list(List<PropertyInfo> *p_list, int p_cou
 			const Property &property = E.value;
 
 			PropertyInfo info = property.info;
-			if (_call_getter(&property, i) == property.default_value) {
+			info.name = vformat("%s%d/%s", prefix, i, info.name);
+
+			if (_call_getter(&property, i) == object->property_get_revert(info.name)) {
 				info.usage &= (~PROPERTY_USAGE_STORAGE);
 			}
-
-			info.name = vformat("%s%d/%s", prefix, i, info.name);
 			p_list->push_back(info);
 		}
 	}
