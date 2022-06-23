@@ -234,12 +234,14 @@ void Window::_init_window(){
 		}
 	}
 
-	if (_embedded && embedded) {
+	current_embedded = false;
+	if ((_embedded && embedded) || (!is_for_editor() && Engine::get_singleton()->is_editor_hint())) {
 		// Create as embedded.
 		if (embedder) {
 			embedder->_sub_window_register(this);
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE);
 			_update_window_size();
+			current_embedded = true;
 		}
 
 	} else {
@@ -273,7 +275,6 @@ void Window::_init_window(){
 		emit_signal(SceneStringNames::get_singleton()->visibility_changed);
 		RS::get_singleton()->viewport_set_active(get_viewport_rid(), true);
 	}
-
 }
 
 void Window::_destroy_window(){
@@ -281,7 +282,7 @@ void Window::_destroy_window(){
 		_clear_transient();
 	}
 
-	if (!(has_embedder() && embedded) && window_id != DisplayServer::INVALID_WINDOW_ID) {
+	if (!(has_embedder() && current_embedded) && window_id != DisplayServer::INVALID_WINDOW_ID) {
 		if (window_id == DisplayServer::MAIN_WINDOW_ID) {
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 			_update_window_callbacks();
@@ -289,7 +290,7 @@ void Window::_destroy_window(){
 			_clear_window();
 		}
 	} else {
-		if (embedder && embedded) {
+		if (embedder && current_embedded) {
 			embedder->_sub_window_remove(this);
 			embedder = nullptr;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
@@ -304,10 +305,10 @@ void Window::_destroy_window(){
 
 
 void Window::set_embedded(bool p_enable){
-	if (is_inside_tree() && !Engine::get_singleton()->is_editor_hint())
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
 		_destroy_window();
 	embedded = p_enable;
-	if (is_inside_tree() && !Engine::get_singleton()->is_editor_hint())
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
 		_init_window();
 
 
@@ -321,6 +322,18 @@ bool Window::has_embedder() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), false);
 
 	return _get_embedder() != nullptr;
+}
+
+void Window::set_for_editor(bool p_enable){
+	bool t_embedded = embedded;
+	if (!p_enable)
+		set_embedded(true);
+	for_editor = p_enable;
+	set_embedded(t_embedded);
+}
+
+bool Window::is_for_editor(){
+	return for_editor;
 }
 
 void Window::_make_window() {
@@ -1589,6 +1602,9 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_embedded"), &Window::is_embedded);
 	ClassDB::bind_method(D_METHOD("has_embedder"), &Window::has_embedder);
 
+	ClassDB::bind_method(D_METHOD("set_for_editor"), &Window::set_for_editor);
+	ClassDB::bind_method(D_METHOD("is_for_editor"), &Window::is_for_editor);
+
 	ClassDB::bind_method(D_METHOD("get_contents_minimum_size"), &Window::get_contents_minimum_size);
 
 	ClassDB::bind_method(D_METHOD("set_content_scale_size", "size"), &Window::set_content_scale_size);
@@ -1656,6 +1672,7 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen"), "set_current_screen", "get_current_screen");
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "embedded"), "set_embedded", "is_embedded");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "for_editor"), "set_for_editor", "is_for_editor");
 
 	ADD_GROUP("Flags", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visible", "is_visible");

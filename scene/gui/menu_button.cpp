@@ -66,6 +66,7 @@ void MenuButton::_popup_visibility_changed(bool p_visible) {
 	if (switch_on_hover) {
 		Window *window = Object::cast_to<Window>(get_viewport());
 		window->set_embedded(false);
+		window->set_for_editor(true);
 		if (window) {
 			mouse_pos_adjusted = window->get_position();
 
