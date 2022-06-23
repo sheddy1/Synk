@@ -282,7 +282,7 @@ void Window::_destroy_window(){
 		_clear_transient();
 	}
 
-	if (!(has_embedder() && current_embedded) && window_id != DisplayServer::INVALID_WINDOW_ID) {
+	if (!(has_embedder() && is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
 		if (window_id == DisplayServer::MAIN_WINDOW_ID) {
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 			_update_window_callbacks();
@@ -290,7 +290,7 @@ void Window::_destroy_window(){
 			_clear_window();
 		}
 	} else {
-		if (embedder && current_embedded) {
+		if (embedder && is_current_embedded()) {
 			embedder->_sub_window_remove(this);
 			embedder = nullptr;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
@@ -322,6 +322,10 @@ bool Window::has_embedder() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), false);
 
 	return _get_embedder() != nullptr;
+}
+
+bool Window::is_current_embedded() const{
+	return current_embedded;
 }
 
 void Window::set_for_editor(bool p_enable){
@@ -1601,6 +1605,7 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_embedded"), &Window::set_embedded);
 	ClassDB::bind_method(D_METHOD("is_embedded"), &Window::is_embedded);
 	ClassDB::bind_method(D_METHOD("has_embedder"), &Window::has_embedder);
+	ClassDB::bind_method(D_METHOD("is_current_embedded"), &Window::is_current_embedded);
 
 	ClassDB::bind_method(D_METHOD("set_for_editor"), &Window::set_for_editor);
 	ClassDB::bind_method(D_METHOD("is_for_editor"), &Window::is_for_editor);

@@ -231,6 +231,7 @@ public:
 	void set_embedded(bool p_enable);
 	bool is_embedded() const;
 	bool has_embedder() const;
+	bool is_current_embedded() const;
 
 	void set_for_editor(bool p_enable);
 	bool is_for_editor();
