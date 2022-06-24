@@ -235,7 +235,11 @@ void Window::_init_window(){
 	}
 
 	current_embedded = false;
-	if ((_embedded && embedded) || (!is_for_editor() && Engine::get_singleton()->is_editor_hint())) {
+
+	// should be embedded
+	bool sb_embedded = _embedded && (is_embedded() || embedder->is_force_embedding_subwindows());
+	bool in_editor = Engine::get_singleton()->is_editor_hint();
+	if (sb_embedded || (in_editor && !is_for_editor())) {
 		// Create as embedded.
 		if (embedder) {
 			embedder->_sub_window_register(this);
@@ -282,7 +286,7 @@ void Window::_destroy_window(){
 		_clear_transient();
 	}
 
-	if (!(has_embedder() && is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
+	if (!(embedder && is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
 		if (window_id == DisplayServer::MAIN_WINDOW_ID) {
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 			_update_window_callbacks();

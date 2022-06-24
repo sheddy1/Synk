@@ -365,6 +365,7 @@ private:
 		bool dragging = false;
 		bool drag_successful = false;
 		bool embed_subwindows_hint = false;
+		bool force_embed_subwindows_hint = false;
 
 		Window *subwindow_focused = nullptr;
 		SubWindowDrag subwindow_drag = SUB_WINDOW_DRAG_DISABLED;
@@ -608,6 +609,9 @@ public:
 
 	void set_embedding_subwindows(bool p_embed);
 	bool is_embedding_subwindows() const;
+
+	void set_force_embedding_subwindows(bool p_enable);
+	bool is_force_embedding_subwindows();
 
 	Viewport *get_parent_viewport() const;
 	Window *get_base_window() const;

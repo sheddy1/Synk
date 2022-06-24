@@ -3101,6 +3101,14 @@ bool Viewport::is_embedding_subwindows() const {
 	return gui.embed_subwindows_hint;
 }
 
+void Viewport::set_force_embedding_subwindows(bool p_force){
+	gui.force_embed_subwindows_hint = p_force;
+}
+
+bool Viewport::is_force_embedding_subwindows(){
+	return gui.force_embed_subwindows_hint;
+}
+
 void Viewport::pass_mouse_focus_to(Viewport *p_viewport, Control *p_control) {
 	ERR_FAIL_NULL(p_viewport);
 	ERR_FAIL_NULL(p_control);
@@ -3697,6 +3705,9 @@ void Viewport::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_embedding_subwindows", "enable"), &Viewport::set_embedding_subwindows);
 	ClassDB::bind_method(D_METHOD("is_embedding_subwindows"), &Viewport::is_embedding_subwindows);
 
+	ClassDB::bind_method(D_METHOD("set_force_embedding_subwindows"), &Viewport::set_force_embedding_subwindows);
+	ClassDB::bind_method(D_METHOD("is_force_embedding_subwindows"), &Viewport::is_force_embedding_subwindows);
+
 	ClassDB::bind_method(D_METHOD("set_default_canvas_item_texture_repeat", "mode"), &Viewport::set_default_canvas_item_texture_repeat);
 	ClassDB::bind_method(D_METHOD("get_default_canvas_item_texture_repeat"), &Viewport::get_default_canvas_item_texture_repeat);
 
@@ -3779,7 +3790,8 @@ void Viewport::_bind_methods() {
 	ADD_GROUP("GUI", "gui_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_disable_input"), "set_disable_input", "is_input_disabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_snap_controls_to_pixels"), "set_snap_controls_to_pixels", "is_snap_controls_to_pixels_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_embed_subwindows"), "set_embedding_subwindows", "is_embedding_subwindows");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_embedding_subwindows"), "set_embedding_subwindows", "is_embedding_subwindows");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gui_force_embedding_subwindows"), "set_force_embedding_subwindows", "is_force_embedding_subwindows");
 	ADD_GROUP("SDF", "sdf_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_oversize", PROPERTY_HINT_ENUM, "100%,120%,150%,200%"), "set_sdf_oversize", "get_sdf_oversize");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "sdf_scale", PROPERTY_HINT_ENUM, "100%,50%,25%"), "set_sdf_scale", "get_sdf_scale");
