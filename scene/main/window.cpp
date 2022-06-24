@@ -222,7 +222,7 @@ void Window::set_ime_position(const Point2i &p_pos) {
 	}
 }
 
-void Window::_init_window(){
+void Window::_init_window() {
 	bool _embedded = false;
 	{
 		embedder = _get_embedder();
@@ -281,7 +281,7 @@ void Window::_init_window(){
 	}
 }
 
-void Window::_destroy_window(){
+void Window::_destroy_window() {
 	if (transient) {
 		_clear_transient();
 	}
@@ -305,17 +305,12 @@ void Window::_destroy_window(){
 	RS::get_singleton()->viewport_set_active(get_viewport_rid(), false);
 }
 
-
-
-
-void Window::set_embedded(bool p_enable){
+void Window::set_embedded(bool p_enable) {
 	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
 		_destroy_window();
 	embedded = p_enable;
 	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
 		_init_window();
-
-
 }
 
 bool Window::is_embedded() const {
@@ -328,11 +323,11 @@ bool Window::has_embedder() const {
 	return _get_embedder() != nullptr;
 }
 
-bool Window::is_current_embedded() const{
+bool Window::is_current_embedded() const {
 	return current_embedded;
 }
 
-void Window::set_for_editor(bool p_enable){
+void Window::set_for_editor(bool p_enable) {
 	bool t_embedded = embedded;
 	if (!p_enable)
 		set_embedded(true);
@@ -340,7 +335,7 @@ void Window::set_for_editor(bool p_enable){
 	set_embedded(t_embedded);
 }
 
-bool Window::is_for_editor(){
+bool Window::is_for_editor() {
 	return for_editor;
 }
 

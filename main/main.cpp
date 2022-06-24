@@ -2386,14 +2386,14 @@ bool Main::start() {
 
 			bool not_pe = !project_manager && !editor;
 
-			if ( not_pe && embed_subwindows)
+			if (not_pe && embed_subwindows)
 				sml->get_root()->set_embedding_subwindows(true);
-			if ( not_pe && force_embed_subwindows)
+			if (not_pe && force_embed_subwindows)
 				sml->get_root()->set_force_embedding_subwindows(true);
-			if ( !embed_subwindows && force_embed_subwindows)
+			if (!embed_subwindows && force_embed_subwindows)
 				WARN_PRINT("force_embed_subwindows is not working without embed_subwindows");
 
-			if (OS::get_singleton()->is_single_window() || !DisplayServer::get_singleton()->has_feature(DisplayServer::Feature::FEATURE_SUBWINDOWS)){
+			if (OS::get_singleton()->is_single_window() || !DisplayServer::get_singleton()->has_feature(DisplayServer::Feature::FEATURE_SUBWINDOWS)) {
 				sml->get_root()->set_embedding_subwindows(true);
 				sml->get_root()->set_force_embedding_subwindows(true);
 			}

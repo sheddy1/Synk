@@ -198,7 +198,8 @@ void Viewport::_sub_window_update(Window *p_window) {
 		}
 	}
 
-	if (index == -1) return; //ERR_FAIL_COND(index == -1);
+	if (index == -1)
+		return; //ERR_FAIL_COND(index == -1);
 
 	const SubWindow &sw = gui.sub_windows[index];
 
@@ -3101,11 +3102,11 @@ bool Viewport::is_embedding_subwindows() const {
 	return gui.embed_subwindows_hint;
 }
 
-void Viewport::set_force_embedding_subwindows(bool p_force){
+void Viewport::set_force_embedding_subwindows(bool p_force) {
 	gui.force_embed_subwindows_hint = p_force;
 }
 
-bool Viewport::is_force_embedding_subwindows(){
+bool Viewport::is_force_embedding_subwindows() {
 	return gui.force_embed_subwindows_hint;
 }
 
