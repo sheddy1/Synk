@@ -4,7 +4,11 @@
 		Base class for all windows.
 	</brief_description>
 	<description>
-		A node that creates a window. The window can either be a native system window or embedded inside another [Window] (see [member Viewport.gui_embed_subwindows]).
+		A node that creates a window. The window can either be a native system window or embedded inside another [Window] (see [member Viewport.gui_embedding_subwindows]).
+		
+		Window that has [code]is_embedded() == true[/code] will try to find a [Viewport] that has [code]is_embedding_subwindows() == true[/code] if find no one will create native window.
+		Window that has [code]is_embedded() == false[/code] will create a native window if [Viewport] has [code]is_force_embedding_subwindow() == false[/code].
+
 		At runtime, [Window]s will not close automatically when requested. You need to handle it manually using [signal close_requested] (this applies both to clicking close button and clicking outside popup).
 	</description>
 	<tutorials>
@@ -422,7 +426,7 @@
 			<argument index="0" name="files" type="PackedStringArray" />
 			<description>
 				Emitted when files are dragged from the OS file manager and dropped in the game window. The argument is a list of file paths.
-				Note that this method only works with non-embedded windows, i.e. the main window and [Window]-derived nodes when [member Viewport.gui_embed_subwindows] is disabled in the main viewport.
+				Note that this method only works with non-embedded windows, i.e. the main window and [Window]-derived nodes when [member Viewport.gui_embedding_subwindows] is disabled in the main viewport.
 				Example usage:
 				[codeblock]
 				func _ready():

@@ -421,7 +421,7 @@
 			<return type="Vector2" />
 			<description>
 				Returns the position of this [Control] in global screen coordinates (i.e. taking window position into account). Mostly useful for editor plugins.
-				Equals to [member global_position] if the window is embedded (see [member Viewport.gui_embed_subwindows]).
+				Equals to [member global_position] if the window is embedded (see [member Viewport.gui_embedding_subwindows]).
 				Example usage for showing a popup:
 				[codeblock]
 				popup_menu.position = get_screen_position() + get_local_mouse_position()
