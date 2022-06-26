@@ -42,7 +42,7 @@ void Popup::_input_from_window(const Ref<InputEvent> &p_event) {
 }
 
 void Popup::_initialize_visible_parents() {
-	if (is_embedded()) {
+	if (should_be_embedded()) {
 		visible_parents.clear();
 
 		Window *parent_window = this;
@@ -58,7 +58,7 @@ void Popup::_initialize_visible_parents() {
 }
 
 void Popup::_deinitialize_visible_parents() {
-	if (is_embedded()) {
+	if (should_be_embedded()) {
 		for (uint32_t i = 0; i < visible_parents.size(); ++i) {
 			visible_parents[i]->disconnect("focus_entered", callable_mp(this, &Popup::_parent_focused));
 			visible_parents[i]->disconnect("tree_exited", callable_mp(this, &Popup::_deinitialize_visible_parents));
@@ -122,13 +122,26 @@ void Popup::_bind_methods() {
 
 Rect2i Popup::_popup_adjust_rect() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
+
+	Rect2i current(get_position(), get_size());
+
+	if (!should_be_embedded()) {
+		Window *w = get_parent_visible_window();
+		while (w) {
+			if (!w->is_current_embedded()) {
+				current.position += w->get_position();
+				break;
+			}
+
+			w = w->get_parent_visible_window();
+		}
+	}
+
 	Rect2i parent = get_usable_parent_rect();
 
 	if (parent == Rect2i()) {
 		return Rect2i();
 	}
-
-	Rect2i current(get_position(), get_size());
 
 	if (current.position.x + current.size.x > parent.position.x + parent.size.x) {
 		current.position.x = parent.position.x + parent.size.x - current.size.x;

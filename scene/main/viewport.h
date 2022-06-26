@@ -611,7 +611,7 @@ public:
 	bool is_embedding_subwindows() const;
 
 	void set_force_embedding_subwindows(bool p_enable);
-	bool is_force_embedding_subwindows();
+	bool is_force_embedding_subwindows() const;
 
 	Viewport *get_parent_viewport() const;
 	Window *get_base_window() const;

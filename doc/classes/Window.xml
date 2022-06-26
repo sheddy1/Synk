@@ -5,7 +5,7 @@
 	</brief_description>
 	<description>
 		A node that creates a window. The window can either be a native system window or embedded inside another [Window] (see [member Viewport.gui_embedding_subwindows]).
-		
+
 		Window that has [code]is_embedded() == true[/code] will try to find a [Viewport] that has [code]is_embedding_subwindows() == true[/code] if find no one will create native window.
 		Window that has [code]is_embedded() == false[/code] will create a native window if [Viewport] has [code]is_force_embedding_subwindow() == false[/code].
 

@@ -65,15 +65,13 @@ void MenuButton::_popup_visibility_changed(bool p_visible) {
 
 	if (switch_on_hover) {
 		Window *window = Object::cast_to<Window>(get_viewport());
-		window->set_embedded(false);
-		window->set_for_editor(true);
 		if (window) {
 			mouse_pos_adjusted = window->get_position();
 
-			if (window->is_embedded()) {
+			if (window->should_be_embedded()) {
 				Window *window_parent = Object::cast_to<Window>(window->get_parent()->get_viewport());
 				while (window_parent) {
-					if (!window_parent->is_embedded()) {
+					if (!window_parent->should_be_embedded()) {
 						mouse_pos_adjusted += window_parent->get_position();
 						break;
 					}

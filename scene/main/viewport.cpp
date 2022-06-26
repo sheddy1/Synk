@@ -1017,7 +1017,7 @@ Transform2D Viewport::get_final_transform() const {
 void Viewport::_update_canvas_items(Node *p_node) {
 	if (p_node != this) {
 		Window *w = Object::cast_to<Window>(p_node);
-		if (w && (!w->is_inside_tree() || !w->has_embedder())) {
+		if (w && (!w->is_inside_tree() || !w->is_current_embedded())) {
 			return;
 		}
 
@@ -1125,6 +1125,7 @@ void Viewport::_gui_cancel_tooltip() {
 		gui.tooltip_timer = Ref<SceneTreeTimer>();
 	}
 	if (gui.tooltip_popup) {
+		gui.tooltip_popup->hide();
 		gui.tooltip_popup->queue_delete();
 		gui.tooltip_popup = nullptr;
 		gui.tooltip_label = nullptr;
@@ -1252,7 +1253,7 @@ void Viewport::_gui_show_tooltip() {
 
 	DisplayServer::WindowID active_popup = DisplayServer::get_singleton()->window_get_active_popup();
 	if (active_popup == DisplayServer::INVALID_WINDOW_ID || active_popup == window->get_window_id()) {
-		gui.tooltip_popup->show();
+		gui.tooltip_popup->popup();
 	}
 	gui.tooltip_popup->child_controls_changed();
 }
@@ -1788,7 +1789,7 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 				// Not an embedder, but may be a subwindow of an embedder.
 				Window *w = Object::cast_to<Window>(this);
 				if (w) {
-					if (w->has_embedder()) {
+					if (w->is_current_embedded()) {
 						embedder = w->_get_embedder();
 
 						Transform2D ai = (get_final_transform().affine_inverse() * _get_input_pre_xform()).affine_inverse();
@@ -3106,7 +3107,7 @@ void Viewport::set_force_embedding_subwindows(bool p_force) {
 	gui.force_embed_subwindows_hint = p_force;
 }
 
-bool Viewport::is_force_embedding_subwindows() {
+bool Viewport::is_force_embedding_subwindows() const {
 	return gui.force_embed_subwindows_hint;
 }
 

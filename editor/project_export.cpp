@@ -991,6 +991,9 @@ void ProjectExportDialog::_bind_methods() {
 ProjectExportDialog::ProjectExportDialog() {
 	set_title(TTR("Export"));
 
+	set_embedded(false);
+	set_for_editor(true);
+
 	VBoxContainer *main_vb = memnew(VBoxContainer);
 	main_vb->connect("theme_changed", callable_mp(this, &ProjectExportDialog::_theme_changed));
 	add_child(main_vb);

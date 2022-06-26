@@ -680,6 +680,9 @@ void EditorSettingsDialog::_bind_methods() {
 EditorSettingsDialog::EditorSettingsDialog() {
 	set_title(TTR("Editor Settings"));
 
+	set_embedded(false);
+	set_for_editor(true);
+
 	undo_redo = memnew(UndoRedo);
 
 	tabs = memnew(TabContainer);

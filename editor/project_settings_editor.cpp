@@ -553,6 +553,9 @@ void ProjectSettingsEditor::_bind_methods() {
 }
 
 ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
+	set_embedded(false);
+	set_for_editor(true);
+
 	singleton = this;
 	set_title(TTR("Project Settings (project.godot)"));
 

@@ -2575,11 +2575,12 @@ bool Main::start() {
 
 #ifdef TOOLS_ENABLED
 		if (editor) {
-			bool editor_embed_subwindows = EditorSettings::get_singleton()->get_setting(
+			bool editor_force_embed_subwindows = EditorSettings::get_singleton()->get_setting(
 					"interface/editor/single_window_mode");
-
-			if (editor_embed_subwindows) {
-				sml->get_root()->set_embedding_subwindows(true);
+			sml->get_root()->set_for_editor(true);
+			sml->get_root()->set_embedding_subwindows(true);
+			if (editor_force_embed_subwindows) {
+				sml->get_root()->set_force_embedding_subwindows(true);
 			}
 		}
 #endif

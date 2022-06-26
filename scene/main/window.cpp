@@ -235,11 +235,7 @@ void Window::_init_window() {
 	}
 
 	current_embedded = false;
-
-	// should be embedded
-	bool sb_embedded = _embedded && (is_embedded() || embedder->is_force_embedding_subwindows());
-	bool in_editor = Engine::get_singleton()->is_editor_hint();
-	if (sb_embedded || (in_editor && !is_for_editor())) {
+	if (should_be_embedded()) {
 		// Create as embedded.
 		if (embedder) {
 			embedder->_sub_window_register(this);
@@ -286,7 +282,7 @@ void Window::_destroy_window() {
 		_clear_transient();
 	}
 
-	if (!(embedder && is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
+	if (!(is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
 		if (window_id == DisplayServer::MAIN_WINDOW_ID) {
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 			_update_window_callbacks();
@@ -294,7 +290,7 @@ void Window::_destroy_window() {
 			_clear_window();
 		}
 	} else {
-		if (embedder && is_current_embedded()) {
+		if (has_embedder() && is_current_embedded()) {
 			embedder->_sub_window_remove(this);
 			embedder = nullptr;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
@@ -317,6 +313,16 @@ bool Window::is_embedded() const {
 	return embedded;
 }
 
+bool Window::should_be_embedded() const {
+	Viewport *_embedder = _get_embedder();
+
+	bool force_embedded = false;
+	if (_embedder != nullptr)
+		force_embedded = _embedder->is_force_embedding_subwindows();
+
+	return _embedder != nullptr && ((is_embedded() || force_embedded) || (Engine::get_singleton()->is_editor_hint() && !is_for_editor()));
+}
+
 bool Window::has_embedder() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), false);
 
@@ -335,7 +341,7 @@ void Window::set_for_editor(bool p_enable) {
 	set_embedded(t_embedded);
 }
 
-bool Window::is_for_editor() {
+bool Window::is_for_editor() const {
 	return for_editor;
 }
 
@@ -524,7 +530,7 @@ void Window::set_visible(bool p_visible) {
 
 	Viewport *embedder_vp = _get_embedder();
 
-	if (!embedder_vp) {
+	if (!should_be_embedded()) {
 		if (!p_visible && window_id != DisplayServer::INVALID_WINDOW_ID) {
 			_clear_window();
 		}
@@ -535,9 +541,11 @@ void Window::set_visible(bool p_visible) {
 		if (visible) {
 			embedder = embedder_vp;
 			embedder->_sub_window_register(this);
+			current_embedded = true;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE);
 		} else {
 			embedder->_sub_window_remove(this);
+			current_embedded = false;
 			embedder = nullptr;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 		}
@@ -893,7 +901,7 @@ void Window::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_TRANSLATION_CHANGED: {
-			if (embedder) {
+			if (has_embedder()) {
 				embedder->_sub_window_update(this);
 			} else if (window_id != DisplayServer::INVALID_WINDOW_ID) {
 				String tr_title = atr(title);
@@ -1086,7 +1094,7 @@ void Window::popup_on_parent(const Rect2i &p_parent_rect) {
 	ERR_FAIL_COND(!is_inside_tree());
 	ERR_FAIL_COND_MSG(window_id == DisplayServer::MAIN_WINDOW_ID, "Can't popup the main window.");
 
-	if (!has_embedder()) {
+	if (!should_be_embedded()) {
 		Window *window = get_parent_visible_window();
 
 		if (!window) {
@@ -1105,7 +1113,7 @@ void Window::popup_centered_clamped(const Size2i &p_size, float p_fallback_ratio
 
 	Rect2 parent_rect;
 
-	if (has_embedder()) {
+	if (should_be_embedded()) {
 		parent_rect = get_parent_viewport()->get_visible_rect();
 	} else {
 		DisplayServer::WindowID parent_id = get_parent_visible_window()->get_window_id();
@@ -1131,7 +1139,7 @@ void Window::popup_centered(const Size2i &p_minsize) {
 
 	Rect2 parent_rect;
 
-	if (has_embedder()) {
+	if (should_be_embedded()) {
 		parent_rect = get_parent_viewport()->get_visible_rect();
 	} else {
 		DisplayServer::WindowID parent_id = get_parent_visible_window()->get_window_id();
@@ -1159,7 +1167,7 @@ void Window::popup_centered_ratio(float p_ratio) {
 
 	Rect2 parent_rect;
 
-	if (has_embedder()) {
+	if (should_be_embedded()) {
 		parent_rect = get_parent_viewport()->get_visible_rect();
 	} else {
 		DisplayServer::WindowID parent_id = get_parent_visible_window()->get_window_id();
@@ -1180,7 +1188,7 @@ void Window::popup_centered_ratio(float p_ratio) {
 void Window::popup(const Rect2i &p_screen_rect) {
 	emit_signal(SNAME("about_to_popup"));
 
-	if (!_get_embedder() && get_flag(FLAG_POPUP)) {
+	if (!should_be_embedded() && get_flag(FLAG_POPUP)) {
 		// Send a focus-out notification when opening a Window Manager Popup.
 		SceneTree *scene_tree = get_tree();
 		if (scene_tree) {
@@ -1236,7 +1244,7 @@ bool Window::has_focus() const {
 Rect2i Window::get_usable_parent_rect() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2());
 	Rect2i parent;
-	if (has_embedder()) {
+	if (should_be_embedded()) {
 		parent = _get_embedder()->get_visible_rect();
 	} else {
 		const Window *w = is_visible() ? this : get_parent_visible_window();
@@ -1421,7 +1429,7 @@ int Window::get_theme_default_font_size() const {
 
 Rect2i Window::get_parent_rect() const {
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2i());
-	if (has_embedder()) {
+	if (should_be_embedded()) {
 		//viewport
 		Node *n = get_parent();
 		ERR_FAIL_COND_V(!n, Rect2i());
@@ -1541,7 +1549,7 @@ void Window::_validate_property(PropertyInfo &property) const {
 
 Transform2D Window::get_screen_transform() const {
 	Transform2D embedder_transform = Transform2D();
-	if (_get_embedder()) {
+	if (should_be_embedded()) {
 		embedder_transform.translate(get_position());
 		embedder_transform = _get_embedder()->get_screen_transform() * embedder_transform;
 	}

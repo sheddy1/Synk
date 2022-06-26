@@ -96,7 +96,7 @@ private:
 	mutable Mode mode = MODE_WINDOWED;
 	mutable bool flags[FLAG_MAX] = {};
 	bool embedded = true;
-	bool current_embedded = true;
+	bool current_embedded = false;
 	bool for_editor = false;
 	bool visible = true;
 	bool focused = false;
@@ -230,11 +230,12 @@ public:
 
 	void set_embedded(bool p_enable);
 	bool is_embedded() const;
+	bool should_be_embedded() const;
 	bool has_embedder() const;
 	bool is_current_embedded() const;
 
 	void set_for_editor(bool p_enable);
-	bool is_for_editor();
+	bool is_for_editor() const;
 
 	void set_content_scale_size(const Size2i &p_size);
 	Size2i get_content_scale_size() const;

@@ -181,7 +181,11 @@ void PopupMenu::_activate_submenu(int p_over, bool p_by_keyboard) {
 	Ref<StyleBox> style = get_theme_stylebox(SNAME("panel"));
 	int vsep = get_theme_constant(SNAME("v_separation"));
 
-	Point2 this_pos = get_position();
+	Point2 this_pos = Point2(0, 0);
+
+	if (is_current_embedded())
+		this_pos = get_position();
+
 	Rect2 this_rect(this_pos, get_size());
 
 	float scroll_offset = control->get_position().y;
@@ -244,11 +248,11 @@ void PopupMenu::_activate_submenu(int p_over, bool p_by_keyboard) {
 }
 
 void PopupMenu::_parent_focused() {
-	if (is_embedded()) {
+	if (should_be_embedded()) {
 		Point2 mouse_pos_adjusted;
 		Window *window_parent = Object::cast_to<Window>(get_parent()->get_viewport());
 		while (window_parent) {
-			if (!window_parent->is_embedded()) {
+			if (!window_parent->is_current_embedded()) {
 				mouse_pos_adjusted += window_parent->get_position();
 				break;
 			}
@@ -811,7 +815,7 @@ void PopupMenu::_notification(int p_what) {
 
 		case NOTIFICATION_INTERNAL_PROCESS: {
 			// Only used when using operating system windows.
-			if (!activated_by_keyboard && !is_embedded() && autohide_areas.size()) {
+			if (!activated_by_keyboard && !(should_be_embedded()) && autohide_areas.size()) {
 				Point2 mouse_pos = DisplayServer::get_singleton()->mouse_get_position();
 				mouse_pos -= get_position();
 
@@ -851,7 +855,7 @@ void PopupMenu::_notification(int p_what) {
 
 				set_process_internal(false);
 			} else {
-				if (!is_embedded()) {
+				if (!should_be_embedded()) {
 					set_process_internal(true);
 				}
 
@@ -1975,6 +1979,9 @@ PopupMenu::PopupMenu() {
 	minimum_lifetime_timer->set_one_shot(true);
 	minimum_lifetime_timer->connect("timeout", callable_mp(this, &PopupMenu::_minimum_lifetime_timeout));
 	add_child(minimum_lifetime_timer, false, INTERNAL_MODE_FRONT);
+
+	set_embedded(false);
+	set_for_editor(true);
 }
 
 PopupMenu::~PopupMenu() {
