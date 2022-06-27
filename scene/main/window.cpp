@@ -891,7 +891,76 @@ Viewport *Window::_get_embedder() const {
 void Window::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
+<<<<<<< HEAD
 			_init_window();
+=======
+			bool embedded = false;
+			{
+				embedder = _get_embedder();
+				if (embedder) {
+					embedded = true;
+					if (!visible) {
+						embedder = nullptr; // Not yet since not visible.
+					}
+				}
+			}
+
+			if (embedded) {
+				// Create as embedded.
+				if (embedder) {
+					embedder->_sub_window_register(this);
+					RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE);
+					_update_window_size();
+				}
+
+			} else {
+				if (!get_parent()) {
+					// It's the root window!
+					visible = true; // Always visible.
+					window_id = DisplayServer::MAIN_WINDOW_ID;
+					DisplayServer::get_singleton()->window_attach_instance_id(get_instance_id(), window_id);
+					_update_from_window();
+					// Since this window already exists (created on start), we must update pos and size from it.
+					{
+						position = DisplayServer::get_singleton()->window_get_position(window_id);
+						size = DisplayServer::get_singleton()->window_get_size(window_id);
+					}
+					_update_viewport_size(); // Then feed back to the viewport.
+					_update_window_callbacks();
+					RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_VISIBLE);
+				} else {
+					// Create.
+					if (visible) {
+						_make_window();
+					}
+				}
+			}
+
+			if (transient) {
+				_make_transient();
+			}
+			if (visible) {
+				notification(NOTIFICATION_VISIBILITY_CHANGED);
+				emit_signal(SceneStringNames::get_singleton()->visibility_changed);
+				RS::get_singleton()->viewport_set_active(get_viewport_rid(), true);
+			}
+
+			if (theme.is_null()) {
+				Control *parent_c = cast_to<Control>(get_parent());
+				if (parent_c && (parent_c->data.theme_owner || parent_c->data.theme_owner_window)) {
+					theme_owner = parent_c->data.theme_owner;
+					theme_owner_window = parent_c->data.theme_owner_window;
+					notification(NOTIFICATION_THEME_CHANGED);
+				} else {
+					Window *parent_w = cast_to<Window>(get_parent());
+					if (parent_w && (parent_w->theme_owner || parent_w->theme_owner_window)) {
+						theme_owner = parent_w->theme_owner;
+						theme_owner_window = parent_w->theme_owner_window;
+						notification(NOTIFICATION_THEME_CHANGED);
+					}
+				}
+			}
+>>>>>>> c41e4b10c3317f837d4b3ece2fb725a8067d884b
 		} break;
 
 		case NOTIFICATION_READY: {
