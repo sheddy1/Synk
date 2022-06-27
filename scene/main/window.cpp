@@ -223,14 +223,10 @@ void Window::set_ime_position(const Point2i &p_pos) {
 }
 
 void Window::_init_window() {
-	bool _embedded = false;
-	{
-		embedder = _get_embedder();
-		if (embedder) {
-			_embedded = true;
-			if (!visible) {
-				embedder = nullptr; // Not yet since not visible.
-			}
+	embedder = _get_embedder();
+	if (embedder) {
+		if (!visible) {
+			embedder = nullptr; // Not yet since not visible.
 		}
 	}
 
