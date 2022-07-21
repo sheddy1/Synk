@@ -36,6 +36,9 @@
 #if defined(OSX_ENABLED)
 #include "camera_osx.h"
 #endif
+#if defined(X11_ENABLED)
+#include "camera_x11.h"
+#endif
 
 void initialize_camera_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -47,6 +50,9 @@ void initialize_camera_module(ModuleInitializationLevel p_level) {
 #endif
 #if defined(OSX_ENABLED)
 	CameraServer::make_default<CameraOSX>();
+#endif
+#if defined(X11_ENABLED)
+	CameraServer::make_default<CameraX11>();
 #endif
 }
 
