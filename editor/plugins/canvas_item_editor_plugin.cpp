@@ -764,7 +764,7 @@ List<CanvasItem *> CanvasItemEditor::_get_edited_canvas_items(bool retrieve_lock
 	List<CanvasItem *> selection;
 	for (const KeyValue<Node *, Object *> &E : editor_selection->get_selection()) {
 		CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E.key);
-		if (canvas_item && canvas_item->is_visible_in_tree() && canvas_item->get_viewport() == EditorNode::get_singleton()->get_scene_root() && (retrieve_locked || !_is_node_locked(canvas_item))) {
+		if (canvas_item && canvas_item->is_visible_in_tree() && (retrieve_locked || !_is_node_locked(canvas_item))) {
 			CanvasItemEditorSelectedItem *se = editor_selection->get_node_editor_data<CanvasItemEditorSelectedItem>(canvas_item);
 			if (se) {
 				selection.push_back(canvas_item);
@@ -4180,10 +4180,6 @@ void CanvasItemEditor::_insert_animation_keys(bool p_location, bool p_rotation, 
 			continue;
 		}
 
-		if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
-			continue;
-		}
-
 		if (Object::cast_to<Node2D>(canvas_item)) {
 			Node2D *n2d = Object::cast_to<Node2D>(canvas_item);
 
@@ -4385,9 +4381,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 				if (!canvas_item || !canvas_item->is_inside_tree()) {
 					continue;
 				}
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
-					continue;
-				}
 
 				undo_redo->add_do_method(canvas_item, "set_meta", "_edit_lock_", true);
 				undo_redo->add_undo_method(canvas_item, "remove_meta", "_edit_lock_");
@@ -4405,9 +4398,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			for (Node *E : selection) {
 				CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E);
 				if (!canvas_item || !canvas_item->is_inside_tree()) {
-					continue;
-				}
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
 					continue;
 				}
 
@@ -4429,9 +4419,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 				if (!canvas_item || !canvas_item->is_inside_tree()) {
 					continue;
 				}
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
-					continue;
-				}
 
 				undo_redo->add_do_method(canvas_item, "set_meta", "_edit_group_", true);
 				undo_redo->add_undo_method(canvas_item, "remove_meta", "_edit_group_");
@@ -4449,9 +4436,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			for (Node *E : selection) {
 				CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E);
 				if (!canvas_item || !canvas_item->is_inside_tree()) {
-					continue;
-				}
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
 					continue;
 				}
 
@@ -4489,10 +4473,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			for (const KeyValue<Node *, Object *> &E : selection) {
 				CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E.key);
 				if (!canvas_item || !canvas_item->is_visible_in_tree()) {
-					continue;
-				}
-
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
 					continue;
 				}
 
@@ -4535,10 +4515,6 @@ void CanvasItemEditor::_popup_callback(int p_op) {
 			for (const KeyValue<Node *, Object *> &E : selection) {
 				CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E.key);
 				if (!canvas_item || !canvas_item->is_visible_in_tree()) {
-					continue;
-				}
-
-				if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
 					continue;
 				}
 
@@ -4651,9 +4627,6 @@ void CanvasItemEditor::_focus_selection(int p_op) {
 	for (const KeyValue<Node *, Object *> &E : selection) {
 		CanvasItem *canvas_item = Object::cast_to<CanvasItem>(E.key);
 		if (!canvas_item) {
-			continue;
-		}
-		if (canvas_item->get_viewport() != EditorNode::get_singleton()->get_scene_root()) {
 			continue;
 		}
 
