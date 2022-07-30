@@ -49,7 +49,6 @@ class FileAccessUnix : public FileAccess {
 	String path;
 	String path_src;
 
-	static Ref<FileAccess> create_libc();
 	void _close();
 
 public:
@@ -87,5 +86,6 @@ public:
 	virtual ~FileAccessUnix();
 };
 
-#endif
-#endif
+#endif // UNIX_ENABLED || LIBC_FILEIO_ENABLED
+
+#endif // FILE_ACCESS_UNIX_H

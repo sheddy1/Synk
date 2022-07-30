@@ -31,7 +31,6 @@
 #include "project_settings_editor.h"
 
 #include "core/config/project_settings.h"
-#include "editor/editor_export.h"
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
@@ -673,10 +672,10 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	autoload_settings->connect("autoload_changed", callable_mp(this, &ProjectSettingsEditor::queue_save));
 	tab_container->add_child(autoload_settings);
 
-	shaders_global_variables_editor = memnew(ShaderGlobalsEditor);
-	shaders_global_variables_editor->set_name(TTR("Shader Globals"));
-	shaders_global_variables_editor->connect("globals_changed", callable_mp(this, &ProjectSettingsEditor::queue_save));
-	tab_container->add_child(shaders_global_variables_editor);
+	shaders_global_shader_uniforms_editor = memnew(ShaderGlobalsEditor);
+	shaders_global_shader_uniforms_editor->set_name(TTR("Shader Globals"));
+	shaders_global_shader_uniforms_editor->connect("globals_changed", callable_mp(this, &ProjectSettingsEditor::queue_save));
+	tab_container->add_child(shaders_global_shader_uniforms_editor);
 
 	plugin_settings = memnew(EditorPluginSettings);
 	plugin_settings->set_name(TTR("Plugins"));
@@ -688,7 +687,7 @@ ProjectSettingsEditor::ProjectSettingsEditor(EditorData *p_data) {
 	timer->set_one_shot(true);
 	add_child(timer);
 
-	get_ok_button()->set_text(TTR("Close"));
+	set_ok_button_text(TTR("Close"));
 	set_hide_on_ok(true);
 
 	bool use_advanced = EditorSettings::get_singleton()->get_project_metadata("project_settings", "advanced_mode", false);

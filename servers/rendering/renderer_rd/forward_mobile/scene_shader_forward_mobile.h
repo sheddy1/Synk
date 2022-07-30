@@ -28,11 +28,10 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef RSSR_SCENE_SHADER_FM_H
-#define RSSR_SCENE_SHADER_FM_H
+#ifndef SCENE_SHADER_FORWARD_MOBILE_H
+#define SCENE_SHADER_FORWARD_MOBILE_H
 
 #include "servers/rendering/renderer_rd/renderer_scene_render_rd.h"
-#include "servers/rendering/renderer_rd/renderer_storage_rd.h"
 #include "servers/rendering/renderer_rd/shaders/scene_forward_mobile.glsl.gen.h"
 
 namespace RendererSceneRenderImplementation {
@@ -40,7 +39,6 @@ namespace RendererSceneRenderImplementation {
 class SceneShaderForwardMobile {
 private:
 	static SceneShaderForwardMobile *singleton;
-	RendererStorageRD *storage = nullptr;
 
 public:
 	enum ShaderVersion {
@@ -141,6 +139,8 @@ public:
 		uint32_t index = 0;
 
 		virtual void set_code(const String &p_Code);
+		virtual void set_path_hint(const String &p_path);
+
 		virtual void set_default_texture_param(const StringName &p_name, RID p_texture, int p_index);
 		virtual void get_param_list(List<PropertyInfo> *p_param_list) const;
 		void get_instance_param_list(List<RendererMaterialStorage::InstanceShaderParam> *p_param_list) const;
@@ -207,9 +207,10 @@ public:
 
 	Vector<RD::PipelineSpecializationConstant> default_specialization_constants;
 
-	void init(RendererStorageRD *p_storage, const String p_defines);
+	void init(const String p_defines);
 	void set_default_specialization_constants(const Vector<RD::PipelineSpecializationConstant> &p_constants);
 };
 
 } // namespace RendererSceneRenderImplementation
-#endif // !RSSR_SCENE_SHADER_FM_H
+
+#endif // SCENE_SHADER_FORWARD_MOBILE_H

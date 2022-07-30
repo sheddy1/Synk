@@ -45,6 +45,7 @@
 #include "tests/core/math/test_expression.h"
 #include "tests/core/math/test_geometry_2d.h"
 #include "tests/core/math/test_geometry_3d.h"
+#include "tests/core/math/test_plane.h"
 #include "tests/core/math/test_random_number_generator.h"
 #include "tests/core/math/test_rect2.h"
 #include "tests/core/math/test_rect2i.h"
@@ -69,6 +70,7 @@
 #include "tests/core/test_crypto.h"
 #include "tests/core/test_hashing_context.h"
 #include "tests/core/test_time.h"
+#include "tests/core/threads/test_worker_thread_pool.h"
 #include "tests/core/variant/test_array.h"
 #include "tests/core/variant/test_dictionary.h"
 #include "tests/core/variant/test_variant.h"
@@ -255,7 +257,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 
 		if (RenderingServer::get_singleton()) {
 			RenderingServer::get_singleton()->sync();
-			RenderingServer::get_singleton()->global_variables_clear();
+			RenderingServer::get_singleton()->global_shader_uniforms_clear();
 			RenderingServer::get_singleton()->finish();
 			memdelete(RenderingServer::get_singleton());
 		}

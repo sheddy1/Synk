@@ -37,9 +37,9 @@
 #include "servers/rendering/renderer_rd/shaders/particles.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/particles_copy.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
-#include "servers/rendering/renderer_storage.h"
 #include "servers/rendering/shader_compiler.h"
 #include "servers/rendering/storage/particles_storage.h"
+#include "servers/rendering/storage/utilities.h"
 
 namespace RendererRD {
 
@@ -226,7 +226,7 @@ struct Particles {
 
 	HashSet<RID> collisions;
 
-	RendererStorage::Dependency dependency;
+	Dependency dependency;
 
 	double trail_length = 1.0;
 	bool trails_enabled = false;
@@ -254,7 +254,7 @@ struct ParticlesCollision {
 
 	RS::ParticlesCollisionHeightfieldResolution heightfield_resolution = RS::PARTICLES_COLLISION_HEIGHTFIELD_RESOLUTION_1024;
 
-	RendererStorage::Dependency dependency;
+	Dependency dependency;
 };
 
 struct ParticlesCollisionInstance {
@@ -363,6 +363,7 @@ private:
 		uint32_t userdata_count = 0;
 
 		virtual void set_code(const String &p_Code);
+		virtual void set_path_hint(const String &p_hint);
 		virtual void set_default_texture_param(const StringName &p_name, RID p_texture, int p_index);
 		virtual void get_param_list(List<PropertyInfo> *p_param_list) const;
 		virtual void get_instance_param_list(List<RendererMaterialStorage::InstanceShaderParam> *p_param_list) const;
@@ -561,4 +562,4 @@ public:
 
 } // namespace RendererRD
 
-#endif // !PARTICLES_STORAGE_RD_H
+#endif // PARTICLES_STORAGE_RD_H

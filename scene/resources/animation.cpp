@@ -2302,7 +2302,7 @@ Vector3 Animation::_cubic_interpolate(const Vector3 &p_pre_a, const Vector3 &p_a
 }
 
 Quaternion Animation::_cubic_interpolate(const Quaternion &p_pre_a, const Quaternion &p_a, const Quaternion &p_b, const Quaternion &p_post_b, real_t p_c) const {
-	return p_a.cubic_slerp(p_b, p_pre_a, p_post_b, p_c);
+	return p_a.spherical_cubic_interpolate(p_b, p_pre_a, p_post_b, p_c);
 }
 
 Variant Animation::_cubic_interpolate(const Variant &p_pre_a, const Variant &p_a, const Variant &p_b, const Variant &p_post_b, real_t p_c) const {
@@ -2363,7 +2363,7 @@ Variant Animation::_cubic_interpolate(const Variant &p_pre_a, const Variant &p_a
 			Quaternion pa = p_pre_a;
 			Quaternion pb = p_post_b;
 
-			return a.cubic_slerp(b, pa, pb, p_c);
+			return a.spherical_cubic_interpolate(b, pa, pb, p_c);
 		}
 		case Variant::AABB: {
 			AABB a = p_a;
@@ -3379,17 +3379,6 @@ Vector2 Animation::bezier_track_get_key_out_handle(int p_track, int p_index) con
 	return bt->values[p_index].value.out_handle;
 }
 
-static _FORCE_INLINE_ Vector2 _bezier_interp(real_t t, const Vector2 &start, const Vector2 &control_1, const Vector2 &control_2, const Vector2 &end) {
-	/* Formula from Wikipedia article on Bezier curves. */
-	real_t omt = (1.0 - t);
-	real_t omt2 = omt * omt;
-	real_t omt3 = omt2 * omt;
-	real_t t2 = t * t;
-	real_t t3 = t2 * t;
-
-	return start * omt3 + control_1 * omt2 * t * 3.0 + control_2 * omt * t2 * 3.0 + end * t3;
-}
-
 real_t Animation::bezier_track_interpolate(int p_track, double p_time) const {
 	//this uses a different interpolation scheme
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), 0);
@@ -3438,7 +3427,7 @@ real_t Animation::bezier_track_interpolate(int p_track, double p_time) const {
 	for (int i = 0; i < iterations; i++) {
 		real_t middle = (low + high) / 2;
 
-		Vector2 interp = _bezier_interp(middle, start, start_out, end_in, end);
+		Vector2 interp = start.bezier_interpolate(start_out, end_in, end, middle);
 
 		if (interp.x < t) {
 			low = middle;
@@ -3448,8 +3437,8 @@ real_t Animation::bezier_track_interpolate(int p_track, double p_time) const {
 	}
 
 	//interpolate the result:
-	Vector2 low_pos = _bezier_interp(low, start, start_out, end_in, end);
-	Vector2 high_pos = _bezier_interp(high, start, start_out, end_in, end);
+	Vector2 low_pos = start.bezier_interpolate(start_out, end_in, end, low);
+	Vector2 high_pos = start.bezier_interpolate(start_out, end_in, end, high);
 	real_t c = (t - low_pos.x) / (high_pos.x - low_pos.x);
 
 	return low_pos.lerp(high_pos, c).y;

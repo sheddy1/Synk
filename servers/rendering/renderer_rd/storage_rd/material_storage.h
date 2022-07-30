@@ -31,12 +31,14 @@
 #ifndef MATERIAL_STORAGE_RD_H
 #define MATERIAL_STORAGE_RD_H
 
+#include "core/math/projection.h"
 #include "core/templates/local_vector.h"
 #include "core/templates/rid_owner.h"
 #include "core/templates/self_list.h"
 #include "servers/rendering/shader_compiler.h"
 #include "servers/rendering/shader_language.h"
 #include "servers/rendering/storage/material_storage.h"
+#include "servers/rendering/storage/utilities.h"
 
 namespace RendererRD {
 
@@ -55,6 +57,7 @@ enum ShaderType {
 
 struct ShaderData {
 	virtual void set_code(const String &p_Code) = 0;
+	virtual void set_path_hint(const String &p_hint) = 0;
 	virtual void set_default_texture_param(const StringName &p_name, RID p_texture, int p_index) = 0;
 	virtual void get_param_list(List<PropertyInfo> *p_param_list) const = 0;
 
@@ -75,6 +78,7 @@ struct Material;
 struct Shader {
 	ShaderData *data = nullptr;
 	String code;
+	String path_hint;
 	ShaderType type;
 	HashMap<StringName, HashMap<int, RID>> default_texture_parameter;
 	HashSet<Material *> owners;
@@ -125,21 +129,21 @@ struct Material {
 	RID next_pass;
 	SelfList<Material> update_element;
 
-	RendererStorage::Dependency dependency;
+	Dependency dependency;
 
 	Material() :
 			update_element(this) {}
 };
 
-/* Global variable structs */
-struct GlobalVariables {
+/* Global shader uniform structs */
+struct GlobalShaderUniforms {
 	enum {
 		BUFFER_DIRTY_REGION_SIZE = 1024
 	};
 	struct Variable {
 		HashSet<RID> texture_materials; // materials using this
 
-		RS::GlobalVariableType type;
+		RS::GlobalShaderUniformType type;
 		Variant value;
 		Variant override;
 		int32_t buffer_index; //for vectors
@@ -205,13 +209,13 @@ private:
 	RID quad_index_buffer;
 	RID quad_index_array;
 
-	/* GLOBAL VARIABLE API */
+	/* GLOBAL SHADER UNIFORM API */
 
-	GlobalVariables global_variables;
+	GlobalShaderUniforms global_shader_uniforms;
 
-	int32_t _global_variable_allocate(uint32_t p_elements);
-	void _global_variable_store_in_buffer(int32_t p_index, RS::GlobalVariableType p_type, const Variant &p_value);
-	void _global_variable_mark_buffer_dirty(int32_t p_index, int32_t p_elements);
+	int32_t _global_shader_uniform_allocate(uint32_t p_elements);
+	void _global_shader_uniform_store_in_buffer(int32_t p_index, RS::GlobalShaderUniformType p_type, const Variant &p_value);
+	void _global_shader_uniform_mark_buffer_dirty(int32_t p_index, int32_t p_elements);
 
 	/* SHADER API */
 
@@ -232,6 +236,86 @@ public:
 	MaterialStorage();
 	virtual ~MaterialStorage();
 
+	/* Helpers */
+
+	static _FORCE_INLINE_ void store_transform(const Transform3D &p_mtx, float *p_array) {
+		p_array[0] = p_mtx.basis.rows[0][0];
+		p_array[1] = p_mtx.basis.rows[1][0];
+		p_array[2] = p_mtx.basis.rows[2][0];
+		p_array[3] = 0;
+		p_array[4] = p_mtx.basis.rows[0][1];
+		p_array[5] = p_mtx.basis.rows[1][1];
+		p_array[6] = p_mtx.basis.rows[2][1];
+		p_array[7] = 0;
+		p_array[8] = p_mtx.basis.rows[0][2];
+		p_array[9] = p_mtx.basis.rows[1][2];
+		p_array[10] = p_mtx.basis.rows[2][2];
+		p_array[11] = 0;
+		p_array[12] = p_mtx.origin.x;
+		p_array[13] = p_mtx.origin.y;
+		p_array[14] = p_mtx.origin.z;
+		p_array[15] = 1;
+	}
+
+	static _FORCE_INLINE_ void store_basis_3x4(const Basis &p_mtx, float *p_array) {
+		p_array[0] = p_mtx.rows[0][0];
+		p_array[1] = p_mtx.rows[1][0];
+		p_array[2] = p_mtx.rows[2][0];
+		p_array[3] = 0;
+		p_array[4] = p_mtx.rows[0][1];
+		p_array[5] = p_mtx.rows[1][1];
+		p_array[6] = p_mtx.rows[2][1];
+		p_array[7] = 0;
+		p_array[8] = p_mtx.rows[0][2];
+		p_array[9] = p_mtx.rows[1][2];
+		p_array[10] = p_mtx.rows[2][2];
+		p_array[11] = 0;
+	}
+
+	static _FORCE_INLINE_ void store_transform_3x3(const Basis &p_mtx, float *p_array) {
+		p_array[0] = p_mtx.rows[0][0];
+		p_array[1] = p_mtx.rows[1][0];
+		p_array[2] = p_mtx.rows[2][0];
+		p_array[3] = 0;
+		p_array[4] = p_mtx.rows[0][1];
+		p_array[5] = p_mtx.rows[1][1];
+		p_array[6] = p_mtx.rows[2][1];
+		p_array[7] = 0;
+		p_array[8] = p_mtx.rows[0][2];
+		p_array[9] = p_mtx.rows[1][2];
+		p_array[10] = p_mtx.rows[2][2];
+		p_array[11] = 0;
+	}
+
+	static _FORCE_INLINE_ void store_transform_transposed_3x4(const Transform3D &p_mtx, float *p_array) {
+		p_array[0] = p_mtx.basis.rows[0][0];
+		p_array[1] = p_mtx.basis.rows[0][1];
+		p_array[2] = p_mtx.basis.rows[0][2];
+		p_array[3] = p_mtx.origin.x;
+		p_array[4] = p_mtx.basis.rows[1][0];
+		p_array[5] = p_mtx.basis.rows[1][1];
+		p_array[6] = p_mtx.basis.rows[1][2];
+		p_array[7] = p_mtx.origin.y;
+		p_array[8] = p_mtx.basis.rows[2][0];
+		p_array[9] = p_mtx.basis.rows[2][1];
+		p_array[10] = p_mtx.basis.rows[2][2];
+		p_array[11] = p_mtx.origin.z;
+	}
+
+	static _FORCE_INLINE_ void store_camera(const Projection &p_mtx, float *p_array) {
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				p_array[i * 4 + j] = p_mtx.matrix[i][j];
+			}
+		}
+	}
+
+	static _FORCE_INLINE_ void store_soft_shadow_kernel(const float *p_kernel, float *p_array) {
+		for (int i = 0; i < 128; i++) {
+			p_array[i] = p_kernel[i];
+		}
+	}
+
 	/* Samplers */
 
 	_FORCE_INLINE_ RID sampler_rd_get_default(RS::CanvasItemTextureFilter p_filter, RS::CanvasItemTextureRepeat p_repeat) {
@@ -249,28 +333,28 @@ public:
 
 	RID get_quad_index_array() { return quad_index_array; }
 
-	/* GLOBAL VARIABLE API */
+	/* GLOBAL SHADER UNIFORM API */
 
-	void _update_global_variables();
+	void _update_global_shader_uniforms();
 
-	virtual void global_variable_add(const StringName &p_name, RS::GlobalVariableType p_type, const Variant &p_value) override;
-	virtual void global_variable_remove(const StringName &p_name) override;
-	virtual Vector<StringName> global_variable_get_list() const override;
+	virtual void global_shader_uniform_add(const StringName &p_name, RS::GlobalShaderUniformType p_type, const Variant &p_value) override;
+	virtual void global_shader_uniform_remove(const StringName &p_name) override;
+	virtual Vector<StringName> global_shader_uniform_get_list() const override;
 
-	virtual void global_variable_set(const StringName &p_name, const Variant &p_value) override;
-	virtual void global_variable_set_override(const StringName &p_name, const Variant &p_value) override;
-	virtual Variant global_variable_get(const StringName &p_name) const override;
-	virtual RS::GlobalVariableType global_variable_get_type(const StringName &p_name) const override;
-	RS::GlobalVariableType global_variable_get_type_internal(const StringName &p_name) const;
+	virtual void global_shader_uniform_set(const StringName &p_name, const Variant &p_value) override;
+	virtual void global_shader_uniform_set_override(const StringName &p_name, const Variant &p_value) override;
+	virtual Variant global_shader_uniform_get(const StringName &p_name) const override;
+	virtual RS::GlobalShaderUniformType global_shader_uniform_get_type(const StringName &p_name) const override;
+	RS::GlobalShaderUniformType global_shader_uniform_get_type_internal(const StringName &p_name) const;
 
-	virtual void global_variables_load_settings(bool p_load_textures = true) override;
-	virtual void global_variables_clear() override;
+	virtual void global_shader_uniforms_load_settings(bool p_load_textures = true) override;
+	virtual void global_shader_uniforms_clear() override;
 
-	virtual int32_t global_variables_instance_allocate(RID p_instance) override;
-	virtual void global_variables_instance_free(RID p_instance) override;
-	virtual void global_variables_instance_update(RID p_instance, int p_index, const Variant &p_value) override;
+	virtual int32_t global_shader_uniforms_instance_allocate(RID p_instance) override;
+	virtual void global_shader_uniforms_instance_free(RID p_instance) override;
+	virtual void global_shader_uniforms_instance_update(RID p_instance, int p_index, const Variant &p_value) override;
 
-	RID global_variables_get_storage_buffer() const;
+	RID global_shader_uniforms_get_storage_buffer() const;
 
 	/* SHADER API */
 
@@ -282,6 +366,7 @@ public:
 	virtual void shader_free(RID p_rid) override;
 
 	virtual void shader_set_code(RID p_shader, const String &p_code) override;
+	virtual void shader_set_path_hint(RID p_shader, const String &p_path) override;
 	virtual String shader_get_code(RID p_shader) const override;
 	virtual void shader_get_param_list(RID p_shader, List<PropertyInfo> *p_param_list) const override;
 
@@ -317,7 +402,7 @@ public:
 
 	virtual void material_get_instance_shader_parameters(RID p_material, List<InstanceShaderParam> *r_parameters) override;
 
-	virtual void material_update_dependency(RID p_material, RendererStorage::DependencyTracker *p_instance) override;
+	virtual void material_update_dependency(RID p_material, DependencyTracker *p_instance) override;
 
 	void material_set_data_request_function(ShaderType p_shader_type, MaterialDataRequestFunction p_function);
 	MaterialDataRequestFunction material_get_data_request_function(ShaderType p_shader_type);
@@ -339,4 +424,4 @@ public:
 
 } // namespace RendererRD
 
-#endif // !MATERIAL_STORAGE_RD_H
+#endif // MATERIAL_STORAGE_RD_H

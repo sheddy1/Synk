@@ -62,7 +62,7 @@ void SpinBox::_text_submitted(const String &p_string) {
 		return;
 	}
 
-	Variant value = expr->execute(Array(), nullptr, false);
+	Variant value = expr->execute(Array(), nullptr, false, true);
 	if (value.get_type() != Variant::NIL) {
 		set_value(value);
 	}
@@ -167,7 +167,7 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	if (mm.is_valid() && (mm->get_button_mask() & MouseButton::MASK_LEFT) != MouseButton::NONE) {
 		if (drag.enabled) {
 			drag.diff_y += mm->get_relative().y;
-			float diff_y = -0.01 * Math::pow(ABS(drag.diff_y), 1.8f) * SIGN(drag.diff_y);
+			double diff_y = -0.01 * Math::pow(ABS(drag.diff_y), 1.8) * SIGN(drag.diff_y);
 			set_value(CLAMP(drag.base_val + get_step() * diff_y, get_min(), get_max()));
 		} else if (drag.allowed && drag.capture_pos.distance_to(mm->get_position()) > 2) {
 			Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_CAPTURED);
@@ -272,7 +272,7 @@ void SpinBox::set_update_on_text_changed(bool p_enabled) {
 	update_on_text_changed = p_enabled;
 
 	if (p_enabled) {
-		line_edit->connect("text_changed", callable_mp(this, &SpinBox::_text_changed), Vector<Variant>(), CONNECT_DEFERRED);
+		line_edit->connect("text_changed", callable_mp(this, &SpinBox::_text_changed), CONNECT_DEFERRED);
 	} else {
 		line_edit->disconnect("text_changed", callable_mp(this, &SpinBox::_text_changed));
 	}
@@ -319,12 +319,12 @@ SpinBox::SpinBox() {
 	line_edit = memnew(LineEdit);
 	add_child(line_edit, false, INTERNAL_MODE_FRONT);
 
-	line_edit->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	line_edit->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	line_edit->set_mouse_filter(MOUSE_FILTER_PASS);
 	line_edit->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_LEFT);
 
-	line_edit->connect("text_submitted", callable_mp(this, &SpinBox::_text_submitted), Vector<Variant>(), CONNECT_DEFERRED);
-	line_edit->connect("focus_exited", callable_mp(this, &SpinBox::_line_edit_focus_exit), Vector<Variant>(), CONNECT_DEFERRED);
+	line_edit->connect("text_submitted", callable_mp(this, &SpinBox::_text_submitted), CONNECT_DEFERRED);
+	line_edit->connect("focus_exited", callable_mp(this, &SpinBox::_line_edit_focus_exit), CONNECT_DEFERRED);
 	line_edit->connect("gui_input", callable_mp(this, &SpinBox::_line_edit_input));
 
 	range_click_timer = memnew(Timer);

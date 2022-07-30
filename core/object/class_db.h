@@ -104,7 +104,12 @@ public:
 
 		HashMap<StringName, MethodBind *> method_map;
 		HashMap<StringName, int64_t> constant_map;
-		HashMap<StringName, List<StringName>> enum_map;
+		struct EnumInfo {
+			List<StringName> constants;
+			bool is_bitfield = false;
+		};
+
+		HashMap<StringName, EnumInfo> enum_map;
 		HashMap<StringName, MethodInfo> signal_map;
 		List<PropertyInfo> property_list;
 		HashMap<StringName, PropertyInfo> property_map;
@@ -325,15 +330,17 @@ public:
 	static void add_virtual_method(const StringName &p_class, const MethodInfo &p_method, bool p_virtual = true, const Vector<String> &p_arg_names = Vector<String>(), bool p_object_core = false);
 	static void get_virtual_methods(const StringName &p_class, List<MethodInfo> *p_methods, bool p_no_inheritance = false);
 
-	static void bind_integer_constant(const StringName &p_class, const StringName &p_enum, const StringName &p_name, int64_t p_constant);
+	static void bind_integer_constant(const StringName &p_class, const StringName &p_enum, const StringName &p_name, int64_t p_constant, bool p_is_bitfield = false);
 	static void get_integer_constant_list(const StringName &p_class, List<String> *p_constants, bool p_no_inheritance = false);
 	static int64_t get_integer_constant(const StringName &p_class, const StringName &p_name, bool *p_success = nullptr);
 	static bool has_integer_constant(const StringName &p_class, const StringName &p_name, bool p_no_inheritance = false);
 
 	static StringName get_integer_constant_enum(const StringName &p_class, const StringName &p_name, bool p_no_inheritance = false);
+	static StringName get_integer_constant_bitfield(const StringName &p_class, const StringName &p_name, bool p_no_inheritance = false);
 	static void get_enum_list(const StringName &p_class, List<StringName> *p_enums, bool p_no_inheritance = false);
 	static void get_enum_constants(const StringName &p_class, const StringName &p_enum, List<StringName> *p_constants, bool p_no_inheritance = false);
 	static bool has_enum(const StringName &p_class, const StringName &p_name, bool p_no_inheritance = false);
+	static bool is_enum_bitfield(const StringName &p_class, const StringName &p_name, bool p_no_inheritance = false);
 
 	static void set_method_error_return_values(const StringName &p_class, const StringName &p_method, const Vector<Error> &p_values);
 	static Vector<Error> get_method_error_return_values(const StringName &p_class, const StringName &p_method);
@@ -350,6 +357,7 @@ public:
 	static bool is_resource_extension(const StringName &p_extension);
 
 	static void add_compatibility_class(const StringName &p_class, const StringName &p_fallback);
+	static StringName get_compatibility_class(const StringName &p_class);
 
 	static void set_current_api(APIType p_api);
 	static APIType get_current_api();
@@ -369,6 +377,9 @@ public:
 
 #define BIND_ENUM_CONSTANT(m_constant) \
 	::ClassDB::bind_integer_constant(get_class_static(), __constant_get_enum_name(m_constant, #m_constant), #m_constant, m_constant);
+
+#define BIND_BITFIELD_FLAG(m_constant) \
+	::ClassDB::bind_integer_constant(get_class_static(), __constant_get_bitfield_name(m_constant, #m_constant), #m_constant, m_constant, true);
 
 _FORCE_INLINE_ void errarray_add_str(Vector<Error> &arr) {
 }
@@ -401,20 +412,23 @@ _FORCE_INLINE_ Vector<Error> errarray(P... p_args) {
 #define BIND_ENUM_CONSTANT(m_constant) \
 	::ClassDB::bind_integer_constant(get_class_static(), StringName(), #m_constant, m_constant);
 
+#define BIND_BITFIELD_FLAG(m_constant) \
+	::ClassDB::bind_integer_constant(get_class_static(), StringName(), #m_constant, m_constant, true);
+
 #define BIND_METHOD_ERR_RETURN_DOC(m_method, ...)
 
 #endif
 
-#define GDREGISTER_CLASS(m_class)                    \
-	if (!GD_IS_DEFINED(ClassDB_Disable_##m_class)) { \
-		::ClassDB::register_class<m_class>();        \
+#define GDREGISTER_CLASS(m_class)             \
+	if (m_class::_class_is_enabled) {         \
+		::ClassDB::register_class<m_class>(); \
 	}
-#define GDREGISTER_VIRTUAL_CLASS(m_class)            \
-	if (!GD_IS_DEFINED(ClassDB_Disable_##m_class)) { \
-		::ClassDB::register_class<m_class>(true);    \
+#define GDREGISTER_VIRTUAL_CLASS(m_class)         \
+	if (m_class::_class_is_enabled) {             \
+		::ClassDB::register_class<m_class>(true); \
 	}
 #define GDREGISTER_ABSTRACT_CLASS(m_class)             \
-	if (!GD_IS_DEFINED(ClassDB_Disable_##m_class)) {   \
+	if (m_class::_class_is_enabled) {                  \
 		::ClassDB::register_abstract_class<m_class>(); \
 	}
 

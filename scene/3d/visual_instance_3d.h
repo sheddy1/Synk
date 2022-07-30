@@ -28,8 +28,8 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef VISUAL_INSTANCE_H
-#define VISUAL_INSTANCE_H
+#ifndef VISUAL_INSTANCE_3D_H
+#define VISUAL_INSTANCE_3D_H
 
 #include "scene/3d/node_3d.h"
 
@@ -126,7 +126,7 @@ private:
 
 	float extra_cull_margin = 0.0;
 	LightmapScale lightmap_scale = LIGHTMAP_SCALE_1X;
-	GIMode gi_mode = GI_MODE_DISABLED;
+	GIMode gi_mode = GI_MODE_STATIC;
 	bool ignore_occlusion_culling = false;
 
 	const StringName *_instance_uniform_get_remap(const StringName p_name) const;
@@ -196,4 +196,4 @@ VARIANT_ENUM_CAST(GeometryInstance3D::LightmapScale);
 VARIANT_ENUM_CAST(GeometryInstance3D::GIMode);
 VARIANT_ENUM_CAST(GeometryInstance3D::VisibilityRangeFadeMode);
 
-#endif
+#endif // VISUAL_INSTANCE_3D_H

@@ -565,7 +565,7 @@ void AbstractPolygon2DEditor::forward_canvas_draw_over_viewport(Control *p_overl
 				Ref<Font> font = get_theme_font(SNAME("font"), SNAME("Label"));
 				int font_size = get_theme_font_size(SNAME("font_size"), SNAME("Label"));
 				String num = String::num(vertex.vertex);
-				Size2 num_size = font->get_string_size(num, font_size);
+				Size2 num_size = font->get_string_size(num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
 				p_overlay->draw_string(font, point - num_size * 0.5, num, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 1.0, 1.0, 0.5));
 			}
 		}
@@ -716,24 +716,24 @@ AbstractPolygon2DEditor::AbstractPolygon2DEditor(bool p_wip_destructive) {
 	button_create = memnew(Button);
 	button_create->set_flat(true);
 	add_child(button_create);
-	button_create->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option), varray(MODE_CREATE));
+	button_create->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_CREATE));
 	button_create->set_toggle_mode(true);
 
 	button_edit = memnew(Button);
 	button_edit->set_flat(true);
 	add_child(button_edit);
-	button_edit->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option), varray(MODE_EDIT));
+	button_edit->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_EDIT));
 	button_edit->set_toggle_mode(true);
 
 	button_delete = memnew(Button);
 	button_delete->set_flat(true);
 	add_child(button_delete);
-	button_delete->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option), varray(MODE_DELETE));
+	button_delete->connect("pressed", callable_mp(this, &AbstractPolygon2DEditor::_menu_option).bind(MODE_DELETE));
 	button_delete->set_toggle_mode(true);
 
 	create_resource = memnew(ConfirmationDialog);
 	add_child(create_resource);
-	create_resource->get_ok_button()->set_text(TTR("Create"));
+	create_resource->set_ok_button_text(TTR("Create"));
 }
 
 void AbstractPolygon2DEditorPlugin::edit(Object *p_object) {

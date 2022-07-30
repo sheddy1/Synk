@@ -203,6 +203,9 @@
 			Path to an image used as the boot splash. If left empty, the default Godot Engine splash will be displayed instead.
 			[b]Note:[/b] Only effective if [member application/boot_splash/show_image] is [code]true[/code].
 		</member>
+		<member name="application/boot_splash/minimum_display_time" type="int" setter="" getter="" default="0">
+			Minimum boot splash display time (in milliseconds). It is not recommended to set too high values for this setting.
+		</member>
 		<member name="application/boot_splash/show_image" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], displays the image specified in [member application/boot_splash/image] when the engine starts. If [code]false[/code], only displays the plain color specified in [member application/boot_splash/bg_color].
 		</member>
@@ -491,8 +494,44 @@
 		<member name="debug/shapes/navigation/disabled_geometry_color" type="Color" setter="" getter="" default="Color(1, 0.7, 0.1, 0.4)">
 			Color of the disabled navigation geometry, visible when "Visible Navigation" is enabled in the Debug menu.
 		</member>
+		<member name="debug/shapes/navigation/edge_connection_color" type="Color" setter="" getter="" default="Color(1, 0, 1, 1)">
+			Color to display edge connections between navigation regions, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/enable_edge_connections" type="bool" setter="" getter="" default="true">
+			If enabled, displays edge connections between navigation regions when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/enable_edge_connections_xray" type="bool" setter="" getter="" default="true">
+			If enabled, displays edge connections between navigation regions through geometry when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/enable_edge_lines" type="bool" setter="" getter="" default="true">
+			If enabled, displays navigation mesh polygon edges when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/enable_edge_lines_xray" type="bool" setter="" getter="" default="true">
+			If enabled, displays navigation mesh polygon edges through geometry when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/enable_geometry_face_random_color" type="bool" setter="" getter="" default="true">
+			If enabled, colorizes each navigation mesh polygon face with a random color when "Visible Navigation" is enabled in the Debug menu.
+		</member>
 		<member name="debug/shapes/navigation/geometry_color" type="Color" setter="" getter="" default="Color(0.1, 1, 0.7, 0.4)">
 			Color of the navigation geometry, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/geometry_edge_color" type="Color" setter="" getter="" default="Color(0.5, 1, 1, 1)">
+			Color to display enabled navigation mesh polygon edges, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/geometry_edge_disabled_color" type="Color" setter="" getter="" default="Color(0.5, 0.5, 0.5, 1)">
+			Color to display disabled navigation mesh polygon edges, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/geometry_face_color" type="Color" setter="" getter="" default="Color(0.5, 1, 1, 0.4)">
+			Color to display enabled navigation mesh polygon faces, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/navigation/geometry_face_disabled_color" type="Color" setter="" getter="" default="Color(0.5, 0.5, 0.5, 0.4)">
+			Color to display disabled navigation mesh polygon faces, visible when "Visible Navigation" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/paths/geometry_color" type="Color" setter="" getter="" default="Color(0.1, 1, 0.7, 0.4)">
+			Color of the curve path geometry, visible when "Visible Paths" is enabled in the Debug menu.
+		</member>
+		<member name="debug/shapes/paths/geometry_width" type="float" setter="" getter="" default="2.0">
+			Line width of the curve path geometry, visible when "Visible Paths" is enabled in the Debug menu.
 		</member>
 		<member name="display/mouse_cursor/custom_image" type="String" setter="" getter="" default="&quot;&quot;">
 			Custom image for the mouse cursor (limited to 256×256).
@@ -622,7 +661,7 @@
 			Path to a custom [Font] resource to use as default for all GUI elements of the project.
 		</member>
 		<member name="gui/theme/default_font_antialiased" type="bool" setter="" getter="" default="true">
-			If set to [code]true[/code], default font uses 8-bit anitialiased glyph rendering.  See [member FontData.antialiased].
+			If set to [code]true[/code], default font uses 8-bit anitialiased glyph rendering.  See [member FontFile.antialiased].
 		</member>
 		<member name="gui/theme/default_font_generate_mipmaps" type="bool" setter="" getter="" default="false">
 			If set to [code]true[/code], the default font will have mipmaps generated. This prevents text from looking grainy when a [Control] is scaled down, or when a [Label3D] is viewed from a long distance (if [member Label3D.texture_filter] is set to a mode that displays mipmaps).
@@ -630,7 +669,7 @@
 			[b]Note:[/b] This setting does not affect custom [Font]s used within the project.
 		</member>
 		<member name="gui/theme/default_font_hinting" type="int" setter="" getter="" default="1">
-			Default font hinting mode. See [member FontData.hinting].
+			Default font hinting mode. See [member FontFile.hinting].
 		</member>
 		<member name="gui/theme/default_font_multichannel_signed_distance_field" type="bool" setter="" getter="" default="false">
 			If set to [code]true[/code], the default font will use multichannel signed distance field (MSDF) for crisp rendering at any size. Since this approach does not rely on rasterizing the font every time its size changes, this allows for resizing the font in real-time without any performance penalty. Text will also not look grainy for [Control]s that are scaled down (or for [Label3D]s viewed from a long distance).
@@ -638,7 +677,7 @@
 			[b]Note:[/b] This setting does not affect custom [Font]s used within the project.
 		</member>
 		<member name="gui/theme/default_font_subpixel_positioning" type="int" setter="" getter="" default="1">
-			Default font glyph sub-pixel positioning mode. See [member FontData.subpixel_positioning].
+			Default font glyph sub-pixel positioning mode. See [member FontFile.subpixel_positioning].
 		</member>
 		<member name="gui/theme/default_theme_scale" type="float" setter="" getter="" default="1.0">
 		</member>
@@ -1623,13 +1662,13 @@
 			Sets the number of MSAA samples to use (as a power of two). MSAA is used to reduce aliasing around the edges of polygons. A higher MSAA value results in smoother edges but can be significantly slower on some hardware. See also bilinear scaling 3d [member rendering/scaling_3d/mode] for supersampling, which provides higher quality but is much more expensive.
 		</member>
 		<member name="rendering/anti_aliasing/quality/screen_space_aa" type="int" setter="" getter="" default="0">
-			Sets the screen-space antialiasing mode for the default screen [Viewport]. Screen-space antialiasing works by selectively blurring edges in a post-process shader. It differs from MSAA which takes multiple coverage samples while rendering objects. Screen-space AA methods are typically faster than MSAA and will smooth out specular aliasing, but tend to make scenes appear blurry.
+			Sets the screen-space antialiasing mode for the default screen [Viewport]. Screen-space antialiasing works by selectively blurring edges in a post-process shader. It differs from MSAA which takes multiple coverage samples while rendering objects. Screen-space AA methods are typically faster than MSAA and will smooth out specular aliasing, but tend to make scenes appear blurry. The blurriness can be counteracted to an extent by using a negative mipmap LOD bias ([member rendering/textures/default_filters/texture_mipmap_bias]).
 			Another way to combat specular aliasing is to enable [member rendering/anti_aliasing/screen_space_roughness_limiter/enabled].
 		</member>
 		<member name="rendering/anti_aliasing/quality/use_debanding" type="bool" setter="" getter="" default="false">
 		</member>
 		<member name="rendering/anti_aliasing/quality/use_taa" type="bool" setter="" getter="" default="false">
-			Enables Temporal Anti-Aliasing for the default screen [Viewport]. TAA works by jittering the camera and accumulating the images of the last rendered frames, motion vector rendering is used to account for camera and object motion.
+			Enables Temporal Anti-Aliasing for the default screen [Viewport]. TAA works by jittering the camera and accumulating the images of the last rendered frames, motion vector rendering is used to account for camera and object motion. Enabling TAA can make the image blurrier, which can be counteracted to an extent by using a negative mipmap LOD bias ([member rendering/textures/default_filters/texture_mipmap_bias]).
 			[b]Note:[/b] The implementation is not complete yet, some visual instances such as particles and skinned meshes may show artifacts.
 		</member>
 		<member name="rendering/anti_aliasing/screen_space_roughness_limiter/amount" type="float" setter="" getter="" default="0.25">
@@ -1847,9 +1886,6 @@
 		<member name="rendering/reflections/sky_reflections/texture_array_reflections.mobile" type="bool" setter="" getter="" default="false">
 			Lower-end override for [member rendering/reflections/sky_reflections/texture_array_reflections] on mobile devices, due to performance concerns or driver support.
 		</member>
-		<member name="rendering/scaling_3d/fsr_mipmap_bias" type="float" setter="" getter="" default="0.0">
-			Affects the final texture sharpness by reading from a lower or higher mipmap. Negative values make textures sharper, while positive values make textures blurrier. When using FSR, this value is used to adjust the mipmap bias calculated internally which is based on the selected quality. The formula for this is [code]-log2(1.0 / scale) + mipmap_bias[/code]
-		</member>
 		<member name="rendering/scaling_3d/fsr_sharpness" type="float" setter="" getter="" default="0.2">
 			Determines how sharp the upscaled image will be when using the FSR upscaling mode. Sharpness halves with every whole number. Values go from 0.0 (sharpest) to 2.0. Values above 2.0 won't make a visible difference.
 		</member>
@@ -1889,47 +1925,52 @@
 		<member name="rendering/shadows/directional_shadow/size.mobile" type="int" setter="" getter="" default="2048">
 			Lower-end override for [member rendering/shadows/directional_shadow/size] on mobile devices, due to performance concerns or driver support.
 		</member>
-		<member name="rendering/shadows/directional_shadow/soft_shadow_quality" type="int" setter="" getter="" default="2">
+		<member name="rendering/shadows/directional_shadow/soft_shadow_filter_quality" type="int" setter="" getter="" default="2">
 			Quality setting for shadows cast by [DirectionalLight3D]s. Higher quality settings use more samples when reading from shadow maps and are thus slower. Low quality settings may result in shadows looking grainy.
 			[b]Note:[/b] The Soft Very Low setting will automatically multiply [i]constant[/i] shadow blur by 0.75x to reduce the amount of noise visible. This automatic blur change only affects the constant blur factor defined in [member Light3D.shadow_blur], not the variable blur performed by [DirectionalLight3D]s' [member Light3D.light_angular_distance].
 			[b]Note:[/b] The Soft High and Soft Ultra settings will automatically multiply [i]constant[/i] shadow blur by 1.5× and 2× respectively to make better use of the increased sample count. This increased blur also improves stability of dynamic object shadows.
 		</member>
-		<member name="rendering/shadows/directional_shadow/soft_shadow_quality.mobile" type="int" setter="" getter="" default="0">
-			Lower-end override for [member rendering/shadows/directional_shadow/soft_shadow_quality] on mobile devices, due to performance concerns or driver support.
+		<member name="rendering/shadows/directional_shadow/soft_shadow_filter_quality.mobile" type="int" setter="" getter="" default="0">
+			Lower-end override for [member rendering/shadows/directional_shadow/soft_shadow_filter_quality] on mobile devices, due to performance concerns or driver support.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/16_bits" type="bool" setter="" getter="" default="true">
+		<member name="rendering/shadows/positional_shadow/atlas_16_bits" type="bool" setter="" getter="" default="true">
 		</member>
-		<member name="rendering/shadows/shadow_atlas/quadrant_0_subdiv" type="int" setter="" getter="" default="2">
+		<member name="rendering/shadows/positional_shadow/atlas_quadrant_0_subdiv" type="int" setter="" getter="" default="2">
 			Subdivision quadrant size for shadow mapping. See shadow mapping documentation.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/quadrant_1_subdiv" type="int" setter="" getter="" default="2">
+		<member name="rendering/shadows/positional_shadow/atlas_quadrant_1_subdiv" type="int" setter="" getter="" default="2">
 			Subdivision quadrant size for shadow mapping. See shadow mapping documentation.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/quadrant_2_subdiv" type="int" setter="" getter="" default="3">
+		<member name="rendering/shadows/positional_shadow/atlas_quadrant_2_subdiv" type="int" setter="" getter="" default="3">
 			Subdivision quadrant size for shadow mapping. See shadow mapping documentation.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/quadrant_3_subdiv" type="int" setter="" getter="" default="4">
+		<member name="rendering/shadows/positional_shadow/atlas_quadrant_3_subdiv" type="int" setter="" getter="" default="4">
 			Subdivision quadrant size for shadow mapping. See shadow mapping documentation.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/size" type="int" setter="" getter="" default="4096">
+		<member name="rendering/shadows/positional_shadow/atlas_size" type="int" setter="" getter="" default="4096">
 			Size for shadow atlas (used for OmniLights and SpotLights). See documentation.
 		</member>
-		<member name="rendering/shadows/shadow_atlas/size.mobile" type="int" setter="" getter="" default="2048">
-			Lower-end override for [member rendering/shadows/shadow_atlas/size] on mobile devices, due to performance concerns or driver support.
+		<member name="rendering/shadows/positional_shadow/atlas_size.mobile" type="int" setter="" getter="" default="2048">
+			Lower-end override for [member rendering/shadows/positional_shadow/atlas_size] on mobile devices, due to performance concerns or driver support.
 		</member>
-		<member name="rendering/shadows/shadows/soft_shadow_quality" type="int" setter="" getter="" default="2">
+		<member name="rendering/shadows/positional_shadow/soft_shadow_filter_quality" type="int" setter="" getter="" default="2">
 			Quality setting for shadows cast by [OmniLight3D]s and [SpotLight3D]s. Higher quality settings use more samples when reading from shadow maps and are thus slower. Low quality settings may result in shadows looking grainy.
 			[b]Note:[/b] The Soft Very Low setting will automatically multiply [i]constant[/i] shadow blur by 0.75x to reduce the amount of noise visible. This automatic blur change only affects the constant blur factor defined in [member Light3D.shadow_blur], not the variable blur performed by [DirectionalLight3D]s' [member Light3D.light_angular_distance].
 			[b]Note:[/b] The Soft High and Soft Ultra settings will automatically multiply shadow blur by 1.5× and 2× respectively to make better use of the increased sample count. This increased blur also improves stability of dynamic object shadows.
 		</member>
-		<member name="rendering/shadows/shadows/soft_shadow_quality.mobile" type="int" setter="" getter="" default="0">
-			Lower-end override for [member rendering/shadows/shadows/soft_shadow_quality] on mobile devices, due to performance concerns or driver support.
+		<member name="rendering/shadows/positional_shadow/soft_shadow_filter_quality.mobile" type="int" setter="" getter="" default="0">
+			Lower-end override for [member rendering/shadows/positional_shadow/soft_shadow_filter_quality] on mobile devices, due to performance concerns or driver support.
 		</member>
 		<member name="rendering/textures/decals/filter" type="int" setter="" getter="" default="3">
 		</member>
 		<member name="rendering/textures/default_filters/anisotropic_filtering_level" type="int" setter="" getter="" default="2">
 			Sets the maximum number of samples to take when using anisotropic filtering on textures (as a power of two). A higher sample count will result in sharper textures at oblique angles, but is more expensive to compute. A value of [code]0[/code] forcibly disables anisotropic filtering, even on materials where it is enabled.
 			[b]Note:[/b] This property is only read when the project starts. There is currently no way to change this setting at run-time.
+		</member>
+		<member name="rendering/textures/default_filters/texture_mipmap_bias" type="float" setter="" getter="" default="0.0">
+			Affects the final texture sharpness by reading from a lower or higher mipmap (also called "texture LOD bias"). Negative values make mipmapped textures sharper but grainier when viewed at a distance, while positive values make mipmapped textures blurrier (even when up close). To get sharper textures at a distance without introducing too much graininess, set this between [code]-0.75[/code] and [code]0.0[/code]. Enabling temporal antialiasing ([member rendering/anti_aliasing/quality/use_taa]) can help reduce the graininess visible when using negative mipmap bias.
+			[b]Note:[/b] When the 3D scaling mode is set to FSR 1.0, this value is used to adjust the automatic mipmap bias which is calculated internally based on the scale factor. The formula for this is [code]-log2(1.0 / scale) + mipmap_bias[/code].
+			[b]Note:[/b] This property is only read when the project starts. To change the mipmap LOD bias at run-time, set [member Viewport.texture_mipmap_bias] instead.
 		</member>
 		<member name="rendering/textures/default_filters/use_nearest_mipmap_filter" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], uses nearest-neighbor mipmap filtering when using mipmaps (also called "bilinear filtering"), which will result in visible seams appearing between mipmap stages. This may increase performance in mobile as less memory bandwidth is used. If [code]false[/code], linear mipmap filtering (also called "trilinear filtering") is used.
@@ -1959,6 +2000,12 @@
 			If [code]true[/code], the texture importer will import VRAM-compressed textures using the S3 Texture Compression algorithm. This algorithm is only supported on desktop platforms and consoles.
 			[b]Note:[/b] Changing this setting does [i]not[/i] impact textures that were already imported before. To make this setting apply to textures that were already imported, exit the editor, remove the [code].godot/imported/[/code] folder located inside the project folder then restart the editor (see [member application/config/use_hidden_project_data_directory]).
 		</member>
+		<member name="rendering/vrs/mode" type="int" setter="" getter="" default="0">
+			Set the default Variable Rate Shading (VRS) mode for the main viewport. See [member Viewport.vrs_mode] to change this at runtime, and [enum Viewport.VRSMode] for possible values.
+		</member>
+		<member name="rendering/vrs/texture" type="String" setter="" getter="" default="&quot;&quot;">
+			If [member rendering/vrs/mode] is set to texture, this is the path to default texture loaded as the VRS image.
+		</member>
 		<member name="rendering/vulkan/descriptor_pools/max_descriptors_per_pool" type="int" setter="" getter="" default="64">
 		</member>
 		<member name="rendering/vulkan/rendering/back_end" type="int" setter="" getter="" default="0">
@@ -1970,6 +2017,12 @@
 		<member name="rendering/vulkan/staging_buffer/max_size_mb" type="int" setter="" getter="" default="128">
 		</member>
 		<member name="rendering/vulkan/staging_buffer/texture_upload_region_size_px" type="int" setter="" getter="" default="64">
+		</member>
+		<member name="threading/worker_pool/low_priority_thread_ratio" type="float" setter="" getter="" default="0.3">
+		</member>
+		<member name="threading/worker_pool/max_threads" type="int" setter="" getter="" default="-1">
+		</member>
+		<member name="threading/worker_pool/use_system_threads_for_low_priority_tasks" type="bool" setter="" getter="" default="true">
 		</member>
 		<member name="xr/openxr/default_action_map" type="String" setter="" getter="" default="&quot;res://openxr_action_map.tres&quot;">
 			Action map configuration to load by default.

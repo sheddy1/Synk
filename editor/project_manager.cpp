@@ -362,8 +362,8 @@ private:
 		if (mode == MODE_IMPORT) {
 			fdialog->set_file_mode(EditorFileDialog::FILE_MODE_OPEN_FILE);
 			fdialog->clear_filters();
-			fdialog->add_filter(vformat("project.godot ; %s %s", VERSION_NAME, TTR("Project")));
-			fdialog->add_filter("*.zip ; " + TTR("ZIP File"));
+			fdialog->add_filter("project.godot", vformat("%s %s", VERSION_NAME, TTR("Project")));
+			fdialog->add_filter("*.zip", TTR("ZIP File"));
 		} else {
 			fdialog->set_file_mode(EditorFileDialog::FILE_MODE_OPEN_DIR);
 		}
@@ -491,7 +491,7 @@ private:
 					if (ProjectSettings::get_singleton()->save_custom(dir.plus_file("project.godot"), initial_settings, Vector<String>(), false) != OK) {
 						set_message(TTR("Couldn't create project.godot in project path."), MESSAGE_ERROR);
 					} else {
-						ResourceSaver::save(dir.plus_file("icon.png"), create_unscaled_default_project_icon());
+						ResourceSaver::save(create_unscaled_default_project_icon(), dir.plus_file("icon.png"));
 						EditorVCSInterface::create_vcs_metadata_files(EditorVCSInterface::VCSMetadata(vcs_metadata_selection->get_selected()), dir);
 					}
 				} else if (mode == MODE_INSTALL) {
@@ -681,7 +681,7 @@ public:
 			install_browse->hide();
 
 			set_title(TTR("Rename Project"));
-			get_ok_button()->set_text(TTR("Rename"));
+			set_ok_button_text(TTR("Rename"));
 			name_container->show();
 			status_rect->hide();
 			msg->hide();
@@ -735,7 +735,7 @@ public:
 
 			if (mode == MODE_IMPORT) {
 				set_title(TTR("Import Existing Project"));
-				get_ok_button()->set_text(TTR("Import & Edit"));
+				set_ok_button_text(TTR("Import & Edit"));
 				name_container->hide();
 				install_path_container->hide();
 				rasterizer_container->hide();
@@ -744,7 +744,7 @@ public:
 
 			} else if (mode == MODE_NEW) {
 				set_title(TTR("Create New Project"));
-				get_ok_button()->set_text(TTR("Create & Edit"));
+				set_ok_button_text(TTR("Create & Edit"));
 				name_container->show();
 				install_path_container->hide();
 				rasterizer_container->show();
@@ -754,7 +754,7 @@ public:
 
 			} else if (mode == MODE_INSTALL) {
 				set_title(TTR("Install Project:") + " " + zip_title);
-				get_ok_button()->set_text(TTR("Install & Edit"));
+				set_ok_button_text(TTR("Install & Edit"));
 				project_name->set_text(zip_title);
 				name_container->show();
 				install_path_container->hide();
@@ -1167,9 +1167,7 @@ void ProjectList::load_project_icon(int p_index) {
 		Error err = img->load(item.icon.replace_first("res://", item.path + "/"));
 		if (err == OK) {
 			img->resize(default_icon->get_width(), default_icon->get_height(), Image::INTERPOLATE_LANCZOS);
-			Ref<ImageTexture> it = memnew(ImageTexture);
-			it->create_from_image(img);
-			icon = it;
+			icon = ImageTexture::create_from_image(img);
 		}
 	}
 	if (icon.is_null()) {
@@ -1350,8 +1348,8 @@ void ProjectList::create_project_item_control(int p_index) {
 	Color font_color = get_theme_color(SNAME("font_color"), SNAME("Tree"));
 
 	ProjectListItemControl *hb = memnew(ProjectListItemControl);
-	hb->connect("draw", callable_mp(this, &ProjectList::_panel_draw), varray(hb));
-	hb->connect("gui_input", callable_mp(this, &ProjectList::_panel_input), varray(hb));
+	hb->connect("draw", callable_mp(this, &ProjectList::_panel_draw).bind(hb));
+	hb->connect("gui_input", callable_mp(this, &ProjectList::_panel_input).bind(hb));
 	hb->add_theme_constant_override("separation", 10 * EDSCALE);
 	hb->set_tooltip(item.description);
 
@@ -1362,7 +1360,7 @@ void ProjectList::create_project_item_control(int p_index) {
 	favorite->set_normal_texture(favorite_icon);
 	// This makes the project's "hover" style display correctly when hovering the favorite icon.
 	favorite->set_mouse_filter(MOUSE_FILTER_PASS);
-	favorite->connect("pressed", callable_mp(this, &ProjectList::_favorite_pressed), varray(hb));
+	favorite->connect("pressed", callable_mp(this, &ProjectList::_favorite_pressed).bind(hb));
 	favorite_box->add_child(favorite);
 	favorite_box->set_alignment(BoxContainer::ALIGNMENT_CENTER);
 	hb->add_child(favorite_box);
@@ -1435,7 +1433,7 @@ void ProjectList::create_project_item_control(int p_index) {
 		path_hb->add_child(show);
 
 		if (!item.missing) {
-			show->connect("pressed", callable_mp(this, &ProjectList::_show_project), varray(item.path));
+			show->connect("pressed", callable_mp(this, &ProjectList::_show_project).bind(item.path));
 			show->set_tooltip(TTR("Show in File Manager"));
 		} else {
 			show->set_tooltip(TTR("Error: Project is missing on the filesystem."));
@@ -1895,7 +1893,6 @@ void ProjectManager::_notification(int p_what) {
 			}
 			if (asset_library) {
 				real_t size = get_size().x / EDSCALE;
-				asset_library->set_columns(size < 1000 ? 1 : 2);
 				// Adjust names of tabs to fit the new size.
 				if (size < 650) {
 					local_projects_hb->set_name(TTR("Local"));
@@ -2001,7 +1998,7 @@ void ProjectManager::shortcut_input(const Ref<InputEvent> &p_ev) {
 		// Pressing Command + Q quits the Project Manager
 		// This is handled by the platform implementation on macOS,
 		// so only define the shortcut on other platforms
-#ifndef OSX_ENABLED
+#ifndef MACOS_ENABLED
 		if (k->get_keycode_with_modifiers() == (KeyModifierMask::CMD | Key::Q)) {
 			_dim_window();
 			get_tree()->quit();
@@ -2454,7 +2451,7 @@ void ProjectManager::_files_dropped(PackedStringArray p_files) {
 		}
 		if (confirm) {
 			multi_scan_ask->get_ok_button()->disconnect("pressed", callable_mp(this, &ProjectManager::_scan_multiple_folders));
-			multi_scan_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_scan_multiple_folders), varray(folders));
+			multi_scan_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_scan_multiple_folders).bind(folders));
 			multi_scan_ask->set_text(
 					vformat(TTR("Are you sure to scan %s folders for existing Godot projects?\nThis could take a while."), folders.size()));
 			multi_scan_ask->popup_centered();
@@ -2565,19 +2562,19 @@ ProjectManager::ProjectManager() {
 
 	EditorFileDialog::set_default_show_hidden_files(EditorSettings::get_singleton()->get("filesystem/file_dialog/show_hidden_files"));
 
-	set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	set_theme(create_custom_theme());
 
-	set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 
 	Panel *panel = memnew(Panel);
 	add_child(panel);
-	panel->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	panel->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("Background"), SNAME("EditorStyles")));
 
 	VBoxContainer *vb = memnew(VBoxContainer);
 	panel->add_child(vb);
-	vb->set_anchors_and_offsets_preset(Control::PRESET_WIDE, Control::PRESET_MODE_MINSIZE, 8 * EDSCALE);
+	vb->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT, Control::PRESET_MODE_MINSIZE, 8 * EDSCALE);
 
 	Control *center_box = memnew(Control);
 	center_box->set_v_size_flags(Control::SIZE_EXPAND_FILL);
@@ -2585,7 +2582,7 @@ ProjectManager::ProjectManager() {
 
 	tabs = memnew(TabContainer);
 	center_box->add_child(tabs);
-	tabs->set_anchors_and_offsets_preset(Control::PRESET_WIDE);
+	tabs->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
 	tabs->connect("tab_changed", callable_mp(this, &ProjectManager::_on_tab_changed));
 
 	local_projects_hb = memnew(HBoxContainer);
@@ -2792,25 +2789,21 @@ ProjectManager::ProjectManager() {
 		center_box->add_child(settings_hb);
 	}
 
-	// Asset Library can't work on Web editor for now as most assets are sourced
-	// directly from GitHub which does not set CORS.
-#ifndef JAVASCRIPT_ENABLED
-	if (StreamPeerSSL::is_available()) {
+	if (AssetLibraryEditorPlugin::is_available()) {
 		asset_library = memnew(EditorAssetLibrary(true));
 		asset_library->set_name(TTR("Asset Library Projects"));
 		tabs->add_child(asset_library);
 		asset_library->connect("install_asset", callable_mp(this, &ProjectManager::_install_project));
 	} else {
-		WARN_PRINT("Asset Library not available, as it requires SSL to work.");
+		print_verbose("Asset Library not available (due to using Web editor, or SSL support disabled).");
 	}
-#endif
 
 	{
 		// Dialogs
 		language_restart_ask = memnew(ConfirmationDialog);
-		language_restart_ask->get_ok_button()->set_text(TTR("Restart Now"));
+		language_restart_ask->set_ok_button_text(TTR("Restart Now"));
 		language_restart_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_restart_confirm));
-		language_restart_ask->get_cancel_button()->set_text(TTR("Continue"));
+		language_restart_ask->set_cancel_button_text(TTR("Continue"));
 		add_child(language_restart_ask);
 
 		scan_dir = memnew(EditorFileDialog);
@@ -2823,12 +2816,12 @@ ProjectManager::ProjectManager() {
 		scan_dir->connect("dir_selected", callable_mp(this, &ProjectManager::_scan_begin));
 
 		erase_missing_ask = memnew(ConfirmationDialog);
-		erase_missing_ask->get_ok_button()->set_text(TTR("Remove All"));
+		erase_missing_ask->set_ok_button_text(TTR("Remove All"));
 		erase_missing_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_erase_missing_projects_confirm));
 		add_child(erase_missing_ask);
 
 		erase_ask = memnew(ConfirmationDialog);
-		erase_ask->get_ok_button()->set_text(TTR("Remove"));
+		erase_ask->set_ok_button_text(TTR("Remove"));
 		erase_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_erase_project_confirm));
 		add_child(erase_ask);
 
@@ -2843,17 +2836,17 @@ ProjectManager::ProjectManager() {
 		erase_ask_vb->add_child(delete_project_contents);
 
 		multi_open_ask = memnew(ConfirmationDialog);
-		multi_open_ask->get_ok_button()->set_text(TTR("Edit"));
+		multi_open_ask->set_ok_button_text(TTR("Edit"));
 		multi_open_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_open_selected_projects));
 		add_child(multi_open_ask);
 
 		multi_run_ask = memnew(ConfirmationDialog);
-		multi_run_ask->get_ok_button()->set_text(TTR("Run"));
+		multi_run_ask->set_ok_button_text(TTR("Run"));
 		multi_run_ask->get_ok_button()->connect("pressed", callable_mp(this, &ProjectManager::_run_project_confirm));
 		add_child(multi_run_ask);
 
 		multi_scan_ask = memnew(ConfirmationDialog);
-		multi_scan_ask->get_ok_button()->set_text(TTR("Scan"));
+		multi_scan_ask->set_ok_button_text(TTR("Scan"));
 		add_child(multi_scan_ask);
 
 		ask_update_settings = memnew(ConfirmationDialog);
@@ -2875,7 +2868,7 @@ ProjectManager::ProjectManager() {
 		if (asset_library) {
 			open_templates = memnew(ConfirmationDialog);
 			open_templates->set_text(TTR("You currently don't have any projects.\nWould you like to explore official example projects in the Asset Library?"));
-			open_templates->get_ok_button()->set_text(TTR("Open Asset Library"));
+			open_templates->set_ok_button_text(TTR("Open Asset Library"));
 			open_templates->connect("confirmed", callable_mp(this, &ProjectManager::_open_asset_library));
 			add_child(open_templates);
 		}

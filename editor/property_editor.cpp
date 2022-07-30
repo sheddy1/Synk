@@ -43,7 +43,6 @@
 #include "editor/array_property_edit.h"
 #include "editor/create_dialog.h"
 #include "editor/dictionary_property_edit.h"
-#include "editor/editor_export.h"
 #include "editor/editor_file_dialog.h"
 #include "editor/editor_file_system.h"
 #include "editor/editor_help.h"
@@ -145,7 +144,7 @@ void CustomPropertyEditor::_menu_option(int p_which) {
 
 					file->clear_filters();
 					for (const String &E : valid_extensions) {
-						file->add_filter("*." + E + " ; " + E.to_upper());
+						file->add_filter("*." + E, E.to_upper());
 					}
 
 					file->popup_file_dialog();
@@ -828,17 +827,7 @@ bool CustomPropertyEditor::edit(Object *p_owner, const String &p_name, Variant::
 				value_vbox->add_child(color_picker);
 				color_picker->hide();
 				color_picker->connect("color_changed", callable_mp(this, &CustomPropertyEditor::_color_changed));
-
-				// get default color picker mode from editor settings
-				int default_color_mode = EDITOR_GET("interface/inspector/default_color_picker_mode");
-				if (default_color_mode == 1) {
-					color_picker->set_hsv_mode(true);
-				} else if (default_color_mode == 2) {
-					color_picker->set_raw_mode(true);
-				}
-
-				int picker_shape = EDITOR_GET("interface/inspector/default_color_picker_shape");
-				color_picker->set_picker_shape((ColorPicker::PickerShapeType)picker_shape);
+				color_picker->connect("show", callable_mp(EditorNode::get_singleton(), &EditorNode::setup_color_picker).bind(color_picker));
 			}
 
 			color_picker->show();
@@ -1227,7 +1216,7 @@ void CustomPropertyEditor::_action_pressed(int p_which) {
 								filter = "*." + extensions[i];
 							}
 
-							file->add_filter(filter + " ; " + extensions[i].to_upper());
+							file->add_filter(filter, extensions[i].to_upper());
 						}
 					}
 					file->popup_file_dialog();
@@ -1311,7 +1300,7 @@ void CustomPropertyEditor::_action_pressed(int p_which) {
 				ResourceLoader::get_recognized_extensions_for_type(type, &extensions);
 				file->clear_filters();
 				for (const String &E : extensions) {
-					file->add_filter("*." + E + " ; " + E.to_upper());
+					file->add_filter("*." + E, E.to_upper());
 				}
 
 				file->popup_file_dialog();
@@ -1474,7 +1463,7 @@ void CustomPropertyEditor::_modified(String p_string) {
 				v = value_editor[0]->get_text().to_int();
 				return;
 			} else {
-				v = expr->execute(Array(), nullptr, false);
+				v = expr->execute(Array(), nullptr, false, false);
 			}
 
 			if (v != prev_v) {
@@ -1650,7 +1639,7 @@ real_t CustomPropertyEditor::_parse_real_expression(String text) {
 	if (err != OK) {
 		out = value_editor[0]->get_text().to_float();
 	} else {
-		out = expr->execute(Array(), nullptr, false);
+		out = expr->execute(Array(), nullptr, false, true);
 	}
 	return out;
 }
@@ -1824,13 +1813,13 @@ CustomPropertyEditor::CustomPropertyEditor() {
 		checks20[i]->set_focus_mode(Control::FOCUS_NONE);
 		checks20gc->add_child(checks20[i]);
 		checks20[i]->hide();
-		checks20[i]->connect("pressed", callable_mp(this, &CustomPropertyEditor::_action_pressed), make_binds(i));
+		checks20[i]->connect("pressed", callable_mp(this, &CustomPropertyEditor::_action_pressed).bind(i));
 		checks20[i]->set_tooltip(vformat(TTR("Bit %d, val %d."), i, 1 << i));
 	}
 
 	text_edit = memnew(TextEdit);
 	value_vbox->add_child(text_edit);
-	text_edit->set_anchors_and_offsets_preset(Control::PRESET_WIDE, Control::PRESET_MODE_MINSIZE, 5);
+	text_edit->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT, Control::PRESET_MODE_MINSIZE, 5);
 	text_edit->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	text_edit->set_offset(SIDE_BOTTOM, -30);
 
@@ -1886,12 +1875,12 @@ CustomPropertyEditor::CustomPropertyEditor() {
 
 	spinbox = memnew(SpinBox);
 	value_vbox->add_child(spinbox);
-	spinbox->set_anchors_and_offsets_preset(Control::PRESET_WIDE, Control::PRESET_MODE_MINSIZE, 5);
+	spinbox->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT, Control::PRESET_MODE_MINSIZE, 5);
 	spinbox->connect("value_changed", callable_mp(this, &CustomPropertyEditor::_range_modified));
 
 	slider = memnew(HSlider);
 	value_vbox->add_child(slider);
-	slider->set_anchors_and_offsets_preset(Control::PRESET_WIDE, Control::PRESET_MODE_MINSIZE, 5);
+	slider->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT, Control::PRESET_MODE_MINSIZE, 5);
 	slider->connect("value_changed", callable_mp(this, &CustomPropertyEditor::_range_modified));
 
 	action_hboxes = memnew(HBoxContainer);
@@ -1901,9 +1890,7 @@ CustomPropertyEditor::CustomPropertyEditor() {
 		action_buttons[i] = memnew(Button);
 		action_buttons[i]->hide();
 		action_hboxes->add_child(action_buttons[i]);
-		Vector<Variant> binds;
-		binds.push_back(i);
-		action_buttons[i]->connect("pressed", callable_mp(this, &CustomPropertyEditor::_action_pressed), binds);
+		action_buttons[i]->connect("pressed", callable_mp(this, &CustomPropertyEditor::_action_pressed).bind(i));
 	}
 
 	create_dialog = nullptr;

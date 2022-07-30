@@ -33,8 +33,8 @@
 
 #include "core/templates/rid_owner.h"
 #include "servers/rendering/renderer_rd/shaders/canvas_sdf.glsl.gen.h"
-#include "servers/rendering/renderer_storage.h"
 #include "servers/rendering/storage/texture_storage.h"
+#include "servers/rendering/storage/utilities.h"
 
 namespace RendererRD {
 
@@ -48,10 +48,12 @@ enum DefaultRDTexture {
 	DEFAULT_RD_TEXTURE_CUBEMAP_BLACK,
 	DEFAULT_RD_TEXTURE_CUBEMAP_ARRAY_BLACK,
 	DEFAULT_RD_TEXTURE_CUBEMAP_WHITE,
+	DEFAULT_RD_TEXTURE_CUBEMAP_ARRAY_WHITE,
 	DEFAULT_RD_TEXTURE_3D_WHITE,
 	DEFAULT_RD_TEXTURE_3D_BLACK,
 	DEFAULT_RD_TEXTURE_2D_ARRAY_WHITE,
 	DEFAULT_RD_TEXTURE_2D_UINT,
+	DEFAULT_RD_TEXTURE_VRS,
 	DEFAULT_RD_TEXTURE_MAX
 };
 
@@ -189,11 +191,11 @@ struct Decal {
 	float upper_fade = 0.3;
 	float lower_fade = 0.3;
 	bool distance_fade = false;
-	float distance_fade_begin = 10;
-	float distance_fade_length = 1;
+	float distance_fade_begin = 40.0;
+	float distance_fade_length = 10.0;
 	float normal_fade = 0.0;
 
-	RendererStorage::Dependency dependency;
+	Dependency dependency;
 };
 
 struct RenderTarget {
@@ -228,6 +230,10 @@ struct RenderTarget {
 	RS::ViewportSDFOversize sdf_oversize = RS::VIEWPORT_SDF_OVERSIZE_120_PERCENT;
 	RS::ViewportSDFScale sdf_scale = RS::VIEWPORT_SDF_SCALE_50_PERCENT;
 	Size2i process_size;
+
+	// VRS
+	RS::ViewportVRSMode vrs_mode = RS::VIEWPORT_VRS_DISABLED;
+	RID vrs_texture;
 
 	//texture generated for this owner (nor RD).
 	RID texture;
@@ -549,6 +555,12 @@ public:
 	virtual void render_target_mark_sdf_enabled(RID p_render_target, bool p_enabled) override;
 	bool render_target_is_sdf_enabled(RID p_render_target) const;
 
+	virtual void render_target_set_vrs_mode(RID p_render_target, RS::ViewportVRSMode p_mode) override;
+	virtual void render_target_set_vrs_texture(RID p_render_target, RID p_texture) override;
+
+	RS::ViewportVRSMode render_target_get_vrs_mode(RID p_render_target) const;
+	RID render_target_get_vrs_texture(RID p_render_target) const;
+
 	Size2 render_target_get_size(RID p_render_target);
 	RID render_target_get_rd_framebuffer(RID p_render_target);
 	RID render_target_get_rd_texture(RID p_render_target);
@@ -564,4 +576,4 @@ public:
 
 } // namespace RendererRD
 
-#endif // !_TEXTURE_STORAGE_RD_H
+#endif // TEXTURE_STORAGE_RD_H

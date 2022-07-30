@@ -295,6 +295,11 @@ void ScriptServer::save_global_classes() {
 }
 
 ////////////////////
+
+Variant ScriptInstance::call_const(const StringName &p_method, const Variant **p_args, int p_argcount, Callable::CallError &r_error) {
+	return callp(p_method, p_args, p_argcount, r_error);
+}
+
 void ScriptInstance::get_property_state(List<Pair<StringName, Variant>> &state) {
 	List<PropertyInfo> pinfo;
 	get_property_list(&pinfo);
@@ -339,11 +344,14 @@ void ScriptLanguage::get_core_type_words(List<String> *p_core_type_words) const 
 	p_core_type_words->push_back("Vector3");
 	p_core_type_words->push_back("Vector3i");
 	p_core_type_words->push_back("Transform2D");
+	p_core_type_words->push_back("Vector4");
+	p_core_type_words->push_back("Vector4i");
 	p_core_type_words->push_back("Plane");
 	p_core_type_words->push_back("Quaternion");
 	p_core_type_words->push_back("AABB");
 	p_core_type_words->push_back("Basis");
 	p_core_type_words->push_back("Transform3D");
+	p_core_type_words->push_back("Projection");
 	p_core_type_words->push_back("Color");
 	p_core_type_words->push_back("StringName");
 	p_core_type_words->push_back("NodePath");

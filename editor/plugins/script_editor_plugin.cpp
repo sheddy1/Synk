@@ -41,6 +41,7 @@
 #include "editor/debugger/script_editor_debugger.h"
 #include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
+#include "editor/editor_paths.h"
 #include "editor/editor_run_script.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
@@ -377,7 +378,7 @@ ScriptEditorQuickOpen::ScriptEditorQuickOpen() {
 	search_box->connect("gui_input", callable_mp(this, &ScriptEditorQuickOpen::_sbox_input));
 	search_options = memnew(Tree);
 	vbc->add_margin_child(TTR("Matches:"), search_options, true);
-	get_ok_button()->set_text(TTR("Open"));
+	set_ok_button_text(TTR("Open"));
 	get_ok_button()->set_disabled(true);
 	register_text_enter(search_box);
 	set_hide_on_ok(false);
@@ -882,7 +883,7 @@ void ScriptEditor::_queue_close_tabs() {
 			// Maybe there are unsaved changes.
 			if (se->is_unsaved()) {
 				_ask_close_current_unsaved_tab(se);
-				erase_tab_confirm->connect(SceneStringNames::get_singleton()->visibility_changed, callable_mp(this, &ScriptEditor::_queue_close_tabs), varray(), CONNECT_ONESHOT);
+				erase_tab_confirm->connect(SceneStringNames::get_singleton()->visibility_changed, callable_mp(this, &ScriptEditor::_queue_close_tabs), CONNECT_ONESHOT);
 				break;
 			}
 		}
@@ -1188,7 +1189,7 @@ void ScriptEditor::_menu_option(int p_option) {
 
 			file_dialog->clear_filters();
 			for (const String &E : textfile_extensions) {
-				file_dialog->add_filter("*." + E + " ; " + E.to_upper());
+				file_dialog->add_filter("*." + E, E.to_upper());
 			}
 			file_dialog->popup_file_dialog();
 			file_dialog->set_title(TTR("New Text File..."));
@@ -1203,11 +1204,11 @@ void ScriptEditor::_menu_option(int p_option) {
 			ResourceLoader::get_recognized_extensions_for_type("Script", &extensions);
 			file_dialog->clear_filters();
 			for (int i = 0; i < extensions.size(); i++) {
-				file_dialog->add_filter("*." + extensions[i] + " ; " + extensions[i].to_upper());
+				file_dialog->add_filter("*." + extensions[i], extensions[i].to_upper());
 			}
 
 			for (const String &E : textfile_extensions) {
-				file_dialog->add_filter("*." + E + " ; " + E.to_upper());
+				file_dialog->add_filter("*." + E, E.to_upper());
 			}
 
 			file_dialog->popup_file_dialog();
@@ -1542,7 +1543,7 @@ void ScriptEditor::_show_save_theme_as_dialog() {
 	file_dialog_option = THEME_SAVE_AS;
 	file_dialog->clear_filters();
 	file_dialog->add_filter("*.tet");
-	file_dialog->set_current_path(EditorSettings::get_singleton()->get_text_editor_themes_dir().plus_file(EditorSettings::get_singleton()->get("text_editor/theme/color_theme")));
+	file_dialog->set_current_path(EditorPaths::get_singleton()->get_text_editor_themes_dir().plus_file(EditorSettings::get_singleton()->get("text_editor/theme/color_theme")));
 	file_dialog->popup_file_dialog();
 	file_dialog->set_title(TTR("Save Theme As..."));
 }
@@ -3264,7 +3265,7 @@ void ScriptEditor::get_window_layout(Ref<ConfigFile> p_layout) {
 	p_layout->set_value("ScriptEditor", "list_split_offset", list_split->get_split_offset());
 
 	// Save the cache.
-	script_editor_cache->save(EditorSettings::get_singleton()->get_project_settings_dir().plus_file("script_editor_cache.cfg"));
+	script_editor_cache->save(EditorPaths::get_singleton()->get_project_settings_dir().plus_file("script_editor_cache.cfg"));
 }
 
 void ScriptEditor::_help_class_open(const String &p_class) {
@@ -3645,7 +3646,7 @@ ScriptEditor::ScriptEditor() {
 	current_theme = "";
 
 	script_editor_cache.instantiate();
-	script_editor_cache->load(EditorSettings::get_singleton()->get_project_settings_dir().plus_file("script_editor_cache.cfg"));
+	script_editor_cache->load(EditorPaths::get_singleton()->get_project_settings_dir().plus_file("script_editor_cache.cfg"));
 
 	completion_cache = memnew(EditorScriptCodeCompletionCache);
 	restoring_layout = false;
@@ -3685,7 +3686,7 @@ ScriptEditor::ScriptEditor() {
 	script_list->set_v_size_flags(SIZE_EXPAND_FILL);
 	script_split->set_split_offset(70 * EDSCALE);
 	_sort_list_on_update = true;
-	script_list->connect("gui_input", callable_mp(this, &ScriptEditor::_script_list_gui_input), varray(), CONNECT_DEFERRED);
+	script_list->connect("gui_input", callable_mp(this, &ScriptEditor::_script_list_gui_input), CONNECT_DEFERRED);
 	script_list->set_allow_rmb_select(true);
 	script_list->set_drag_forwarding(this);
 
@@ -3853,14 +3854,14 @@ ScriptEditor::ScriptEditor() {
 	site_search = memnew(Button);
 	site_search->set_flat(true);
 	site_search->set_text(TTR("Online Docs"));
-	site_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option), varray(SEARCH_WEBSITE));
+	site_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_WEBSITE));
 	menu_hb->add_child(site_search);
 	site_search->set_tooltip(TTR("Open Godot online documentation."));
 
 	help_search = memnew(Button);
 	help_search->set_flat(true);
 	help_search->set_text(TTR("Search Help"));
-	help_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option), varray(SEARCH_HELP));
+	help_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_HELP));
 	menu_hb->add_child(help_search);
 	help_search->set_tooltip(TTR("Search the reference documentation."));
 
@@ -3883,9 +3884,9 @@ ScriptEditor::ScriptEditor() {
 	tab_container->connect("tab_changed", callable_mp(this, &ScriptEditor::_tab_changed));
 
 	erase_tab_confirm = memnew(ConfirmationDialog);
-	erase_tab_confirm->get_ok_button()->set_text(TTR("Save"));
+	erase_tab_confirm->set_ok_button_text(TTR("Save"));
 	erase_tab_confirm->add_button(TTR("Discard"), DisplayServer::get_singleton()->get_swap_cancel_ok(), "discard");
-	erase_tab_confirm->connect("confirmed", callable_mp(this, &ScriptEditor::_close_current_tab), varray(true));
+	erase_tab_confirm->connect("confirmed", callable_mp(this, &ScriptEditor::_close_current_tab).bind(true));
 	erase_tab_confirm->connect("custom_action", callable_mp(this, &ScriptEditor::_close_discard_current_tab));
 	add_child(erase_tab_confirm);
 
@@ -3916,7 +3917,7 @@ ScriptEditor::ScriptEditor() {
 		disk_changed_list->set_v_size_flags(SIZE_EXPAND_FILL);
 
 		disk_changed->connect("confirmed", callable_mp(this, &ScriptEditor::_reload_scripts));
-		disk_changed->get_ok_button()->set_text(TTR("Reload"));
+		disk_changed->set_ok_button_text(TTR("Reload"));
 
 		disk_changed->add_button(TTR("Resave"), !DisplayServer::get_singleton()->get_swap_cancel_ok(), "resave");
 		disk_changed->connect("custom_action", callable_mp(this, &ScriptEditor::_resave_scripts));
@@ -3939,8 +3940,8 @@ ScriptEditor::ScriptEditor() {
 	help_search_dialog->connect("go_to_help", callable_mp(this, &ScriptEditor::_help_class_goto));
 
 	find_in_files_dialog = memnew(FindInFilesDialog);
-	find_in_files_dialog->connect(FindInFilesDialog::SIGNAL_FIND_REQUESTED, callable_mp(this, &ScriptEditor::_start_find_in_files), varray(false));
-	find_in_files_dialog->connect(FindInFilesDialog::SIGNAL_REPLACE_REQUESTED, callable_mp(this, &ScriptEditor::_start_find_in_files), varray(true));
+	find_in_files_dialog->connect(FindInFilesDialog::SIGNAL_FIND_REQUESTED, callable_mp(this, &ScriptEditor::_start_find_in_files).bind(false));
+	find_in_files_dialog->connect(FindInFilesDialog::SIGNAL_REPLACE_REQUESTED, callable_mp(this, &ScriptEditor::_start_find_in_files).bind(true));
 	add_child(find_in_files_dialog);
 	find_in_files = memnew(FindInFilesPanel);
 	find_in_files_button = EditorNode::get_singleton()->add_bottom_panel_item(TTR("Search Results"), find_in_files);

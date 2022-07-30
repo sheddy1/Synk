@@ -35,7 +35,7 @@
 
 #include "core/io/zip_io.h"
 #include "core/os/os.h"
-#include "editor/editor_export.h"
+#include "editor/export/editor_export_platform.h"
 
 const String SPLASH_CONFIG_XML_CONTENT = R"SPLASH(<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
@@ -116,7 +116,9 @@ class EditorExportPlatformAndroid : public EditorExportPlatform {
 
 	static Error copy_gradle_so(void *p_userdata, const SharedObject &p_so);
 
-	bool _has_storage_permission(const Vector<String> &p_permissions);
+	bool _has_read_write_storage_permission(const Vector<String> &p_permissions);
+
+	bool _has_manage_external_storage_permission(const Vector<String> &p_permissions);
 
 	void _get_permissions(const Ref<EditorExportPreset> &p_preset, bool p_give_internet, Vector<String> &r_permissions);
 

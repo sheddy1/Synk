@@ -206,7 +206,7 @@ class RenderingDeviceVulkan : public RenderingDevice {
 	uint64_t staging_buffer_max_size = 0;
 	bool staging_buffer_used = false;
 
-	Error _staging_buffer_allocate(uint32_t p_amount, uint32_t p_required_align, uint32_t &r_alloc_offset, uint32_t &r_alloc_size, bool p_can_segment = true, bool p_on_draw_command_buffer = false);
+	Error _staging_buffer_allocate(uint32_t p_amount, uint32_t p_required_align, uint32_t &r_alloc_offset, uint32_t &r_alloc_size, bool p_can_segment = true);
 	Error _insert_staging_block();
 
 	struct Buffer {
@@ -241,6 +241,7 @@ class RenderingDeviceVulkan : public RenderingDevice {
 		Vector<AttachmentFormat> attachments;
 		Vector<FramebufferPass> passes;
 		uint32_t view_count = 1;
+
 		bool operator<(const FramebufferFormatKey &p_key) const {
 			if (view_count != p_key.view_count) {
 				return view_count < p_key.view_count;
@@ -544,12 +545,13 @@ class RenderingDeviceVulkan : public RenderingDevice {
 
 	struct UniformInfo {
 		UniformType type = UniformType::UNIFORM_TYPE_MAX;
+		bool writable = false;
 		int binding = 0;
 		uint32_t stages = 0;
 		int length = 0; //size of arrays (in total elements), or ubos (in bytes * total elements)
 
 		bool operator!=(const UniformInfo &p_info) const {
-			return (binding != p_info.binding || type != p_info.type || stages != p_info.stages || length != p_info.length);
+			return (binding != p_info.binding || type != p_info.type || writable != p_info.writable || stages != p_info.stages || length != p_info.length);
 		}
 
 		bool operator<(const UniformInfo &p_info) const {
@@ -558,6 +560,9 @@ class RenderingDeviceVulkan : public RenderingDevice {
 			}
 			if (type != p_info.type) {
 				return type < p_info.type;
+			}
+			if (writable != p_info.writable) {
+				return writable < p_info.writable;
 			}
 			if (stages != p_info.stages) {
 				return stages < p_info.stages;
@@ -633,7 +638,6 @@ class RenderingDeviceVulkan : public RenderingDevice {
 		};
 
 		bool is_compute = false;
-		int max_output = 0;
 		Vector<Set> sets;
 		Vector<uint32_t> set_formats;
 		Vector<VkPipelineShaderStageCreateInfo> pipeline_stages;
@@ -866,11 +870,9 @@ class RenderingDeviceVulkan : public RenderingDevice {
 			uint32_t pipeline_dynamic_state = 0;
 			VertexFormatID pipeline_vertex_format = INVALID_ID;
 			RID pipeline_shader;
-			uint32_t invalid_set_from = 0;
 			bool pipeline_uses_restart_indices = false;
 			uint32_t pipeline_primitive_divisor = 0;
 			uint32_t pipeline_primitive_minimum = 0;
-			Vector<uint32_t> pipeline_set_formats;
 			uint32_t pipeline_push_constant_size = 0;
 			bool pipeline_push_constant_supplied = false;
 		} validation;
@@ -944,7 +946,6 @@ class RenderingDeviceVulkan : public RenderingDevice {
 			bool pipeline_active = false;
 			RID pipeline_shader;
 			uint32_t invalid_set_from = 0;
-			Vector<uint32_t> pipeline_set_formats;
 			uint32_t pipeline_push_constant_size = 0;
 			bool pipeline_push_constant_supplied = false;
 		} validation;
@@ -994,19 +995,19 @@ class RenderingDeviceVulkan : public RenderingDevice {
 
 		VkQueryPool timestamp_pool;
 
-		String *timestamp_names = nullptr;
-		uint64_t *timestamp_cpu_values = nullptr;
+		TightLocalVector<String> timestamp_names;
+		TightLocalVector<uint64_t> timestamp_cpu_values;
 		uint32_t timestamp_count = 0;
-		String *timestamp_result_names = nullptr;
-		uint64_t *timestamp_cpu_result_values = nullptr;
-		uint64_t *timestamp_result_values = nullptr;
+		TightLocalVector<String> timestamp_result_names;
+		TightLocalVector<uint64_t> timestamp_cpu_result_values;
+		TightLocalVector<uint64_t> timestamp_result_values;
 		uint32_t timestamp_result_count = 0;
 		uint64_t index = 0;
 	};
 
 	uint32_t max_timestamp_query_elements = 0;
 
-	Frame *frames = nullptr; //frames available, for main device they are cycled (usually 3), for local devices only 1
+	TightLocalVector<Frame> frames; //frames available, for main device they are cycled (usually 3), for local devices only 1
 	int frame = 0; //current frame
 	int frame_count = 0; //total amount of frames
 	uint64_t frames_drawn = 0;
@@ -1203,7 +1204,7 @@ public:
 	/**** Limits ****/
 	/****************/
 
-	virtual uint64_t limit_get(Limit p_limit);
+	virtual uint64_t limit_get(Limit p_limit) const;
 
 	virtual void prepare_screen_for_drawing();
 	void initialize(VulkanContext *p_context, bool p_local_device = false);
@@ -1233,6 +1234,8 @@ public:
 	virtual String get_device_pipeline_cache_uuid() const;
 
 	virtual uint64_t get_driver_resource(DriverResource p_resource, RID p_rid = RID(), uint64_t p_index = 0);
+
+	virtual bool has_feature(const Features p_feature) const;
 
 	RenderingDeviceVulkan();
 	~RenderingDeviceVulkan();

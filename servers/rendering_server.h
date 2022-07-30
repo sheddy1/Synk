@@ -35,11 +35,11 @@
 #include "core/math/geometry_3d.h"
 #include "core/math/transform_2d.h"
 #include "core/object/class_db.h"
+#include "core/object/worker_thread_pool.h"
 #include "core/templates/rid.h"
 #include "core/variant/typed_array.h"
 #include "core/variant/variant.h"
 #include "servers/display_server.h"
-#include "servers/rendering/renderer_thread_pool.h"
 #include "servers/rendering/rendering_device.h"
 
 class RenderingServer : public Object {
@@ -51,8 +51,6 @@ class RenderingServer : public Object {
 	bool render_loop_enabled = true;
 
 	Array _get_array_from_surface(uint32_t p_format, Vector<uint8_t> p_vertex_data, Vector<uint8_t> p_attrib_data, Vector<uint8_t> p_skin_data, int p_vertex_len, Vector<uint8_t> p_index_data, int p_index_len) const;
-
-	RendererThreadPool *thread_pool = nullptr;
 
 	const Vector2 SMALL_VEC2 = Vector2(CMP_EPSILON, CMP_EPSILON);
 	const Vector3 SMALL_VEC3 = Vector3(CMP_EPSILON, CMP_EPSILON, CMP_EPSILON);
@@ -170,6 +168,7 @@ public:
 	virtual RID shader_create() = 0;
 
 	virtual void shader_set_code(RID p_shader, const String &p_code) = 0;
+	virtual void shader_set_path_hint(RID p_shader, const String &p_path) = 0;
 	virtual String shader_get_code(RID p_shader) const = 0;
 	virtual void shader_get_param_list(RID p_shader, List<PropertyInfo> *p_param_list) const = 0;
 	virtual Variant shader_get_param_default(RID p_shader, const StringName &p_param) const = 0;
@@ -491,8 +490,8 @@ public:
 		SHADOW_QUALITY_MAX
 	};
 
-	virtual void shadows_quality_set(ShadowQuality p_quality) = 0;
-	virtual void directional_shadow_quality_set(ShadowQuality p_quality) = 0;
+	virtual void positional_soft_shadow_filter_set_quality(ShadowQuality p_quality) = 0;
+	virtual void directional_soft_shadow_filter_set_quality(ShadowQuality p_quality) = 0;
 
 	enum LightProjectorFilter {
 		LIGHT_PROJECTOR_FILTER_NEAREST,
@@ -798,7 +797,7 @@ public:
 	virtual void viewport_set_scaling_3d_mode(RID p_viewport, ViewportScaling3DMode p_scaling_3d_mode) = 0;
 	virtual void viewport_set_scaling_3d_scale(RID p_viewport, float p_scaling_3d_scale) = 0;
 	virtual void viewport_set_fsr_sharpness(RID p_viewport, float p_fsr_sharpness) = 0;
-	virtual void viewport_set_fsr_mipmap_bias(RID p_viewport, float p_fsr_mipmap_bias) = 0;
+	virtual void viewport_set_texture_mipmap_bias(RID p_viewport, float p_texture_mipmap_bias) = 0;
 
 	enum ViewportUpdateMode {
 		VIEWPORT_UPDATE_DISABLED,
@@ -856,8 +855,8 @@ public:
 
 	virtual void viewport_set_sdf_oversize_and_scale(RID p_viewport, ViewportSDFOversize p_oversize, ViewportSDFScale p_scale) = 0;
 
-	virtual void viewport_set_shadow_atlas_size(RID p_viewport, int p_size, bool p_16_bits = true) = 0;
-	virtual void viewport_set_shadow_atlas_quadrant_subdivision(RID p_viewport, int p_quadrant, int p_subdiv) = 0;
+	virtual void viewport_set_positional_shadow_atlas_size(RID p_viewport, int p_size, bool p_16_bits = true) = 0;
+	virtual void viewport_set_positional_shadow_atlas_quadrant_subdivision(RID p_viewport, int p_quadrant, int p_subdiv) = 0;
 
 	enum ViewportMSAA {
 		VIEWPORT_MSAA_DISABLED,
@@ -945,6 +944,16 @@ public:
 	virtual double viewport_get_measured_render_time_gpu(RID p_viewport) const = 0;
 
 	virtual RID viewport_find_from_screen_attachment(DisplayServer::WindowID p_id = DisplayServer::MAIN_WINDOW_ID) const = 0;
+
+	enum ViewportVRSMode {
+		VIEWPORT_VRS_DISABLED,
+		VIEWPORT_VRS_TEXTURE,
+		VIEWPORT_VRS_XR,
+		VIEWPORT_VRS_MAX,
+	};
+
+	virtual void viewport_set_vrs_mode(RID p_viewport, ViewportVRSMode p_mode) = 0;
+	virtual void viewport_set_vrs_texture(RID p_viewport, RID p_texture) = 0;
 
 	/* SKY API */
 
@@ -1416,9 +1425,9 @@ public:
 
 	virtual void canvas_set_shadow_texture_size(int p_size) = 0;
 
-	/* GLOBAL VARIABLES */
+	/* GLOBAL SHADER UNIFORMS */
 
-	enum GlobalVariableType {
+	enum GlobalShaderUniformType {
 		GLOBAL_VAR_TYPE_BOOL,
 		GLOBAL_VAR_TYPE_BVEC2,
 		GLOBAL_VAR_TYPE_BVEC3,
@@ -1450,20 +1459,20 @@ public:
 		GLOBAL_VAR_TYPE_MAX
 	};
 
-	virtual void global_variable_add(const StringName &p_name, GlobalVariableType p_type, const Variant &p_value) = 0;
-	virtual void global_variable_remove(const StringName &p_name) = 0;
-	virtual Vector<StringName> global_variable_get_list() const = 0;
+	virtual void global_shader_uniform_add(const StringName &p_name, GlobalShaderUniformType p_type, const Variant &p_value) = 0;
+	virtual void global_shader_uniform_remove(const StringName &p_name) = 0;
+	virtual Vector<StringName> global_shader_uniform_get_list() const = 0;
 
-	virtual void global_variable_set(const StringName &p_name, const Variant &p_value) = 0;
-	virtual void global_variable_set_override(const StringName &p_name, const Variant &p_value) = 0;
+	virtual void global_shader_uniform_set(const StringName &p_name, const Variant &p_value) = 0;
+	virtual void global_shader_uniform_set_override(const StringName &p_name, const Variant &p_value) = 0;
 
-	virtual Variant global_variable_get(const StringName &p_name) const = 0;
-	virtual GlobalVariableType global_variable_get_type(const StringName &p_name) const = 0;
+	virtual Variant global_shader_uniform_get(const StringName &p_name) const = 0;
+	virtual GlobalShaderUniformType global_shader_uniform_get_type(const StringName &p_name) const = 0;
 
-	virtual void global_variables_load_settings(bool p_load_textures) = 0;
-	virtual void global_variables_clear() = 0;
+	virtual void global_shader_uniforms_load_settings(bool p_load_textures) = 0;
+	virtual void global_shader_uniforms_clear() = 0;
 
-	static int global_variable_type_get_shader_datatype(GlobalVariableType p_type);
+	static int global_shader_uniform_type_get_shader_datatype(GlobalShaderUniformType p_type);
 
 	/* FREE */
 
@@ -1609,6 +1618,7 @@ VARIANT_ENUM_CAST(RenderingServer::ViewportDebugDraw);
 VARIANT_ENUM_CAST(RenderingServer::ViewportOcclusionCullingBuildQuality);
 VARIANT_ENUM_CAST(RenderingServer::ViewportSDFOversize);
 VARIANT_ENUM_CAST(RenderingServer::ViewportSDFScale);
+VARIANT_ENUM_CAST(RenderingServer::ViewportVRSMode);
 VARIANT_ENUM_CAST(RenderingServer::SkyMode);
 VARIANT_ENUM_CAST(RenderingServer::EnvironmentBG);
 VARIANT_ENUM_CAST(RenderingServer::EnvironmentAmbientSource);
@@ -1638,7 +1648,7 @@ VARIANT_ENUM_CAST(RenderingServer::CanvasLightMode);
 VARIANT_ENUM_CAST(RenderingServer::CanvasLightBlendMode);
 VARIANT_ENUM_CAST(RenderingServer::CanvasLightShadowFilter);
 VARIANT_ENUM_CAST(RenderingServer::CanvasOccluderPolygonCullMode);
-VARIANT_ENUM_CAST(RenderingServer::GlobalVariableType);
+VARIANT_ENUM_CAST(RenderingServer::GlobalShaderUniformType);
 VARIANT_ENUM_CAST(RenderingServer::RenderingInfo);
 VARIANT_ENUM_CAST(RenderingServer::Features);
 VARIANT_ENUM_CAST(RenderingServer::CanvasTextureChannel);

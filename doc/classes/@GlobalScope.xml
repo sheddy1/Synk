@@ -106,6 +106,17 @@
 				[/codeblock]
 			</description>
 		</method>
+		<method name="bezier_interpolate">
+			<return type="float" />
+			<argument index="0" name="start" type="float" />
+			<argument index="1" name="control_1" type="float" />
+			<argument index="2" name="control_2" type="float" />
+			<argument index="3" name="end" type="float" />
+			<argument index="4" name="t" type="float" />
+			<description>
+				Returns the point at the given [code]t[/code] on a one-dimnesional [url=https://en.wikipedia.org/wiki/B%C3%A9zier_curve]Bezier curve[/url] defined by the given [code]control_1[/code], [code]control_2[/code], and [code]end[/code] points.
+			</description>
+		</method>
 		<method name="bytes2var">
 			<return type="Variant" />
 			<argument index="0" name="bytes" type="PackedByteArray" />
@@ -646,6 +657,16 @@
 				[b]Note:[/b] Consider using [method push_error] and [method push_warning] to print error and warning messages instead of [method print]. This distinguishes them from print messages used for debugging purposes, while also displaying a stack trace when an error or warning is printed.
 			</description>
 		</method>
+		<method name="print_rich" qualifiers="vararg">
+			<description>
+				Converts one or more arguments of any type to string in the best way possible and prints them to the console. The following BBCode tags are supported: b, i, u, s, indent, code, url, center, right, color, bgcolor, fgcolor. Color tags only support named colors such as [code]red[/code], [i]not[/i] hexadecimal color codes. Unsupported tags will be left as-is in standard output.
+				When printing to standard output, the supported subset of BBCode is converted to ANSI escape codes for the terminal emulator to display. Displaying ANSI escape codes is currently only supported on Linux and macOS. Support for ANSI escape codes may vary across terminal emulators, especially for italic and strikethrough.
+				[codeblock]
+				print_rich("[code][b]Hello world![/b][/code]") # Prints out: [b]Hello world![/b]
+				[/codeblock]
+				[b]Note:[/b] Consider using [method push_error] and [method push_warning] to print error and warning messages instead of [method print] or [method print_rich]. This distinguishes them from print messages used for debugging purposes, while also displaying a stack trace when an error or warning is printed.
+			</description>
+		</method>
 		<method name="print_verbose" qualifiers="vararg">
 			<description>
 				If verbose mode is enabled ([method OS.is_stdout_verbose] returning [code]true[/code]), converts one or more arguments of any type to string in the best way possible and prints them to the console.
@@ -1040,6 +1061,27 @@
 				A weak reference to an object is not enough to keep the object alive: when the only remaining references to a referent are weak references, garbage collection is free to destroy the referent and reuse its memory for something else. However, until the object is actually destroyed the weak reference may return the object even if there are no strong references to it.
 			</description>
 		</method>
+		<method name="wrap">
+			<return type="Variant" />
+			<argument index="0" name="value" type="Variant" />
+			<argument index="1" name="min" type="Variant" />
+			<argument index="2" name="max" type="Variant" />
+			<description>
+				Wraps the [Variant] [code]value[/code] between [code]min[/code] and [code]max[/code].
+				Usable for creating loop-alike behavior or infinite surfaces.
+				Variant types [int] and [float] (real) are supported. If any of the argument is [float] the result will be [float], otherwise it is [int].
+				[codeblock]
+				var a = wrap(4, 5, 10)
+				# a is 9 (int)
+
+				var a = wrap(7, 5, 10)
+				# a is 7 (int)
+
+				var a = wrap(10.5, 5, 10)
+				# a is 5.5 (float)
+				[/codeblock]
+			</description>
+		</method>
 		<method name="wrapf">
 			<return type="float" />
 			<argument index="0" name="value" type="float" />
@@ -1179,6 +1221,8 @@
 		</member>
 		<member name="VisualScriptCustomNodes" type="VisualScriptCustomNodes" setter="" getter="">
 			The [VisualScriptCustomNodes] singleton.
+		</member>
+		<member name="WorkerThreadPool" type="WorkerThreadPool" setter="" getter="">
 		</member>
 		<member name="XRServer" type="XRServer" setter="" getter="">
 			The [XRServer] singleton.
@@ -2473,69 +2517,66 @@
 		<constant name="PROPERTY_HINT_EXP_EASING" value="4" enum="PropertyHint">
 			Hints that a float property should be edited via an exponential easing function. The hint string can include [code]"attenuation"[/code] to flip the curve horizontally and/or [code]"inout"[/code] to also include in/out easing.
 		</constant>
-		<constant name="PROPERTY_HINT_LENGTH" value="5" enum="PropertyHint">
-			Deprecated hint, unused.
-		</constant>
-		<constant name="PROPERTY_HINT_LINK" value="6" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LINK" value="5" enum="PropertyHint">
 			Hints that a vector property should allow linking values (e.g. to edit both [code]x[/code] and [code]y[/code] together).
 		</constant>
-		<constant name="PROPERTY_HINT_KEY_ACCEL" value="7" enum="PropertyHint">
-			Deprecated hint, unused.
-		</constant>
-		<constant name="PROPERTY_HINT_FLAGS" value="8" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_FLAGS" value="6" enum="PropertyHint">
 			Hints that an integer property is a bitmask with named bit flags. For example, to allow toggling bits 0, 1, 2 and 4, the hint could be something like [code]"Bit0,Bit1,Bit2,,Bit4"[/code].
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_2D_RENDER" value="9" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_2D_RENDER" value="7" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 2D render layers.
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_2D_PHYSICS" value="10" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_2D_PHYSICS" value="8" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 2D physics layers.
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_2D_NAVIGATION" value="11" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_2D_NAVIGATION" value="9" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 2D navigation layers.
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_3D_RENDER" value="12" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_3D_RENDER" value="10" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 3D render layers.
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_3D_PHYSICS" value="13" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_3D_PHYSICS" value="11" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 3D physics layers.
 		</constant>
-		<constant name="PROPERTY_HINT_LAYERS_3D_NAVIGATION" value="14" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LAYERS_3D_NAVIGATION" value="12" enum="PropertyHint">
 			Hints that an integer property is a bitmask using the optionally named 3D navigation layers.
 		</constant>
-		<constant name="PROPERTY_HINT_FILE" value="15" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_FILE" value="13" enum="PropertyHint">
 			Hints that a string property is a path to a file. Editing it will show a file dialog for picking the path. The hint string can be a set of filters with wildcards like [code]"*.png,*.jpg"[/code].
 		</constant>
-		<constant name="PROPERTY_HINT_DIR" value="16" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_DIR" value="14" enum="PropertyHint">
 			Hints that a string property is a path to a directory. Editing it will show a file dialog for picking the path.
 		</constant>
-		<constant name="PROPERTY_HINT_GLOBAL_FILE" value="17" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_GLOBAL_FILE" value="15" enum="PropertyHint">
 			Hints that a string property is an absolute path to a file outside the project folder. Editing it will show a file dialog for picking the path. The hint string can be a set of filters with wildcards like [code]"*.png,*.jpg"[/code].
 		</constant>
-		<constant name="PROPERTY_HINT_GLOBAL_DIR" value="18" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_GLOBAL_DIR" value="16" enum="PropertyHint">
 			Hints that a string property is an absolute path to a directory outside the project folder. Editing it will show a file dialog for picking the path.
 		</constant>
-		<constant name="PROPERTY_HINT_RESOURCE_TYPE" value="19" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_RESOURCE_TYPE" value="17" enum="PropertyHint">
 			Hints that a property is an instance of a [Resource]-derived type, optionally specified via the hint string (e.g. [code]"Texture2D"[/code]). Editing it will show a popup menu of valid resource types to instantiate.
 		</constant>
-		<constant name="PROPERTY_HINT_MULTILINE_TEXT" value="20" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_MULTILINE_TEXT" value="18" enum="PropertyHint">
 			Hints that a string property is text with line breaks. Editing it will show a text input field where line breaks can be typed.
 		</constant>
-		<constant name="PROPERTY_HINT_PLACEHOLDER_TEXT" value="21" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_EXPRESSION" value="19" enum="PropertyHint">
+			Hints that a string property is an [Expression].
+		</constant>
+		<constant name="PROPERTY_HINT_PLACEHOLDER_TEXT" value="20" enum="PropertyHint">
 			Hints that a string property should have a placeholder text visible on its input field, whenever the property is empty. The hint string is the placeholder text to use.
 		</constant>
-		<constant name="PROPERTY_HINT_COLOR_NO_ALPHA" value="22" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_COLOR_NO_ALPHA" value="21" enum="PropertyHint">
 			Hints that a color property should be edited without changing its alpha component, i.e. only R, G and B channels are edited.
 		</constant>
-		<constant name="PROPERTY_HINT_IMAGE_COMPRESS_LOSSY" value="23" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_IMAGE_COMPRESS_LOSSY" value="22" enum="PropertyHint">
 			Hints that an image is compressed using lossy compression.
 		</constant>
-		<constant name="PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS" value="24" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_IMAGE_COMPRESS_LOSSLESS" value="23" enum="PropertyHint">
 			Hints that an image is compressed using lossless compression.
 		</constant>
-		<constant name="PROPERTY_HINT_OBJECT_ID" value="25" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_OBJECT_ID" value="24" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_TYPE_STRING" value="26" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_TYPE_STRING" value="25" enum="PropertyHint">
 			Hint that a property represents a particular type. If a property is [constant TYPE_STRING], allows to set a type from the create dialog. If you need to create an [Array] to contain elements of a specific type, the [code]hint_string[/code] must encode nested types using [code]":"[/code] and [code]"/"[/code] for specifying [Resource] types. For instance:
 			[codeblock]
 			hint_string = "%s:" % [TYPE_INT] # Array of inteters.
@@ -2545,128 +2586,124 @@
 			[/codeblock]
 			[b]Note:[/b] The final colon is required to specify for properly detecting built-in types.
 		</constant>
-		<constant name="PROPERTY_HINT_NODE_PATH_TO_EDITED_NODE" value="27" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_NODE_PATH_TO_EDITED_NODE" value="26" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_METHOD_OF_VARIANT_TYPE" value="28" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_METHOD_OF_VARIANT_TYPE" value="27" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_METHOD_OF_BASE_TYPE" value="29" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_METHOD_OF_BASE_TYPE" value="28" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_METHOD_OF_INSTANCE" value="30" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_METHOD_OF_INSTANCE" value="29" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_METHOD_OF_SCRIPT" value="31" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_METHOD_OF_SCRIPT" value="30" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_PROPERTY_OF_VARIANT_TYPE" value="32" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_PROPERTY_OF_VARIANT_TYPE" value="31" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_PROPERTY_OF_BASE_TYPE" value="33" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_PROPERTY_OF_BASE_TYPE" value="32" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_PROPERTY_OF_INSTANCE" value="34" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_PROPERTY_OF_INSTANCE" value="33" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_PROPERTY_OF_SCRIPT" value="35" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_PROPERTY_OF_SCRIPT" value="34" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_OBJECT_TOO_BIG" value="36" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_OBJECT_TOO_BIG" value="35" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_NODE_PATH_VALID_TYPES" value="37" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_NODE_PATH_VALID_TYPES" value="36" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_SAVE_FILE" value="38" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_SAVE_FILE" value="37" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_GLOBAL_SAVE_FILE" value="39" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_GLOBAL_SAVE_FILE" value="38" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_INT_IS_OBJECTID" value="40" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_INT_IS_OBJECTID" value="39" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_INT_IS_POINTER" value="42" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_INT_IS_POINTER" value="41" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_ARRAY_TYPE" value="41" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_ARRAY_TYPE" value="40" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_LOCALE_ID" value="43" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LOCALE_ID" value="42" enum="PropertyHint">
 			Hints that a string property is a locale code. Editing it will show a locale dialog for picking language and country.
 		</constant>
-		<constant name="PROPERTY_HINT_LOCALIZABLE_STRING" value="44" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_LOCALIZABLE_STRING" value="43" enum="PropertyHint">
 			Hints that a dictionary property is string translation map. Dictionary keys are locale codes and, values are translated strings.
 		</constant>
-		<constant name="PROPERTY_HINT_NODE_TYPE" value="45" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_NODE_TYPE" value="44" enum="PropertyHint">
 		</constant>
-		<constant name="PROPERTY_HINT_MAX" value="46" enum="PropertyHint">
+		<constant name="PROPERTY_HINT_MAX" value="45" enum="PropertyHint">
 		</constant>
 		<constant name="PROPERTY_USAGE_NONE" value="0" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_STORAGE" value="1" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_STORAGE" value="2" enum="PropertyUsageFlags">
 			The property is serialized and saved in the scene file (default).
 		</constant>
-		<constant name="PROPERTY_USAGE_EDITOR" value="2" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_EDITOR" value="4" enum="PropertyUsageFlags">
 			The property is shown in the editor inspector (default).
 		</constant>
-		<constant name="PROPERTY_USAGE_NETWORK" value="4" enum="PropertyUsageFlags">
-			Deprecated usage flag, unused.
-		</constant>
-		<constant name="PROPERTY_USAGE_EDITOR_HELPER" value="8" enum="PropertyUsageFlags">
-			Deprecated usage flag, unused.
-		</constant>
-		<constant name="PROPERTY_USAGE_CHECKABLE" value="16" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_CHECKABLE" value="8" enum="PropertyUsageFlags">
 			The property can be checked in the editor inspector.
 		</constant>
-		<constant name="PROPERTY_USAGE_CHECKED" value="32" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_CHECKED" value="16" enum="PropertyUsageFlags">
 			The property is checked in the editor inspector.
 		</constant>
-		<constant name="PROPERTY_USAGE_INTERNATIONALIZED" value="64" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_INTERNATIONALIZED" value="32" enum="PropertyUsageFlags">
 			The property is a translatable string.
 		</constant>
-		<constant name="PROPERTY_USAGE_GROUP" value="128" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_GROUP" value="64" enum="PropertyUsageFlags">
 			Used to group properties together in the editor. See [EditorInspector].
 		</constant>
-		<constant name="PROPERTY_USAGE_CATEGORY" value="256" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_CATEGORY" value="128" enum="PropertyUsageFlags">
 			Used to categorize properties together in the editor.
 		</constant>
-		<constant name="PROPERTY_USAGE_SUBGROUP" value="512" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_SUBGROUP" value="256" enum="PropertyUsageFlags">
 			Used to group properties together in the editor in a subgroup (under a group). See [EditorInspector].
 		</constant>
-		<constant name="PROPERTY_USAGE_NO_INSTANCE_STATE" value="2048" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_CLASS_IS_BITFIELD" value="512" enum="PropertyUsageFlags">
+		</constant>
+		<constant name="PROPERTY_USAGE_NO_INSTANCE_STATE" value="1024" enum="PropertyUsageFlags">
 			The property does not save its state in [PackedScene].
 		</constant>
-		<constant name="PROPERTY_USAGE_RESTART_IF_CHANGED" value="4096" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_RESTART_IF_CHANGED" value="2048" enum="PropertyUsageFlags">
 			Editing the property prompts the user for restarting the editor.
 		</constant>
-		<constant name="PROPERTY_USAGE_SCRIPT_VARIABLE" value="8192" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_SCRIPT_VARIABLE" value="4096" enum="PropertyUsageFlags">
 			The property is a script variable which should be serialized and saved in the scene file.
 		</constant>
-		<constant name="PROPERTY_USAGE_STORE_IF_NULL" value="16384" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_STORE_IF_NULL" value="8192" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_ANIMATE_AS_TRIGGER" value="32768" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_ANIMATE_AS_TRIGGER" value="16384" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED" value="65536" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_UPDATE_ALL_IF_MODIFIED" value="32768" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE" value="131072" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE" value="65536" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_CLASS_IS_ENUM" value="262144" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_CLASS_IS_ENUM" value="131072" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_NIL_IS_VARIANT" value="524288" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_NIL_IS_VARIANT" value="262144" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_INTERNAL" value="1048576" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_INTERNAL" value="524288" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_DO_NOT_SHARE_ON_DUPLICATE" value="2097152" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_DO_NOT_SHARE_ON_DUPLICATE" value="1048576" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_HIGH_END_GFX" value="4194304" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_HIGH_END_GFX" value="2097152" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_NODE_PATH_FROM_SCENE_ROOT" value="8388608" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_NODE_PATH_FROM_SCENE_ROOT" value="4194304" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_RESOURCE_NOT_PERSISTENT" value="16777216" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_RESOURCE_NOT_PERSISTENT" value="8388608" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_KEYING_INCREMENTS" value="33554432" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_KEYING_INCREMENTS" value="16777216" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_DEFERRED_SET_RESOURCE" value="67108864" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_DEFERRED_SET_RESOURCE" value="33554432" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT" value="134217728" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_EDITOR_INSTANTIATE_OBJECT" value="67108864" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_EDITOR_BASIC_SETTING" value="268435456" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_EDITOR_BASIC_SETTING" value="134217728" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_ARRAY" value="1073741824" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_ARRAY" value="536870912" enum="PropertyUsageFlags">
 		</constant>
-		<constant name="PROPERTY_USAGE_DEFAULT" value="7" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_DEFAULT" value="6" enum="PropertyUsageFlags">
 			Default usage (storage, editor and network).
 		</constant>
-		<constant name="PROPERTY_USAGE_DEFAULT_INTL" value="71" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_DEFAULT_INTL" value="38" enum="PropertyUsageFlags">
 			Default usage for translatable strings (storage, editor, network and internationalized).
 		</constant>
-		<constant name="PROPERTY_USAGE_NO_EDITOR" value="5" enum="PropertyUsageFlags">
+		<constant name="PROPERTY_USAGE_NO_EDITOR" value="2" enum="PropertyUsageFlags">
 			Default usage but without showing the property in the editor (storage, network).
 		</constant>
 		<constant name="METHOD_FLAG_NORMAL" value="1" enum="MethodFlags">
@@ -2675,48 +2712,21 @@
 		<constant name="METHOD_FLAG_EDITOR" value="2" enum="MethodFlags">
 			Flag for an editor method.
 		</constant>
-		<constant name="METHOD_FLAG_NOSCRIPT" value="4" enum="MethodFlags">
-			Deprecated method flag, unused.
-		</constant>
-		<constant name="METHOD_FLAG_CONST" value="8" enum="MethodFlags">
+		<constant name="METHOD_FLAG_CONST" value="4" enum="MethodFlags">
 			Flag for a constant method.
 		</constant>
-		<constant name="METHOD_FLAG_REVERSE" value="16" enum="MethodFlags">
-			Deprecated method flag, unused.
-		</constant>
-		<constant name="METHOD_FLAG_VIRTUAL" value="32" enum="MethodFlags">
+		<constant name="METHOD_FLAG_VIRTUAL" value="8" enum="MethodFlags">
 			Flag for a virtual method.
 		</constant>
-		<constant name="METHOD_FLAG_FROM_SCRIPT" value="64" enum="MethodFlags">
-			Deprecated method flag, unused.
+		<constant name="METHOD_FLAG_VARARG" value="16" enum="MethodFlags">
 		</constant>
-		<constant name="METHOD_FLAG_VARARG" value="128" enum="MethodFlags">
+		<constant name="METHOD_FLAG_STATIC" value="32" enum="MethodFlags">
 		</constant>
-		<constant name="METHOD_FLAG_STATIC" value="256" enum="MethodFlags">
-		</constant>
-		<constant name="METHOD_FLAG_OBJECT_CORE" value="512" enum="MethodFlags">
+		<constant name="METHOD_FLAG_OBJECT_CORE" value="64" enum="MethodFlags">
 			Used internally. Allows to not dump core virtuals such as [code]_notification[/code] to the JSON API.
 		</constant>
 		<constant name="METHOD_FLAGS_DEFAULT" value="1" enum="MethodFlags">
 			Default method flags.
-		</constant>
-		<constant name="RPC_MODE_DISABLED" value="0" enum="RPCMode">
-			Used with [method Node.rpc_config] to disable a method or property for all RPC calls, making it unavailable. Default for all methods.
-		</constant>
-		<constant name="RPC_MODE_ANY_PEER" value="1" enum="RPCMode">
-			Used with [method Node.rpc_config] to set a method to be callable remotely by any peer. Analogous to the [code]@rpc(any)[/code] annotation. Calls are accepted from all remote peers, no matter if they are node's authority or not.
-		</constant>
-		<constant name="RPC_MODE_AUTHORITY" value="2" enum="RPCMode">
-			Used with [method Node.rpc_config] to set a method to be callable remotely only by the current multiplayer authority (which is the server by default). Analogous to the [code]@rpc(authority)[/code] annotation. See [method Node.set_multiplayer_authority].
-		</constant>
-		<constant name="TRANSFER_MODE_UNRELIABLE" value="0" enum="TransferMode">
-			Packets are not acknowledged, no resend attempts are made for lost packets. Packets may arrive in any order. Potentially faster than [constant TRANSFER_MODE_UNRELIABLE_ORDERED]. Use for non-critical data, and always consider whether the order matters.
-		</constant>
-		<constant name="TRANSFER_MODE_UNRELIABLE_ORDERED" value="1" enum="TransferMode">
-			Packets are not acknowledged, no resend attempts are made for lost packets. Packets are received in the order they were sent in. Potentially faster than [constant TRANSFER_MODE_RELIABLE]. Use for non-critical data or data that would be outdated if received late due to resend attempt(s) anyway, for example movement and positional data.
-		</constant>
-		<constant name="TRANSFER_MODE_RELIABLE" value="2" enum="TransferMode">
-			Packets must be received and resend attempts should be made until the packets are acknowledged. Packets must be received in the order they were sent in. Most reliable transfer mode, but potentially the slowest due to the overhead. Use for critical data that must be transmitted and arrive in order, for example an ability being triggered or a chat message. Consider carefully if the information really is critical, and use sparingly.
 		</constant>
 		<constant name="TYPE_NIL" value="0" enum="Variant.Type">
 			Variable is [code]null[/code].
@@ -2754,76 +2764,82 @@
 		<constant name="TYPE_TRANSFORM2D" value="11" enum="Variant.Type">
 			Variable is of type [Transform2D].
 		</constant>
-		<constant name="TYPE_PLANE" value="12" enum="Variant.Type">
+		<constant name="TYPE_VECTOR4" value="12" enum="Variant.Type">
+		</constant>
+		<constant name="TYPE_VECTOR4I" value="13" enum="Variant.Type">
+		</constant>
+		<constant name="TYPE_PLANE" value="14" enum="Variant.Type">
 			Variable is of type [Plane].
 		</constant>
-		<constant name="TYPE_QUATERNION" value="13" enum="Variant.Type">
+		<constant name="TYPE_QUATERNION" value="15" enum="Variant.Type">
 			Variable is of type [Quaternion].
 		</constant>
-		<constant name="TYPE_AABB" value="14" enum="Variant.Type">
+		<constant name="TYPE_AABB" value="16" enum="Variant.Type">
 			Variable is of type [AABB].
 		</constant>
-		<constant name="TYPE_BASIS" value="15" enum="Variant.Type">
+		<constant name="TYPE_BASIS" value="17" enum="Variant.Type">
 			Variable is of type [Basis].
 		</constant>
-		<constant name="TYPE_TRANSFORM3D" value="16" enum="Variant.Type">
+		<constant name="TYPE_TRANSFORM3D" value="18" enum="Variant.Type">
 			Variable is of type [Transform3D].
 		</constant>
-		<constant name="TYPE_COLOR" value="17" enum="Variant.Type">
+		<constant name="TYPE_PROJECTION" value="19" enum="Variant.Type">
+		</constant>
+		<constant name="TYPE_COLOR" value="20" enum="Variant.Type">
 			Variable is of type [Color].
 		</constant>
-		<constant name="TYPE_STRING_NAME" value="18" enum="Variant.Type">
+		<constant name="TYPE_STRING_NAME" value="21" enum="Variant.Type">
 			Variable is of type [StringName].
 		</constant>
-		<constant name="TYPE_NODE_PATH" value="19" enum="Variant.Type">
+		<constant name="TYPE_NODE_PATH" value="22" enum="Variant.Type">
 			Variable is of type [NodePath].
 		</constant>
-		<constant name="TYPE_RID" value="20" enum="Variant.Type">
+		<constant name="TYPE_RID" value="23" enum="Variant.Type">
 			Variable is of type [RID].
 		</constant>
-		<constant name="TYPE_OBJECT" value="21" enum="Variant.Type">
+		<constant name="TYPE_OBJECT" value="24" enum="Variant.Type">
 			Variable is of type [Object].
 		</constant>
-		<constant name="TYPE_CALLABLE" value="22" enum="Variant.Type">
+		<constant name="TYPE_CALLABLE" value="25" enum="Variant.Type">
 			Variable is of type [Callable].
 		</constant>
-		<constant name="TYPE_SIGNAL" value="23" enum="Variant.Type">
+		<constant name="TYPE_SIGNAL" value="26" enum="Variant.Type">
 			Variable is of type [Signal].
 		</constant>
-		<constant name="TYPE_DICTIONARY" value="24" enum="Variant.Type">
+		<constant name="TYPE_DICTIONARY" value="27" enum="Variant.Type">
 			Variable is of type [Dictionary].
 		</constant>
-		<constant name="TYPE_ARRAY" value="25" enum="Variant.Type">
+		<constant name="TYPE_ARRAY" value="28" enum="Variant.Type">
 			Variable is of type [Array].
 		</constant>
-		<constant name="TYPE_PACKED_BYTE_ARRAY" value="26" enum="Variant.Type">
+		<constant name="TYPE_PACKED_BYTE_ARRAY" value="29" enum="Variant.Type">
 			Variable is of type [PackedByteArray].
 		</constant>
-		<constant name="TYPE_PACKED_INT32_ARRAY" value="27" enum="Variant.Type">
+		<constant name="TYPE_PACKED_INT32_ARRAY" value="30" enum="Variant.Type">
 			Variable is of type [PackedInt32Array].
 		</constant>
-		<constant name="TYPE_PACKED_INT64_ARRAY" value="28" enum="Variant.Type">
+		<constant name="TYPE_PACKED_INT64_ARRAY" value="31" enum="Variant.Type">
 			Variable is of type [PackedInt64Array].
 		</constant>
-		<constant name="TYPE_PACKED_FLOAT32_ARRAY" value="29" enum="Variant.Type">
+		<constant name="TYPE_PACKED_FLOAT32_ARRAY" value="32" enum="Variant.Type">
 			Variable is of type [PackedFloat32Array].
 		</constant>
-		<constant name="TYPE_PACKED_FLOAT64_ARRAY" value="30" enum="Variant.Type">
+		<constant name="TYPE_PACKED_FLOAT64_ARRAY" value="33" enum="Variant.Type">
 			Variable is of type [PackedFloat64Array].
 		</constant>
-		<constant name="TYPE_PACKED_STRING_ARRAY" value="31" enum="Variant.Type">
+		<constant name="TYPE_PACKED_STRING_ARRAY" value="34" enum="Variant.Type">
 			Variable is of type [PackedStringArray].
 		</constant>
-		<constant name="TYPE_PACKED_VECTOR2_ARRAY" value="32" enum="Variant.Type">
+		<constant name="TYPE_PACKED_VECTOR2_ARRAY" value="35" enum="Variant.Type">
 			Variable is of type [PackedVector2Array].
 		</constant>
-		<constant name="TYPE_PACKED_VECTOR3_ARRAY" value="33" enum="Variant.Type">
+		<constant name="TYPE_PACKED_VECTOR3_ARRAY" value="36" enum="Variant.Type">
 			Variable is of type [PackedVector3Array].
 		</constant>
-		<constant name="TYPE_PACKED_COLOR_ARRAY" value="34" enum="Variant.Type">
+		<constant name="TYPE_PACKED_COLOR_ARRAY" value="37" enum="Variant.Type">
 			Variable is of type [PackedColorArray].
 		</constant>
-		<constant name="TYPE_MAX" value="35" enum="Variant.Type">
+		<constant name="TYPE_MAX" value="38" enum="Variant.Type">
 			Represents the size of the [enum Variant.Type] enum.
 		</constant>
 		<constant name="OP_EQUAL" value="0" enum="Variant.Operator">

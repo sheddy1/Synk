@@ -43,7 +43,7 @@ bool GDScriptCompiler::_is_class_member_property(CodeGen &codegen, const StringN
 		return false;
 	}
 
-	if (codegen.locals.has(p_name)) {
+	if (codegen.parameters.has(p_name) || codegen.locals.has(p_name)) {
 		return false; //shadowed
 	}
 
@@ -1056,13 +1056,25 @@ GDScriptCodeGenerator::Address GDScriptCompiler::_parse_expression(CodeGen &code
 
 				// Set back the values into their bases.
 				for (const ChainInfo &info : set_chain) {
-					if (!info.is_named) {
-						gen->write_set(info.base, info.key, assigned);
-						if (info.key.mode == GDScriptCodeGenerator::Address::TEMPORARY) {
-							gen->pop_temporary();
+					bool known_type = assigned.type.has_type;
+					bool is_shared = Variant::is_type_shared(assigned.type.builtin_type);
+
+					if (!known_type || !is_shared) {
+						if (!known_type) {
+							// Jump shared values since they are already updated in-place.
+							gen->write_jump_if_shared(assigned);
 						}
-					} else {
-						gen->write_set_named(info.base, info.name, assigned);
+						if (!info.is_named) {
+							gen->write_set(info.base, info.key, assigned);
+						} else {
+							gen->write_set_named(info.base, info.name, assigned);
+						}
+						if (!known_type) {
+							gen->write_end_jump_if_shared();
+						}
+					}
+					if (!info.is_named && info.key.mode == GDScriptCodeGenerator::Address::TEMPORARY) {
+						gen->pop_temporary();
 					}
 					if (assigned.mode == GDScriptCodeGenerator::Address::TEMPORARY) {
 						gen->pop_temporary();
@@ -1070,19 +1082,35 @@ GDScriptCodeGenerator::Address GDScriptCompiler::_parse_expression(CodeGen &code
 					assigned = info.base;
 				}
 
-				// If this is a class member property, also assign to it.
-				// This allow things like: position.x += 2.0
-				if (assign_class_member_property != StringName()) {
-					gen->write_set_member(assigned, assign_class_member_property);
-				}
-				// Same as above but for members
-				if (is_member_property) {
-					if (member_property_has_setter && !member_property_is_in_setter) {
-						Vector<GDScriptCodeGenerator::Address> args;
-						args.push_back(assigned);
-						gen->write_call(GDScriptCodeGenerator::Address(), GDScriptCodeGenerator::Address(GDScriptCodeGenerator::Address::SELF), member_property_setter_function, args);
-					} else {
-						gen->write_assign(target_member_property, assigned);
+				bool known_type = assigned.type.has_type;
+				bool is_shared = Variant::is_type_shared(assigned.type.builtin_type);
+
+				if (!known_type || !is_shared) {
+					// If this is a class member property, also assign to it.
+					// This allow things like: position.x += 2.0
+					if (assign_class_member_property != StringName()) {
+						if (!known_type) {
+							gen->write_jump_if_shared(assigned);
+						}
+						gen->write_set_member(assigned, assign_class_member_property);
+						if (!known_type) {
+							gen->write_end_jump_if_shared();
+						}
+					} else if (is_member_property) {
+						// Same as above but for script members.
+						if (!known_type) {
+							gen->write_jump_if_shared(assigned);
+						}
+						if (member_property_has_setter && !member_property_is_in_setter) {
+							Vector<GDScriptCodeGenerator::Address> args;
+							args.push_back(assigned);
+							gen->write_call(GDScriptCodeGenerator::Address(), GDScriptCodeGenerator::Address(GDScriptCodeGenerator::Address::SELF), member_property_setter_function, args);
+						} else {
+							gen->write_assign(target_member_property, assigned);
+						}
+						if (!known_type) {
+							gen->write_end_jump_if_shared();
+						}
 					}
 				}
 
@@ -1947,7 +1975,7 @@ GDScriptFunction *GDScriptCompiler::_parse_function(Error &r_error, GDScript *p_
 
 	StringName func_name;
 	bool is_static = false;
-	Multiplayer::RPCConfig rpc_config;
+	Variant rpc_config;
 	GDScriptDataType return_type;
 	return_type.has_type = true;
 	return_type.kind = GDScriptDataType::BUILTIN;
@@ -2424,6 +2452,25 @@ Error GDScriptCompiler::_parse_class_level(GDScript *p_script, const GDScriptPar
 				}
 #endif
 			} break;
+
+			case GDScriptParser::ClassNode::Member::GROUP: {
+				const GDScriptParser::AnnotationNode *annotation = member.annotation;
+				StringName name = annotation->export_info.name;
+
+				// This is not a normal member, but we need this to keep indices in order.
+				GDScript::MemberInfo minfo;
+				minfo.index = p_script->member_indices.size();
+
+				PropertyInfo prop_info;
+				prop_info.name = name;
+				prop_info.usage = annotation->export_info.usage;
+				prop_info.hint_string = annotation->export_info.hint_string;
+
+				p_script->member_info[name] = prop_info;
+				p_script->member_indices[name] = minfo;
+				p_script->members.insert(name);
+			} break;
+
 			default:
 				break; // Nothing to do here.
 		}

@@ -222,7 +222,7 @@ void GPUParticles3D::set_draw_pass_mesh(int p_pass, const Ref<Mesh> &p_mesh) {
 	draw_passes.write[p_pass] = p_mesh;
 
 	if (Engine::get_singleton()->is_editor_hint() && draw_passes.write[p_pass].is_valid()) {
-		draw_passes.write[p_pass]->connect("changed", callable_mp((Node *)this, &Node::update_configuration_warnings), varray(), CONNECT_DEFERRED);
+		draw_passes.write[p_pass]->connect("changed", callable_mp((Node *)this, &Node::update_configuration_warnings), CONNECT_DEFERRED);
 	}
 
 	RID mesh_rid;
@@ -270,7 +270,7 @@ bool GPUParticles3D::get_interpolate() const {
 }
 
 TypedArray<String> GPUParticles3D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+	TypedArray<String> warnings = GeometryInstance3D::get_configuration_warnings();
 
 	if (RenderingServer::get_singleton()->is_low_end()) {
 		warnings.push_back(RTR("GPU-based particles are not supported by the OpenGL video driver.\nUse the CPUParticles3D node instead. You can use the \"Convert to CPUParticles3D\" option for this purpose."));

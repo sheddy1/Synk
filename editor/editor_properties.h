@@ -81,6 +81,7 @@ class EditorPropertyMultilineText : public EditorProperty {
 	void _big_text_changed();
 	void _text_changed();
 	void _open_big_text();
+	bool expression = false;
 
 protected:
 	virtual void _set_read_only(bool p_read_only) override;
@@ -89,7 +90,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	EditorPropertyMultilineText();
+	EditorPropertyMultilineText(bool p_expression = false);
 };
 
 class EditorPropertyTextEnum : public EditorProperty {
@@ -388,6 +389,33 @@ public:
 	EditorPropertyObjectID();
 };
 
+class EditorPropertySignal : public EditorProperty {
+	GDCLASS(EditorPropertySignal, EditorProperty);
+	Button *edit = nullptr;
+	String base_type;
+	void _edit_pressed();
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual void update_property() override;
+	EditorPropertySignal();
+};
+
+class EditorPropertyCallable : public EditorProperty {
+	GDCLASS(EditorPropertyCallable, EditorProperty);
+	Button *edit = nullptr;
+	String base_type;
+
+protected:
+	static void _bind_methods();
+
+public:
+	virtual void update_property() override;
+	EditorPropertyCallable();
+};
+
 class EditorPropertyFloat : public EditorProperty {
 	GDCLASS(EditorPropertyFloat, EditorProperty);
 	EditorSpinSlider *spin = nullptr;
@@ -608,6 +636,40 @@ public:
 	EditorPropertyQuaternion();
 };
 
+class EditorPropertyVector4 : public EditorProperty {
+	GDCLASS(EditorPropertyVector4, EditorProperty);
+	EditorSpinSlider *spin[4];
+	bool setting = false;
+	void _value_changed(double p_val, const String &p_name);
+
+protected:
+	virtual void _set_read_only(bool p_read_only) override;
+	void _notification(int p_what);
+	static void _bind_methods();
+
+public:
+	virtual void update_property() override;
+	void setup(double p_min, double p_max, double p_step, bool p_no_slider, const String &p_suffix = String());
+	EditorPropertyVector4();
+};
+
+class EditorPropertyVector4i : public EditorProperty {
+	GDCLASS(EditorPropertyVector4i, EditorProperty);
+	EditorSpinSlider *spin[4];
+	bool setting = false;
+	void _value_changed(double p_val, const String &p_name);
+
+protected:
+	virtual void _set_read_only(bool p_read_only) override;
+	void _notification(int p_what);
+	static void _bind_methods();
+
+public:
+	virtual void update_property() override;
+	void setup(double p_min, double p_max, bool p_no_slider, const String &p_suffix = String());
+	EditorPropertyVector4i();
+};
+
 class EditorPropertyAABB : public EditorProperty {
 	GDCLASS(EditorPropertyAABB, EditorProperty);
 	EditorSpinSlider *spin[6];
@@ -675,6 +737,24 @@ public:
 	virtual void update_using_transform(Transform3D p_transform);
 	void setup(double p_min, double p_max, double p_step, bool p_no_slider, const String &p_suffix = String());
 	EditorPropertyTransform3D();
+};
+
+class EditorPropertyProjection : public EditorProperty {
+	GDCLASS(EditorPropertyProjection, EditorProperty);
+	EditorSpinSlider *spin[16];
+	bool setting = false;
+	void _value_changed(double p_val, const String &p_name);
+
+protected:
+	virtual void _set_read_only(bool p_read_only) override;
+	void _notification(int p_what);
+	static void _bind_methods();
+
+public:
+	virtual void update_property() override;
+	virtual void update_using_transform(Projection p_transform);
+	void setup(double p_min, double p_max, double p_step, bool p_no_slider, const String &p_suffix = String());
+	EditorPropertyProjection();
 };
 
 class EditorPropertyColor : public EditorProperty {
