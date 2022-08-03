@@ -1793,12 +1793,21 @@ void BaseMaterial3D::set_flag(Flags p_flag, bool p_enabled) {
 	}
 
 	flags[p_flag] = p_enabled;
-	if (p_flag == FLAG_USE_SHADOW_TO_OPACITY || p_flag == FLAG_USE_TEXTURE_REPEAT || p_flag == FLAG_SUBSURFACE_MODE_SKIN || p_flag == FLAG_USE_POINT_SIZE) {
+
+	if (
+			p_flag == FLAG_USE_SHADOW_TO_OPACITY ||
+			p_flag == FLAG_USE_TEXTURE_REPEAT ||
+			p_flag == FLAG_SUBSURFACE_MODE_SKIN ||
+			p_flag == FLAG_USE_POINT_SIZE ||
+			p_flag == FLAG_UV1_USE_TRIPLANAR ||
+			p_flag == FLAG_UV2_USE_TRIPLANAR) {
 		notify_property_list_changed();
 	}
+
 	if (p_flag == FLAG_PARTICLE_TRAILS_MODE) {
 		update_configuration_warning();
 	}
+
 	_queue_shader_change();
 }
 
@@ -1921,6 +1930,14 @@ void BaseMaterial3D::_validate_property(PropertyInfo &property) const {
 	}
 
 	if ((property.name == "distance_fade_max_distance" || property.name == "distance_fade_min_distance") && distance_fade == DISTANCE_FADE_DISABLED) {
+		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
+
+	if ((property.name == "uv1_triplanar_sharpness" || property.name == "uv1_world_triplanar") && !flags[FLAG_UV1_USE_TRIPLANAR]) {
+		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
+
+	if ((property.name == "uv2_triplanar_sharpness" || property.name == "uv2_world_triplanar") && !flags[FLAG_UV2_USE_TRIPLANAR]) {
 		property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 
@@ -2637,7 +2654,7 @@ void BaseMaterial3D::_bind_methods() {
 
 	ADD_GROUP("Transparency", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "transparency", PROPERTY_HINT_ENUM, "Disabled,Alpha,Alpha Scissor,Alpha Hash,Depth Pre-Pass"), "set_transparency", "get_transparency");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_scissor_threshold", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_alpha_scissor_threshold", "get_alpha_scissor_threshold");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_scissor_threshold", PROPERTY_HINT_RANGE, "0,1,0.001"), "set_alpha_scissor_threshold", "get_alpha_scissor_threshold");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_hash_scale", PROPERTY_HINT_RANGE, "0,2,0.01"), "set_alpha_hash_scale", "get_alpha_hash_scale");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "alpha_antialiasing_mode", PROPERTY_HINT_ENUM, "Disabled,Alpha Edge Blend,Alpha Edge Clip"), "set_alpha_antialiasing", "get_alpha_antialiasing");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "alpha_antialiasing_edge", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_alpha_antialiasing_edge", "get_alpha_antialiasing_edge");
@@ -2684,7 +2701,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "emission_on_uv2"), "set_flag", "get_flag", FLAG_EMISSION_ON_UV2);
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "emission_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_EMISSION);
 
-	ADD_GROUP("NormalMap", "normal_");
+	ADD_GROUP("Normal Map", "normal_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "normal_enabled"), "set_feature", "get_feature", FEATURE_NORMAL_MAPPING);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "normal_scale", PROPERTY_HINT_RANGE, "-16,16,0.01"), "set_normal_scale", "get_normal_scale");
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "normal_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_NORMAL);
@@ -2724,7 +2741,7 @@ void BaseMaterial3D::_bind_methods() {
 	ADD_PROPERTYI(PropertyInfo(Variant::OBJECT, "heightmap_texture", PROPERTY_HINT_RESOURCE_TYPE, "Texture2D"), "set_texture", "get_texture", TEXTURE_HEIGHTMAP);
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "heightmap_flip_texture"), "set_flag", "get_flag", FLAG_INVERT_HEIGHTMAP);
 
-	ADD_GROUP("Subsurf Scatter", "subsurf_scatter_");
+	ADD_GROUP("Subsurface Scattering", "subsurf_scatter_");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_enabled"), "set_feature", "get_feature", FEATURE_SUBSURFACE_SCATTERING);
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "subsurf_scatter_strength", PROPERTY_HINT_RANGE, "0,1,0.01"), "set_subsurface_scattering_strength", "get_subsurface_scattering_strength");
 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "subsurf_scatter_skin_mode"), "set_flag", "get_flag", FLAG_SUBSURFACE_MODE_SKIN);
@@ -2969,7 +2986,7 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 
 	set_transparency(TRANSPARENCY_DISABLED);
 	set_alpha_antialiasing(ALPHA_ANTIALIASING_OFF);
-	set_alpha_scissor_threshold(0.05);
+	set_alpha_scissor_threshold(0.5);
 	set_alpha_hash_scale(1.0);
 	set_alpha_antialiasing_edge(0.3);
 

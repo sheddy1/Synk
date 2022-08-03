@@ -641,6 +641,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 
 	// Add a highlight line at the top of the selected tab.
 	style_tab_selected->set_border_width_all(0);
+	style_tab_selected->set_default_margin(SIDE_LEFT, widget_default_margin.x - border_width);
 	style_tab_selected->set_border_width(SIDE_TOP, Math::round(2 * EDSCALE));
 	// Make the highlight line prominent, but not too prominent as to not be distracting.
 	Color tab_highlight = dark_color_2.lerp(accent_color, 0.75);
@@ -652,6 +653,9 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	// Prevent visible artifacts and cover the top-left rounded corner of the panel below the tab if selected
 	// We can't prevent them with both rounded corners and non-zero border width, though
 	style_tab_selected->set_expand_margin_size(SIDE_BOTTOM, corner_width > 0 ? corner_width : border_width);
+
+	// When using a border width greater than 0, visually line up the left of the selected tab with the underlying panel.
+	style_tab_selected->set_expand_margin_size(SIDE_LEFT, -border_width);
 
 	style_tab_selected->set_default_margin(SIDE_LEFT, widget_default_margin.x + 2 * EDSCALE);
 	style_tab_selected->set_default_margin(SIDE_RIGHT, widget_default_margin.x + 2 * EDSCALE);
@@ -1660,6 +1664,9 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	style_dictionary_add_item->set_expand_margin_size(SIDE_RIGHT, 4 * EDSCALE);
 	theme->set_stylebox("DictionaryAddItem", "EditorStyles", style_dictionary_add_item);
 
+	Ref<StyleBoxEmpty> vshader_label_style = make_empty_stylebox(2, 1, 2, 1);
+	theme->set_stylebox("label_style", "VShaderEditor", vshader_label_style);
+
 	// adaptive script theme constants
 	// for comments and elements with lower relevance
 	const Color dim_color = Color(font_color.r, font_color.g, font_color.b, 0.5);
@@ -1669,17 +1676,14 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	const Color alpha2 = Color(mono_value, mono_value, mono_value, 0.14);
 	const Color alpha3 = Color(mono_value, mono_value, mono_value, 0.27);
 
-	// editor main color
-	const Color main_color = dark_theme ? Color(0.34, 0.7, 1.0) : Color(0.02, 0.5, 1.0);
-
-	const Color symbol_color = Color(0.34, 0.57, 1.0).lerp(mono_color, dark_theme ? 0.5 : 0.3);
-	const Color keyword_color = Color(1.0, 0.44, 0.52);
-	const Color control_flow_keyword_color = dark_theme ? Color(1.0, 0.55, 0.8) : Color(0.8, 0.4, 0.6);
-	const Color basetype_color = dark_theme ? Color(0.26, 1.0, 0.76) : Color(0.0, 0.76, 0.38);
-	const Color type_color = basetype_color.lerp(mono_color, dark_theme ? 0.4 : 0.3);
-	const Color usertype_color = basetype_color.lerp(mono_color, dark_theme ? 0.7 : 0.5);
-	const Color comment_color = dim_color;
-	const Color string_color = (dark_theme ? Color(1.0, 0.85, 0.26) : Color(1.0, 0.82, 0.09)).lerp(mono_color, dark_theme ? 0.5 : 0.3);
+	const Color symbol_color = dark_theme ? Color(0.67, 0.79, 1) : Color(0, 0, 0.61);
+	const Color keyword_color = dark_theme ? Color(1.0, 0.44, 0.52) : Color(0.9, 0.135, 0.51);
+	const Color control_flow_keyword_color = dark_theme ? Color(1.0, 0.55, 0.8) : Color(0.743, 0.12, 0.8);
+	const Color base_type_color = dark_theme ? Color(0.26, 1.0, 0.76) : Color(0, 0.6, 0.2);
+	const Color engine_type_color = dark_theme ? Color(0.56, 1, 0.86) : Color(0.11, 0.55, 0.4);
+	const Color user_type_color = dark_theme ? Color(0.78, 1, 0.93) : Color(0.18, 0.45, 0.4);
+	const Color comment_color = dark_theme ? dim_color : Color(0.08, 0.08, 0.08, 0.5);
+	const Color string_color = dark_theme ? Color(1, 0.93, 0.63) : Color(0.6, 0.42, 0);
 
 	// Use the brightest background color on a light theme (which generally uses a negative contrast rate).
 	const Color te_background_color = dark_theme ? background_color : dark_color_3;
@@ -1692,24 +1696,24 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	const Color completion_font_color = font_color;
 	const Color text_color = font_color;
 	const Color line_number_color = dim_color;
-	const Color safe_line_number_color = dim_color * Color(1, 1.2, 1, 1.5);
+	const Color safe_line_number_color = dark_theme ? (dim_color * Color(1, 1.2, 1, 1.5)) : Color(0, 0.4, 0, 0.75);
 	const Color caret_color = mono_color;
 	const Color caret_background_color = mono_color.inverted();
 	const Color text_selected_color = dark_color_3;
-	const Color brace_mismatch_color = error_color;
+	const Color brace_mismatch_color = dark_theme ? error_color : Color(1, 0.08, 0, 1);
 	const Color current_line_color = alpha1;
 	const Color line_length_guideline_color = dark_theme ? base_color : background_color;
 	const Color word_highlighted_color = alpha1;
-	const Color number_color = basetype_color.lerp(mono_color, dark_theme ? 0.5 : 0.3);
-	const Color function_color = main_color;
-	const Color member_variable_color = main_color.lerp(mono_color, 0.6);
+	const Color number_color = dark_theme ? Color(0.63, 1, 0.88) : Color(0, 0.55, 0.28, 1);
+	const Color function_color = dark_theme ? Color(0.34, 0.7, 1.0) : Color(0, 0.225, 0.9, 1);
+	const Color member_variable_color = dark_theme ? Color(0.34, 0.7, 1.0).lerp(mono_color, 0.6) : Color(0, 0.4, 0.68, 1);
 	const Color mark_color = Color(error_color.r, error_color.g, error_color.b, 0.3);
 	const Color bookmark_color = Color(0.08, 0.49, 0.98);
-	const Color breakpoint_color = error_color;
+	const Color breakpoint_color = dark_theme ? error_color : Color(1, 0.27, 0.2, 1);
 	const Color executing_line_color = Color(0.98, 0.89, 0.27);
 	const Color code_folding_color = alpha3;
 	const Color search_result_color = alpha1;
-	const Color search_result_border_color = Color(0.41, 0.61, 0.91, 0.38);
+	const Color search_result_border_color = dark_theme ? Color(0.41, 0.61, 0.91, 0.38) : Color(0, 0.4, 1, 0.38);
 
 	EditorSettings *setting = EditorSettings::get_singleton();
 	String text_editor_color_theme = setting->get("text_editor/theme/color_theme");
@@ -1717,9 +1721,9 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		setting->set_initial_value("text_editor/theme/highlighting/symbol_color", symbol_color, true);
 		setting->set_initial_value("text_editor/theme/highlighting/keyword_color", keyword_color, true);
 		setting->set_initial_value("text_editor/theme/highlighting/control_flow_keyword_color", control_flow_keyword_color, true);
-		setting->set_initial_value("text_editor/theme/highlighting/base_type_color", basetype_color, true);
-		setting->set_initial_value("text_editor/theme/highlighting/engine_type_color", type_color, true);
-		setting->set_initial_value("text_editor/theme/highlighting/user_type_color", usertype_color, true);
+		setting->set_initial_value("text_editor/theme/highlighting/base_type_color", base_type_color, true);
+		setting->set_initial_value("text_editor/theme/highlighting/engine_type_color", engine_type_color, true);
+		setting->set_initial_value("text_editor/theme/highlighting/user_type_color", user_type_color, true);
 		setting->set_initial_value("text_editor/theme/highlighting/comment_color", comment_color, true);
 		setting->set_initial_value("text_editor/theme/highlighting/string_color", string_color, true);
 		setting->set_initial_value("text_editor/theme/highlighting/background_color", te_background_color, true);

@@ -443,6 +443,7 @@ class EditorPropertyEasing : public EditorProperty {
 	bool dragging = false;
 	bool full = false;
 	bool flip = false;
+	bool positive_only = false;
 
 	enum {
 		EASING_ZERO,
@@ -471,7 +472,7 @@ protected:
 
 public:
 	virtual void update_property() override;
-	void setup(bool p_full, bool p_flip);
+	void setup(bool p_positive_only, bool p_flip);
 	EditorPropertyEasing();
 };
 
@@ -856,6 +857,7 @@ public:
 
 	void collapse_all_folding() override;
 	void expand_all_folding() override;
+	void expand_revertable() override;
 
 	void set_use_sub_inspector(bool p_enable);
 

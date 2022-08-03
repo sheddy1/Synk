@@ -49,6 +49,7 @@
 #include "main/main.h"
 #include "scene/3d/importer_mesh_instance_3d.h"
 #include "scene/gui/center_container.h"
+#include "scene/gui/color_picker.h"
 #include "scene/gui/control.h"
 #include "scene/gui/dialogs.h"
 #include "scene/gui/file_dialog.h"
@@ -149,6 +150,7 @@
 #include "editor/plugins/debugger_editor_plugin.h"
 #include "editor/plugins/editor_debugger_plugin.h"
 #include "editor/plugins/editor_preview_plugins.h"
+#include "editor/plugins/editor_resource_conversion_plugin.h"
 #include "editor/plugins/font_config_plugin.h"
 #include "editor/plugins/gdextension_export_plugin.h"
 #include "editor/plugins/gpu_particles_2d_editor_plugin.h"
@@ -2200,9 +2202,10 @@ void EditorNode::_edit_current(bool p_skip_foreign) {
 	Object *prev_inspected_object = InspectorDock::get_inspector_singleton()->get_edited_object();
 
 	bool disable_folding = bool(EDITOR_GET("interface/inspector/disable_folding"));
-	bool stay_in_script_editor_on_node_selected = bool(EDITOR_GET("text_editor/behavior/navigation/stay_in_script_editor_on_node_selected"));
 	bool is_resource = current_obj->is_class("Resource");
 	bool is_node = current_obj->is_class("Node");
+	bool stay_in_script_editor_on_node_selected = bool(EDITOR_GET("text_editor/behavior/navigation/stay_in_script_editor_on_node_selected"));
+	bool skip_main_plugin = false;
 
 	String editable_warning; // None by default.
 
@@ -2239,8 +2242,8 @@ void EditorNode::_edit_current(bool p_skip_foreign) {
 			NodeDock::get_singleton()->set_node(current_node);
 			SceneTreeDock::get_singleton()->set_selected(current_node);
 			InspectorDock::get_singleton()->update(current_node);
-			if (!inspector_only) {
-				inspector_only = stay_in_script_editor_on_node_selected && ScriptEditor::get_singleton()->is_visible_in_tree();
+			if (!inspector_only && !skip_main_plugin) {
+				skip_main_plugin = stay_in_script_editor_on_node_selected && ScriptEditor::get_singleton()->is_visible_in_tree();
 			}
 		} else {
 			NodeDock::get_singleton()->set_node(nullptr);
@@ -2316,7 +2319,7 @@ void EditorNode::_edit_current(bool p_skip_foreign) {
 			}
 		}
 
-		if (main_plugin) {
+		if (main_plugin && !skip_main_plugin) {
 			// Special case if use of external editor is true.
 			Resource *current_res = Object::cast_to<Resource>(current_obj);
 			if (main_plugin->get_name() == "Script" && !current_obj->is_class("VisualScript") && current_res && !current_res->is_built_in() && (bool(EditorSettings::get_singleton()->get("text_editor/external/use_external_editor")) || overrides_external_editor(current_obj))) {
@@ -6156,8 +6159,6 @@ EditorNode::EditorNode() {
 
 	register_exporters();
 
-	ClassDB::set_class_enabled("RootMotionView", true);
-
 	EDITOR_DEF("interface/editor/save_on_focus_loss", false);
 	EDITOR_DEF("interface/editor/show_update_spinner", false);
 	EDITOR_DEF("interface/editor/update_continuously", false);
@@ -6174,7 +6175,14 @@ EditorNode::EditorNode() {
 	EDITOR_DEF("interface/inspector/horizontal_vector2_editing", false);
 	EDITOR_DEF("interface/inspector/horizontal_vector_types_editing", true);
 	EDITOR_DEF("interface/inspector/open_resources_in_current_inspector", true);
-	EDITOR_DEF("interface/inspector/resources_to_open_in_new_inspector", "Script,MeshLibrary");
+
+	PackedStringArray open_in_new_inspector_defaults;
+	// Required for the script editor to work.
+	open_in_new_inspector_defaults.push_back("Script");
+	// Required for the GridMap editor to work.
+	open_in_new_inspector_defaults.push_back("MeshLibrary");
+	EDITOR_DEF("interface/inspector/resources_to_open_in_new_inspector", open_in_new_inspector_defaults);
+
 	EDITOR_DEF("interface/inspector/default_color_picker_mode", 0);
 	EditorSettings::get_singleton()->add_property_hint(PropertyInfo(Variant::INT, "interface/inspector/default_color_picker_mode", PROPERTY_HINT_ENUM, "RGB,HSV,RAW,OKHSL", PROPERTY_USAGE_DEFAULT));
 	EDITOR_DEF("interface/inspector/default_color_picker_shape", (int32_t)ColorPicker::SHAPE_OKHSL_CIRCLE);

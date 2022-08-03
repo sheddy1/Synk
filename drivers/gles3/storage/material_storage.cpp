@@ -1156,6 +1156,9 @@ void MaterialData::update_textures(const HashMap<StringName, Variant> &p_paramet
 						case ShaderLanguage::ShaderNode::Uniform::HINT_DEFAULT_BLACK: {
 							gl_texture = texture_storage->texture_gl_get_default(DEFAULT_GL_TEXTURE_BLACK);
 						} break;
+						case ShaderLanguage::ShaderNode::Uniform::HINT_DEFAULT_TRANSPARENT: {
+							gl_texture = texture_storage->texture_gl_get_default(DEFAULT_GL_TEXTURE_TRANSPARENT);
+						} break;
 						case ShaderLanguage::ShaderNode::Uniform::HINT_ANISOTROPY: {
 							gl_texture = texture_storage->texture_gl_get_default(DEFAULT_GL_TEXTURE_ANISO);
 						} break;
@@ -1504,6 +1507,11 @@ MaterialStorage::MaterialStorage() {
 		actions.renames["CUSTOM2"] = "custom2_attrib";
 		actions.renames["CUSTOM3"] = "custom3_attrib";
 		actions.renames["OUTPUT_IS_SRGB"] = "SHADER_IS_SRGB";
+
+		actions.renames["NODE_POSITION_WORLD"] = "model_matrix[3].xyz";
+		actions.renames["CAMERA_POSITION_WORLD"] = "scene_data.inv_view_matrix[3].xyz";
+		actions.renames["CAMERA_DIRECTION_WORLD"] = "scene_data.view_matrix[3].xyz";
+		actions.renames["NODE_POSITION_VIEW"] = "(model_matrix * scene_data.view_matrix)[3].xyz";
 
 		actions.renames["VIEW_INDEX"] = "ViewIndex";
 		actions.renames["VIEW_MONO_LEFT"] = "0";
@@ -2320,11 +2328,14 @@ void MaterialStorage::global_shader_uniforms_instance_update(RID p_instance, int
 		ShaderLanguage::TYPE_VEC3, // vec3
 		ShaderLanguage::TYPE_IVEC3, //vec3i
 		ShaderLanguage::TYPE_MAX, //xform2d not supported here
+		ShaderLanguage::TYPE_VEC4, //vec4
+		ShaderLanguage::TYPE_IVEC4, //vec4i
 		ShaderLanguage::TYPE_VEC4, //plane
 		ShaderLanguage::TYPE_VEC4, //quat
 		ShaderLanguage::TYPE_MAX, //aabb not supported here
 		ShaderLanguage::TYPE_MAX, //basis not supported here
 		ShaderLanguage::TYPE_MAX, //xform not supported here
+		ShaderLanguage::TYPE_MAX, //projection not supported here
 		ShaderLanguage::TYPE_VEC4 //color
 	};
 

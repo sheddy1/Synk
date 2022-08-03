@@ -49,6 +49,8 @@
 #include "tests/core/math/test_random_number_generator.h"
 #include "tests/core/math/test_rect2.h"
 #include "tests/core/math/test_rect2i.h"
+#include "tests/core/math/test_transform_2d.h"
+#include "tests/core/math/test_transform_3d.h"
 #include "tests/core/math/test_vector2.h"
 #include "tests/core/math/test_vector2i.h"
 #include "tests/core/math/test_vector3.h"
@@ -56,6 +58,7 @@
 #include "tests/core/object/test_class_db.h"
 #include "tests/core/object/test_method_bind.h"
 #include "tests/core/object/test_object.h"
+#include "tests/core/os/test_os.h"
 #include "tests/core/string/test_node_path.h"
 #include "tests/core/string/test_string.h"
 #include "tests/core/string/test_translation.h"
@@ -104,7 +107,7 @@ int test_main(int argc, char *argv[]) {
 	for (int i = 0; i < argc; i++) {
 		args.push_back(String::utf8(argv[i]));
 	}
-	OS::get_singleton()->set_cmdline("", args);
+	OS::get_singleton()->set_cmdline("", args, List<String>());
 
 	// Run custom test tools.
 	if (test_commands) {

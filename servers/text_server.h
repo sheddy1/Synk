@@ -148,6 +148,8 @@ public:
 		FEATURE_FONT_VARIABLE = 1 << 10,
 		FEATURE_CONTEXT_SENSITIVE_CASE_CONVERSION = 1 << 11,
 		FEATURE_USE_SUPPORT_DATA = 1 << 12,
+		FEATURE_UNICODE_IDENTIFIERS = 1 << 13,
+		FEATURE_UNICODE_SECURITY = 1 << 14,
 	};
 
 	enum ContourPointTag {
@@ -463,7 +465,11 @@ public:
 	// String functions.
 	virtual PackedInt32Array string_get_word_breaks(const String &p_string, const String &p_language = "") const = 0;
 
+	virtual int is_confusable(const String &p_string, const PackedStringArray &p_dict) const { return -1; };
+	virtual bool spoof_check(const String &p_string) const { return false; };
+
 	virtual String strip_diacritics(const String &p_string) const;
+	virtual bool is_valid_identifier(const String &p_string) const;
 
 	// Other string operations.
 	virtual String string_to_upper(const String &p_string, const String &p_language = "") const = 0;
