@@ -1387,7 +1387,7 @@ Rect2 Control::get_screen_rect() const {
 	Rect2 r(get_global_position(), get_size());
 
 	Window *w = Object::cast_to<Window>(get_viewport());
-	if (w && w->should_be_embedded()) { 
+	if (w && w->should_be_embedded()) {
 		r.position += w->get_position();
 	}
 
