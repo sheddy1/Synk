@@ -2628,6 +2628,7 @@ bool Main::start() {
 		if (editor) {
 			bool editor_embed_subwindows = EditorSettings::get_singleton()->get_setting(
 					"interface/editor/single_window_mode");
+
 			if (editor_embed_subwindows) {
 				sml->get_root()->set_embedding_subwindows(true);
 			}
