@@ -336,8 +336,6 @@ void AcceptDialog::set_swap_cancel_ok(bool p_swap) {
 }
 
 AcceptDialog::AcceptDialog() {
-	set_embedded(false);
-	set_for_editor(true);
 	set_wrap_controls(true);
 	set_visible(false);
 	set_transient(true);
@@ -400,8 +398,6 @@ Button *ConfirmationDialog::get_cancel_button() {
 }
 
 ConfirmationDialog::ConfirmationDialog() {
-	set_embedded(false);
-	set_for_editor(true);
 	set_title(TTRC("Please Confirm..."));
 	set_min_size(Size2(200, 70));
 

@@ -348,7 +348,7 @@
 		<member name="current_screen" type="int" setter="set_current_screen" getter="get_current_screen" default="0">
 			The screen the window is currently on.
 		</member>
-		<member name="embedded" type="bool" setter="set_embedded" getter="is_embedded" default="true">
+		<member name="embedded" type="bool" setter="set_embedded" getter="is_embedded" default="false">
 			If windows should be embedded.
 
 			To get if window is embedded, [code]is_current_embedded()[/code]
@@ -356,9 +356,6 @@
 		<member name="exclusive" type="bool" setter="set_exclusive" getter="is_exclusive" default="false">
 			If [code]true[/code], the [Window] will be in exclusive mode. Exclusive windows are always on top of their parent and will block all input going to the parent [Window].
 			Needs [member transient] enabled to work.
-		</member>
-		<member name="for_editor" type="bool" setter="set_for_editor" getter="is_for_editor" default="false">
-			If window [code]is_for_edditor() == false[/code] will ignore [code]is_embedded()[/code] in editor!
 		</member>
 		<member name="max_size" type="Vector2i" setter="set_max_size" getter="get_max_size" default="Vector2i(0, 0)">
 			If non-zero, the [Window] can't be resized to be bigger than this size.

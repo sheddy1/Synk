@@ -71,9 +71,7 @@
 		<member name="dialog_text" type="String" setter="set_text" getter="get_text" default="&quot;&quot;">
 			The text displayed by the dialog.
 		</member>
-		<member name="embedded" type="bool" setter="set_embedded" getter="is_embedded" overrides="Window" default="false" />
 		<member name="exclusive" type="bool" setter="set_exclusive" getter="is_exclusive" overrides="Window" default="true" />
-		<member name="for_editor" type="bool" setter="set_for_editor" getter="is_for_editor" overrides="Window" default="true" />
 		<member name="ok_button_text" type="String" setter="set_ok_button_text" getter="get_ok_button_text" default="&quot;OK&quot;">
 			The text displayed by the OK button (see [method get_ok_button]).
 		</member>

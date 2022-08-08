@@ -4372,8 +4372,6 @@ void EditorNode::_dock_make_float() {
 	dock_slot[dock_popup_selected_idx]->remove_child(dock);
 
 	Window *window = memnew(Window);
-	window->set_embedded(false);
-	window->set_for_editor(true);
 	window->set_title(dock->get_name());
 	Panel *p = memnew(Panel);
 	p->add_theme_style_override("panel", gui_base->get_theme_stylebox(SNAME("PanelForeground"), SNAME("EditorStyles")));

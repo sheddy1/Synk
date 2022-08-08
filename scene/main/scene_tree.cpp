@@ -1401,7 +1401,6 @@ SceneTree::SceneTree() {
 	// Create with mainloop.
 
 	root = memnew(Window);
-	root->set_for_editor(true);
 	root->set_process_mode(Node::PROCESS_MODE_PAUSABLE);
 	root->set_name("root");
 	root->set_title(ProjectSettings::get_singleton()->get("application/config/name"));

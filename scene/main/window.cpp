@@ -314,10 +314,10 @@ void Window::_destroy_window() {
 }
 
 void Window::set_embedded(bool p_enable) {
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint()))
 		_destroy_window();
 	embedded = p_enable;
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint() || is_for_editor()))
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint()))
 		_init_window();
 }
 
@@ -330,9 +330,9 @@ bool Window::should_be_embedded() const {
 
 	bool force_embedded = false;
 	if (_embedder != nullptr)
-		force_embedded = _embedder->is_force_embedding_subwindows();
+		force_embedded = _embedder->is_embedding_subwindows();
 
-	return _embedder != nullptr && ((is_embedded() || force_embedded) || (Engine::get_singleton()->is_editor_hint() && !is_for_editor()));
+	return _embedder != nullptr && (is_embedded() || force_embedded);
 }
 
 bool Window::has_embedder() const {
@@ -343,18 +343,6 @@ bool Window::has_embedder() const {
 
 bool Window::is_current_embedded() const {
 	return current_embedded;
-}
-
-void Window::set_for_editor(bool p_enable) {
-	bool t_embedded = embedded;
-	if (!p_enable)
-		set_embedded(true);
-	for_editor = p_enable;
-	set_embedded(t_embedded);
-}
-
-bool Window::is_for_editor() const {
-	return for_editor;
 }
 
 void Window::_make_window() {
@@ -886,17 +874,10 @@ void Window::_update_window_callbacks() {
 Viewport *Window::_get_embedder() const {
 	Viewport *vp = get_parent_viewport();
 
-	while (vp) {
-		if (vp->is_embedding_subwindows()) {
-			return vp;
-		}
-
-		if (vp->get_parent()) {
-			vp = vp->get_parent()->get_viewport();
-		} else {
-			vp = nullptr;
-		}
+	if (vp) {
+		return vp;
 	}
+
 	return nullptr;
 }
 
@@ -1626,9 +1607,6 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_embedder"), &Window::has_embedder);
 	ClassDB::bind_method(D_METHOD("is_current_embedded"), &Window::is_current_embedded);
 
-	ClassDB::bind_method(D_METHOD("set_for_editor"), &Window::set_for_editor);
-	ClassDB::bind_method(D_METHOD("is_for_editor"), &Window::is_for_editor);
-
 	ClassDB::bind_method(D_METHOD("get_contents_minimum_size"), &Window::get_contents_minimum_size);
 
 	ClassDB::bind_method(D_METHOD("set_content_scale_size", "size"), &Window::set_content_scale_size);
@@ -1696,7 +1674,6 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen"), "set_current_screen", "get_current_screen");
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "embedded"), "set_embedded", "is_embedded");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "for_editor"), "set_for_editor", "is_for_editor");
 
 	ADD_GROUP("Flags", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visible", "is_visible");

@@ -1944,9 +1944,6 @@ PopupMenu::PopupMenu() {
 	minimum_lifetime_timer->set_one_shot(true);
 	minimum_lifetime_timer->connect("timeout", callable_mp(this, &PopupMenu::_minimum_lifetime_timeout));
 	add_child(minimum_lifetime_timer, false, INTERNAL_MODE_FRONT);
-
-	set_embedded(false);
-	set_for_editor(true);
 }
 
 PopupMenu::~PopupMenu() {
