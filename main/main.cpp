@@ -2444,17 +2444,10 @@ bool Main::start() {
 		}
 #endif
 
-		{
-			bool embed_subwindows = GLOBAL_DEF("display/window/subwindows/embed_subwindows", true);
+		bool embed_subwindows = GLOBAL_DEF("display/window/subwindows/embed_subwindows", true);
 
-			bool not_pe = !project_manager && !editor;
-
-			if (not_pe && embed_subwindows)
-				sml->get_root()->set_embedding_subwindows(true);
-
-			if (OS::get_singleton()->is_single_window() || !DisplayServer::get_singleton()->has_feature(DisplayServer::Feature::FEATURE_SUBWINDOWS)) {
-				sml->get_root()->set_embedding_subwindows(true);
-			}
+		if (OS::get_singleton()->is_single_window() || (!project_manager && !editor && embed_subwindows) || !DisplayServer::get_singleton()->has_feature(DisplayServer::Feature::FEATURE_SUBWINDOWS)) {
+			sml->get_root()->set_embedding_subwindows(true);
 		}
 
 		ResourceLoader::add_custom_loaders();
@@ -2633,9 +2626,9 @@ bool Main::start() {
 
 #ifdef TOOLS_ENABLED
 		if (editor) {
-			bool editor_force_embed_subwindows = EditorSettings::get_singleton()->get_setting(
+			bool editor_embed_subwindows = EditorSettings::get_singleton()->get_setting(
 					"interface/editor/single_window_mode");
-			if (editor_force_embed_subwindows) {
+			if (editor_embed_subwindows) {
 				sml->get_root()->set_embedding_subwindows(true);
 			}
 		}
