@@ -431,6 +431,7 @@ Error Main::test_setup() {
 
 	/** INITIALIZE SERVERS **/
 	register_server_types();
+	XRServer::set_xr_mode(XRServer::XRMODE_OFF); // Skip in tests.
 	initialize_modules(MODULE_INITIALIZATION_LEVEL_SERVERS);
 	NativeExtensionManager::get_singleton()->initialize_extensions(NativeExtension::INITIALIZATION_LEVEL_SERVERS);
 
@@ -1480,7 +1481,6 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		OS::get_singleton()->_allow_layered = false;
 	}
 
-	OS::get_singleton()->_keep_screen_on = GLOBAL_DEF("display/window/energy_saving/keep_screen_on", true);
 	if (rtm == -1) {
 		rtm = GLOBAL_DEF("rendering/driver/threads/thread_model", OS::RENDER_THREAD_SAFE);
 	}

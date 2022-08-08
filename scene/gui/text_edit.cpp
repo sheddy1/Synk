@@ -1466,7 +1466,7 @@ void TextEdit::_notification(int p_what) {
 					caret_end = caret_start + post_text.length();
 				}
 
-				DisplayServer::get_singleton()->virtual_keyboard_show(get_text(), get_global_rect(), true, -1, caret_start, caret_end);
+				DisplayServer::get_singleton()->virtual_keyboard_show(get_text(), get_global_rect(), DisplayServer::KEYBOARD_TYPE_MULTILINE, -1, caret_start, caret_end);
 			}
 		} break;
 
@@ -5294,7 +5294,7 @@ void TextEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_v_scroll_speed", "speed"), &TextEdit::set_v_scroll_speed);
 	ClassDB::bind_method(D_METHOD("get_v_scroll_speed"), &TextEdit::get_v_scroll_speed);
 
-	ClassDB::bind_method(D_METHOD("set_fit_content_height_enabled"), &TextEdit::set_fit_content_height_enabled);
+	ClassDB::bind_method(D_METHOD("set_fit_content_height_enabled", "enabled"), &TextEdit::set_fit_content_height_enabled);
 	ClassDB::bind_method(D_METHOD("is_fit_content_height_enabled"), &TextEdit::is_fit_content_height_enabled);
 
 	ClassDB::bind_method(D_METHOD("get_scroll_pos_for_line", "line", "wrap_index"), &TextEdit::get_scroll_pos_for_line, DEFVAL(0));

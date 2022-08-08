@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  emws_server.h                                                        */
+/*  test_rid.h                                                           */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,37 +28,74 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifndef EMWS_SERVER_H
-#define EMWS_SERVER_H
+#ifndef TEST_RID_H
+#define TEST_RID_H
 
-#ifdef JAVASCRIPT_ENABLED
+#include "core/templates/rid.h"
 
-#include "core/object/ref_counted.h"
-#include "emws_peer.h"
-#include "websocket_server.h"
+#include "tests/test_macros.h"
 
-class EMWSServer : public WebSocketServer {
-	GDCIIMPL(EMWSServer, WebSocketServer);
+namespace TestRID {
+TEST_CASE("[RID] Default Constructor") {
+	RID rid;
 
-public:
-	Error set_buffers(int p_in_buffer, int p_in_packets, int p_out_buffer, int p_out_packets) override;
-	void set_extra_headers(const Vector<String> &p_headers) override;
-	Error listen(int p_port, Vector<String> p_protocols = Vector<String>(), bool gd_mp_api = false) override;
-	void stop() override;
-	bool is_listening() const override;
-	bool has_peer(int p_id) const override;
-	Ref<WebSocketPeer> get_peer(int p_id) const override;
-	IPAddress get_peer_address(int p_peer_id) const override;
-	int get_peer_port(int p_peer_id) const override;
-	void disconnect_peer(int p_peer_id, int p_code = 1000, String p_reason = "") override;
-	int get_max_packet_size() const override;
-	virtual void poll() override;
-	virtual Vector<String> get_protocols() const;
+	CHECK(rid.get_id() == 0);
+}
 
-	EMWSServer();
-	~EMWSServer();
-};
+TEST_CASE("[RID] Factory method") {
+	RID rid = RID::from_uint64(1);
 
-#endif
+	CHECK(rid.get_id() == 1);
+}
 
-#endif // EMWS_SERVER_H
+TEST_CASE("[RID] Operators") {
+	RID rid = RID::from_uint64(1);
+
+	RID rid_zero = RID::from_uint64(0);
+	RID rid_one = RID::from_uint64(1);
+	RID rid_two = RID::from_uint64(2);
+
+	CHECK_FALSE(rid == rid_zero);
+	CHECK(rid == rid_one);
+	CHECK_FALSE(rid == rid_two);
+
+	CHECK_FALSE(rid < rid_zero);
+	CHECK_FALSE(rid < rid_one);
+	CHECK(rid < rid_two);
+
+	CHECK_FALSE(rid <= rid_zero);
+	CHECK(rid <= rid_one);
+	CHECK(rid <= rid_two);
+
+	CHECK(rid > rid_zero);
+	CHECK_FALSE(rid > rid_one);
+	CHECK_FALSE(rid > rid_two);
+
+	CHECK(rid >= rid_zero);
+	CHECK(rid >= rid_one);
+	CHECK_FALSE(rid >= rid_two);
+
+	CHECK(rid != rid_zero);
+	CHECK_FALSE(rid != rid_one);
+	CHECK(rid != rid_two);
+}
+
+TEST_CASE("[RID] 'is_valid' & 'is_null'") {
+	RID rid_zero = RID::from_uint64(0);
+	RID rid_one = RID::from_uint64(1);
+
+	CHECK_FALSE(rid_zero.is_valid());
+	CHECK(rid_zero.is_null());
+
+	CHECK(rid_one.is_valid());
+	CHECK_FALSE(rid_one.is_null());
+}
+
+TEST_CASE("[RID] 'get_local_index'") {
+	CHECK(RID::from_uint64(1).get_local_index() == 1);
+	CHECK(RID::from_uint64(4'294'967'295).get_local_index() == 4'294'967'295);
+	CHECK(RID::from_uint64(4'294'967'297).get_local_index() == 1);
+}
+} // namespace TestRID
+
+#endif // TEST_RID_H

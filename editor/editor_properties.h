@@ -142,6 +142,8 @@ class EditorPropertyPath : public EditorProperty {
 	void _path_selected(const String &p_path);
 	void _path_pressed();
 	void _path_focus_exited();
+	void _drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from);
+	bool _can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from) const;
 
 protected:
 	virtual void _set_read_only(bool p_read_only) override;
@@ -340,13 +342,14 @@ private:
 	String basename;
 	LayerType layer_type;
 	PopupMenu *layers = nullptr;
-	Button *button = nullptr;
+	TextureButton *button = nullptr;
 
 	void _button_pressed();
 	void _menu_pressed(int p_menu);
 	void _refresh_names();
 
 protected:
+	void _notification(int p_what);
 	virtual void _set_read_only(bool p_read_only) override;
 	static void _bind_methods();
 

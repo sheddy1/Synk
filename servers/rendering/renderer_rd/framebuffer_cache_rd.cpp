@@ -1,5 +1,5 @@
 /*************************************************************************/
-/*  emws_server.cpp                                                      */
+/*  framebuffer_cache_rd.cpp                                             */
 /*************************************************************************/
 /*                       This file is part of:                           */
 /*                           GODOT ENGINE                                */
@@ -28,65 +28,37 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
 /*************************************************************************/
 
-#ifdef JAVASCRIPT_ENABLED
+#include "framebuffer_cache_rd.h"
 
-#include "emws_server.h"
-#include "core/os/os.h"
+FramebufferCacheRD *FramebufferCacheRD::singleton = nullptr;
 
-void EMWSServer::set_extra_headers(const Vector<String> &p_headers) {
+void FramebufferCacheRD::_invalidate(Cache *p_cache) {
+	if (p_cache->prev) {
+		p_cache->prev->next = p_cache->next;
+	} else {
+		// At beginning of table
+		uint32_t table_idx = p_cache->hash % HASH_TABLE_SIZE;
+		hash_table[table_idx] = p_cache->next;
+	}
+
+	if (p_cache->next) {
+		p_cache->next->prev = p_cache->prev;
+	}
+
+	cache_allocator.free(p_cache);
+	cache_instances_used--;
+}
+void FramebufferCacheRD::_framebuffer_invalidation_callback(void *p_userdata) {
+	singleton->_invalidate(reinterpret_cast<Cache *>(p_userdata));
 }
 
-Error EMWSServer::listen(int p_port, Vector<String> p_protocols, bool gd_mp_api) {
-	return FAILED;
+FramebufferCacheRD::FramebufferCacheRD() {
+	ERR_FAIL_COND(singleton != nullptr);
+	singleton = this;
 }
 
-bool EMWSServer::is_listening() const {
-	return false;
+FramebufferCacheRD::~FramebufferCacheRD() {
+	if (cache_instances_used > 0) {
+		ERR_PRINT("At exit: " + itos(cache_instances_used) + " framebuffer cache instance(s) still in use.");
+	}
 }
-
-void EMWSServer::stop() {
-}
-
-bool EMWSServer::has_peer(int p_id) const {
-	return false;
-}
-
-Ref<WebSocketPeer> EMWSServer::get_peer(int p_id) const {
-	return nullptr;
-}
-
-Vector<String> EMWSServer::get_protocols() const {
-	Vector<String> out;
-
-	return out;
-}
-
-IPAddress EMWSServer::get_peer_address(int p_peer_id) const {
-	return IPAddress();
-}
-
-int EMWSServer::get_peer_port(int p_peer_id) const {
-	return 0;
-}
-
-void EMWSServer::disconnect_peer(int p_peer_id, int p_code, String p_reason) {
-}
-
-void EMWSServer::poll() {
-}
-
-int EMWSServer::get_max_packet_size() const {
-	return 0;
-}
-
-Error EMWSServer::set_buffers(int p_in_buffer, int p_in_packets, int p_out_buffer, int p_out_packets) {
-	return OK;
-}
-
-EMWSServer::EMWSServer() {
-}
-
-EMWSServer::~EMWSServer() {
-}
-
-#endif // JAVASCRIPT_ENABLED

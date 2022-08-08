@@ -4245,7 +4245,7 @@ void TextServerAdvanced::shaped_text_overrun_trim_to_width(const RID &p_shaped_l
 
 	Glyph *sd_glyphs = sd->glyphs.ptrw();
 
-	if (p_trim_flags.has_flag(OVERRUN_TRIM) || sd_glyphs == nullptr || p_width <= 0 || !(sd->width > p_width || enforce_ellipsis)) {
+	if ((p_trim_flags & OVERRUN_TRIM) == OVERRUN_NO_TRIM || sd_glyphs == nullptr || p_width <= 0 || !(sd->width > p_width || enforce_ellipsis)) {
 		sd->overrun_trim_data.trim_pos = -1;
 		sd->overrun_trim_data.ellipsis_pos = -1;
 		return;
@@ -4706,7 +4706,7 @@ bool TextServerAdvanced::shaped_text_update_justification_ops(const RID &p_shape
 		for (int i = 0; i < sd_size; i++) {
 			if (sd_glyphs[i].count > 0) {
 				char32_t c = sd->text[sd_glyphs[i].start - sd->start];
-				if (c == 0x0640) {
+				if (c == 0x0640 && sd_glyphs[i].start == sd_glyphs[i].end - 1) {
 					sd_glyphs[i].flags |= GRAPHEME_IS_ELONGATION;
 				}
 				if (sd->jstops.has(sd_glyphs[i].start)) {
@@ -4718,6 +4718,11 @@ bool TextServerAdvanced::shaped_text_update_justification_ops(const RID &p_shape
 							if (sd_glyphs[i].font_rid != RID()) {
 								Glyph gl = _shape_single_glyph(sd, 0x0640, HB_SCRIPT_ARABIC, HB_DIRECTION_RTL, sd->glyphs[i].font_rid, sd->glyphs[i].font_size);
 								if ((sd_glyphs[i].flags & GRAPHEME_IS_VALID) == GRAPHEME_IS_VALID) {
+#if HB_VERSION_ATLEAST(5, 1, 0)
+									if ((i > 0) && ((sd_glyphs[i - 1].flags & GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL) != GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL)) {
+										continue;
+									}
+#endif
 									gl.start = sd_glyphs[i].start;
 									gl.end = sd_glyphs[i].end;
 									gl.repeat = 0;
@@ -4908,11 +4913,16 @@ void TextServerAdvanced::_shape_run(ShapedTextDataAdvanced *p_sd, int64_t p_star
 
 	hb_buffer_clear_contents(p_sd->hb_buffer);
 	hb_buffer_set_direction(p_sd->hb_buffer, p_direction);
+	int flags = (p_start == 0 ? HB_BUFFER_FLAG_BOT : 0) | (p_end == p_sd->text.length() ? HB_BUFFER_FLAG_EOT : 0);
 	if (p_sd->preserve_control) {
-		hb_buffer_set_flags(p_sd->hb_buffer, (hb_buffer_flags_t)(HB_BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES | (p_start == 0 ? HB_BUFFER_FLAG_BOT : 0) | (p_end == p_sd->text.length() ? HB_BUFFER_FLAG_EOT : 0)));
+		flags |= HB_BUFFER_FLAG_PRESERVE_DEFAULT_IGNORABLES;
 	} else {
-		hb_buffer_set_flags(p_sd->hb_buffer, (hb_buffer_flags_t)(HB_BUFFER_FLAG_DEFAULT | (p_start == 0 ? HB_BUFFER_FLAG_BOT : 0) | (p_end == p_sd->text.length() ? HB_BUFFER_FLAG_EOT : 0)));
+		flags |= HB_BUFFER_FLAG_DEFAULT;
 	}
+#if HB_VERSION_ATLEAST(5, 1, 0)
+	flags |= HB_BUFFER_FLAG_PRODUCE_SAFE_TO_INSERT_TATWEEL;
+#endif
+	hb_buffer_set_flags(p_sd->hb_buffer, (hb_buffer_flags_t)flags);
 	hb_buffer_set_script(p_sd->hb_buffer, p_script);
 
 	if (p_sd->spans[p_span].language.is_empty()) {
@@ -4976,9 +4986,15 @@ void TextServerAdvanced::_shape_run(ShapedTextDataAdvanced *p_sd, int64_t p_star
 			gl.font_rid = p_fonts[p_fb_index];
 			gl.font_size = fs;
 
-			if (glyph_info[i].mask & HB_GLYPH_FLAG_DEFINED) {
+			if (glyph_info[i].mask & HB_GLYPH_FLAG_UNSAFE_TO_BREAK) {
 				gl.flags |= GRAPHEME_IS_CONNECTED;
 			}
+
+#if HB_VERSION_ATLEAST(5, 1, 0)
+			if (glyph_info[i].mask & HB_GLYPH_FLAG_SAFE_TO_INSERT_TATWEEL) {
+				gl.flags |= GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL;
+			}
+#endif
 
 			gl.index = glyph_info[i].codepoint;
 			if (gl.index != 0) {

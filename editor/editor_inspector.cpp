@@ -1613,12 +1613,11 @@ void EditorInspectorArray::_rmb_popup_id_pressed(int p_id) {
 			_clear_array();
 			break;
 		case OPTION_RESIZE_ARRAY:
-			new_size = count;
-			new_size_line_edit->set_text(Variant(new_size));
+			new_size_spin_box->set_value(count);
 			resize_dialog->get_ok_button()->set_disabled(true);
-			resize_dialog->popup_centered();
-			new_size_line_edit->grab_focus();
-			new_size_line_edit->select_all();
+			resize_dialog->popup_centered(Size2i(250, 0) * EDSCALE);
+			new_size_spin_box->get_line_edit()->grab_focus();
+			new_size_spin_box->get_line_edit()->select_all();
 			break;
 		default:
 			break;
@@ -2013,36 +2012,21 @@ int EditorInspectorArray::_drop_position() const {
 	return -1;
 }
 
-void EditorInspectorArray::_new_size_line_edit_text_changed(String p_text) {
-	bool valid = false;
-	if (p_text.is_valid_int()) {
-		int val = p_text.to_int();
-		if (val > 0 && val != count) {
-			valid = true;
-		}
-	}
-	resize_dialog->get_ok_button()->set_disabled(!valid);
-}
-
-void EditorInspectorArray::_new_size_line_edit_text_submitted(String p_text) {
-	bool valid = false;
-	if (p_text.is_valid_int()) {
-		int val = p_text.to_int();
-		if (val > 0 && val != count) {
-			new_size = val;
-			valid = true;
-		}
-	}
-	if (valid) {
-		resize_dialog->hide();
-		_resize_array(new_size);
-	} else {
-		new_size_line_edit->set_text(Variant(new_size));
-	}
-}
-
 void EditorInspectorArray::_resize_dialog_confirmed() {
-	_new_size_line_edit_text_submitted(new_size_line_edit->get_text());
+	if (int(new_size_spin_box->get_value()) == count) {
+		return;
+	}
+
+	resize_dialog->hide();
+	_resize_array(int(new_size_spin_box->get_value()));
+}
+
+void EditorInspectorArray::_new_size_spin_box_value_changed(float p_value) {
+	resize_dialog->get_ok_button()->set_disabled(int(p_value) == count);
+}
+
+void EditorInspectorArray::_new_size_spin_box_text_submitted(String p_text) {
+	_resize_dialog_confirmed();
 }
 
 void EditorInspectorArray::_setup() {
@@ -2342,10 +2326,11 @@ EditorInspectorArray::EditorInspectorArray() {
 	VBoxContainer *resize_dialog_vbox = memnew(VBoxContainer);
 	resize_dialog->add_child(resize_dialog_vbox);
 
-	new_size_line_edit = memnew(LineEdit);
-	new_size_line_edit->connect("text_changed", callable_mp(this, &EditorInspectorArray::_new_size_line_edit_text_changed));
-	new_size_line_edit->connect("text_submitted", callable_mp(this, &EditorInspectorArray::_new_size_line_edit_text_submitted));
-	resize_dialog_vbox->add_margin_child(TTRC("New Size:"), new_size_line_edit);
+	new_size_spin_box = memnew(SpinBox);
+	new_size_spin_box->set_max(16384);
+	new_size_spin_box->connect("value_changed", callable_mp(this, &EditorInspectorArray::_new_size_spin_box_value_changed));
+	new_size_spin_box->get_line_edit()->connect("text_submitted", callable_mp(this, &EditorInspectorArray::_new_size_spin_box_text_submitted));
+	resize_dialog_vbox->add_margin_child(TTRC("New Size:"), new_size_spin_box);
 
 	vbox->connect("visibility_changed", callable_mp(this, &EditorInspectorArray::_vbox_visibility_changed));
 }
@@ -2665,7 +2650,6 @@ void EditorInspector::update_tree() {
 
 	List<PropertyInfo> plist;
 	object->get_property_list(&plist, true);
-	_update_script_class_properties(*object, plist);
 
 	HashMap<VBoxContainer *, HashMap<String, VBoxContainer *>> vbox_per_path;
 	HashMap<String, EditorInspectorArray *> editor_inspector_array_per_prefix;
@@ -2750,6 +2734,7 @@ void EditorInspector::update_tree() {
 			category_vbox = nullptr; //reset
 
 			String type = p.name;
+			String label = p.name;
 			type_name = p.name;
 
 			// Set the category icon.
@@ -2757,11 +2742,16 @@ void EditorInspector::update_tree() {
 				// If we have a category inside a script, search for the first script with a valid icon.
 				Ref<Script> script = ResourceLoader::load(p.hint_string, "Script");
 				StringName base_type;
+				StringName name;
 				if (script.is_valid()) {
 					base_type = script->get_instance_base_type();
+					name = EditorNode::get_editor_data().script_class_get_name(script->get_path());
+					if (name != StringName() && label != name) {
+						label = name;
+					}
 				}
 				while (script.is_valid()) {
-					StringName name = EditorNode::get_editor_data().script_class_get_name(script->get_path());
+					name = EditorNode::get_editor_data().script_class_get_name(script->get_path());
 					String icon_path = EditorNode::get_editor_data().script_class_get_icon_path(name);
 					if (name != StringName() && icon_path.length()) {
 						category->icon = ResourceLoader::load(icon_path, "Texture");
@@ -2780,7 +2770,7 @@ void EditorInspector::update_tree() {
 			}
 
 			// Set the category label.
-			category->label = type;
+			category->label = label;
 
 			if (use_doc_hints) {
 				// Sets the category tooltip to show documentation.
@@ -3016,7 +3006,6 @@ void EditorInspector::update_tree() {
 
 			Vector<String> class_name_components = String(p.class_name).split(",");
 
-			array_element_prefix = class_name_components[1];
 			int page_size = 5;
 			bool movable = true;
 			bool numbered = false;
@@ -3052,8 +3041,8 @@ void EditorInspector::update_tree() {
 				editor_inspector_array->set_undo_redo(undo_redo);
 			} else if (p.type == Variant::INT) {
 				// Setup the array to use the count property and built-in functions to create/move/delete elements.
-
-				if (class_name_components.size() > 2) {
+				if (class_name_components.size() >= 2) {
+					array_element_prefix = class_name_components[1];
 					editor_inspector_array = memnew(EditorInspectorArray);
 					int page = per_array_page.has(array_element_prefix) ? per_array_page[array_element_prefix] : 0;
 
@@ -3251,6 +3240,11 @@ void EditorInspector::update_tree() {
 	}
 
 	if (!hide_metadata) {
+		// Add 4px of spacing between the "Add Metadata" button and the content above it.
+		Control *spacer = memnew(Control);
+		spacer->set_custom_minimum_size(Size2(0, 4) * EDSCALE);
+		main_vbox->add_child(spacer);
+
 		Button *add_md = EditorInspector::create_inspector_action_button(TTR("Add Metadata"));
 		add_md->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
 		add_md->connect(SNAME("pressed"), callable_mp(this, &EditorInspector::_show_add_meta_dialog));
@@ -3920,93 +3914,6 @@ String EditorInspector::get_object_class() const {
 
 void EditorInspector::_feature_profile_changed() {
 	update_tree();
-}
-
-void EditorInspector::_update_script_class_properties(const Object &p_object, List<PropertyInfo> &r_list) const {
-	Ref<Script> script = p_object.get_script();
-	if (script.is_null()) {
-		return;
-	}
-
-	List<Ref<Script>> classes;
-
-	// NodeC -> NodeB -> NodeA
-	while (script.is_valid()) {
-		classes.push_front(script);
-		script = script->get_base_script();
-	}
-
-	if (classes.is_empty()) {
-		return;
-	}
-
-	// Script Variables -> to insert: NodeC..B..A -> bottom (insert_here)
-	List<PropertyInfo>::Element *script_variables = nullptr;
-	List<PropertyInfo>::Element *bottom = nullptr;
-	List<PropertyInfo>::Element *insert_here = nullptr;
-	for (List<PropertyInfo>::Element *E = r_list.front(); E; E = E->next()) {
-		PropertyInfo &pi = E->get();
-		if (pi.name != "Script Variables") {
-			continue;
-		}
-		script_variables = E;
-		bottom = r_list.insert_after(script_variables, PropertyInfo());
-		insert_here = bottom;
-		break;
-	}
-
-	HashSet<StringName> added;
-	for (const Ref<Script> &s : classes) {
-		String path = s->get_path();
-		String name = EditorNode::get_editor_data().script_class_get_name(path);
-		if (name.is_empty()) {
-			if (s->is_built_in()) {
-				if (s->get_name().is_empty()) {
-					name = TTR("Built-in script");
-				} else {
-					name = vformat("%s (%s)", s->get_name(), TTR("Built-in"));
-				}
-			} else {
-				name = path.get_file();
-			}
-		}
-
-		List<PropertyInfo> props;
-		s->get_script_property_list(&props);
-
-		// Script Variables -> NodeA -> bottom (insert_here)
-		List<PropertyInfo>::Element *category = r_list.insert_before(insert_here, PropertyInfo(Variant::NIL, name, PROPERTY_HINT_NONE, path, PROPERTY_USAGE_CATEGORY));
-
-		// Script Variables -> NodeA -> A props... -> bottom (insert_here)
-		for (List<PropertyInfo>::Element *P = props.front(); P; P = P->next()) {
-			PropertyInfo &pi = P->get();
-			if (added.has(pi.name)) {
-				continue;
-			}
-			added.insert(pi.name);
-
-			r_list.insert_before(insert_here, pi);
-
-			List<PropertyInfo>::Element *prop_below = bottom->next();
-			while (prop_below) {
-				if (prop_below->get() == pi) {
-					List<PropertyInfo>::Element *to_delete = prop_below;
-					prop_below = prop_below->next();
-					r_list.erase(to_delete);
-				} else {
-					prop_below = prop_below->next();
-				}
-			}
-		}
-
-		// Script Variables -> NodeA (insert_here) -> A props... -> bottom
-		insert_here = category;
-	}
-
-	if (script_variables) {
-		r_list.erase(script_variables);
-		r_list.erase(bottom);
-	}
 }
 
 void EditorInspector::set_restrict_to_basic_settings(bool p_restrict) {

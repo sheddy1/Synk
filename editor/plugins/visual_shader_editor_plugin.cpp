@@ -5577,8 +5577,12 @@ VisualShaderEditor::VisualShaderEditor() {
 	add_options.push_back(AddOption("Reciprocal", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("1.0 / vector"), { VisualShaderNodeVectorFunc::FUNC_RECIPROCAL, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_2D }, VisualShaderNode::PORT_TYPE_VECTOR_2D));
 	add_options.push_back(AddOption("Reciprocal", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("1.0 / vector"), { VisualShaderNodeVectorFunc::FUNC_RECIPROCAL, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_3D }, VisualShaderNode::PORT_TYPE_VECTOR_3D));
 	add_options.push_back(AddOption("Reciprocal", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("1.0 / vector"), { VisualShaderNodeVectorFunc::FUNC_RECIPROCAL, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_4D }, VisualShaderNode::PORT_TYPE_VECTOR_4D));
+	add_options.push_back(AddOption("Reflect", "Vector", "Functions", "VisualShaderNodeVectorOp", TTR("Returns the vector that points in the direction of reflection ( a : incident vector, b : normal vector )."), { VisualShaderNodeVectorOp::OP_REFLECT, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_2D }, VisualShaderNode::PORT_TYPE_VECTOR_2D));
 	add_options.push_back(AddOption("Reflect", "Vector", "Functions", "VisualShaderNodeVectorOp", TTR("Returns the vector that points in the direction of reflection ( a : incident vector, b : normal vector )."), { VisualShaderNodeVectorOp::OP_REFLECT, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_3D }, VisualShaderNode::PORT_TYPE_VECTOR_3D));
+	add_options.push_back(AddOption("Reflect", "Vector", "Functions", "VisualShaderNodeVectorOp", TTR("Returns the vector that points in the direction of reflection ( a : incident vector, b : normal vector )."), { VisualShaderNodeVectorOp::OP_REFLECT, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_4D }, VisualShaderNode::PORT_TYPE_VECTOR_4D));
+	add_options.push_back(AddOption("Refract", "Vector", "Functions", "VisualShaderNodeVectorRefract", TTR("Returns the vector that points in the direction of refraction."), {}, VisualShaderNode::PORT_TYPE_VECTOR_2D));
 	add_options.push_back(AddOption("Refract", "Vector", "Functions", "VisualShaderNodeVectorRefract", TTR("Returns the vector that points in the direction of refraction."), {}, VisualShaderNode::PORT_TYPE_VECTOR_3D));
+	add_options.push_back(AddOption("Refract", "Vector", "Functions", "VisualShaderNodeVectorRefract", TTR("Returns the vector that points in the direction of refraction."), {}, VisualShaderNode::PORT_TYPE_VECTOR_4D));
 	add_options.push_back(AddOption("Round", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("Finds the nearest integer to the parameter."), { VisualShaderNodeVectorFunc::FUNC_ROUND, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_2D }, VisualShaderNode::PORT_TYPE_VECTOR_2D));
 	add_options.push_back(AddOption("Round", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("Finds the nearest integer to the parameter."), { VisualShaderNodeVectorFunc::FUNC_ROUND, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_3D }, VisualShaderNode::PORT_TYPE_VECTOR_3D));
 	add_options.push_back(AddOption("Round", "Vector", "Functions", "VisualShaderNodeVectorFunc", TTR("Finds the nearest integer to the parameter."), { VisualShaderNodeVectorFunc::FUNC_ROUND, VisualShaderNodeVectorFunc::OP_TYPE_VECTOR_4D }, VisualShaderNode::PORT_TYPE_VECTOR_4D));
@@ -6228,7 +6232,7 @@ void VisualShaderNodePortPreview::_shader_changed() {
 		}
 		if (src_mat && src_mat->get_shader().is_valid()) {
 			List<PropertyInfo> params;
-			src_mat->get_shader()->get_param_list(&params);
+			src_mat->get_shader()->get_shader_uniform_list(&params);
 			for (const PropertyInfo &E : params) {
 				material->set(E.name, src_mat->get(E.name));
 			}
@@ -6249,7 +6253,7 @@ void VisualShaderNodePortPreview::setup(const Ref<VisualShader> &p_shader, Visua
 }
 
 Size2 VisualShaderNodePortPreview::get_minimum_size() const {
-	int port_preview_size = EditorSettings::get_singleton()->get("editors/visual_editors/visualshader/port_preview_size");
+	int port_preview_size = EditorSettings::get_singleton()->get("editors/visual_editors/visual_shader/port_preview_size");
 	return Size2(port_preview_size, port_preview_size) * EDSCALE;
 }
 
