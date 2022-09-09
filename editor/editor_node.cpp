@@ -890,6 +890,91 @@ void EditorNode::_resources_changed(const Vector<String> &p_resources) {
 	}
 }
 
+void EditorNode::_replace_resources_in_object_properties(Object *p_obj, const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource) {
+	List<PropertyInfo> pi;
+	p_obj->get_property_list(&pi);
+
+	for (const PropertyInfo &E : pi) {
+		if (!(E.usage & PROPERTY_USAGE_STORAGE)) {
+			continue;
+		}
+
+		switch (E.type) {
+			case Variant::OBJECT: {
+				const Variant &v = p_obj->get(E.name);
+				Ref<Resource> res = v;
+
+				if (res.is_valid()) {
+					int res_idx = p_source_resources.find(res);
+					if (res_idx != -1) {
+						p_obj->set(E.name, p_target_resource.get(res_idx));
+					} else {
+						_replace_resources_in_object_properties(v, p_source_resources, p_target_resource);
+					}
+				}
+			} break;
+			case Variant::ARRAY: {
+				Array varray = p_obj->get(E.name);
+				int len = varray.size();
+				bool array_requires_updating = false;
+				for (int i = 0; i < len; i++) {
+					const Variant &v = varray.get(i);
+					Ref<Resource> res = v;
+
+					if (res.is_valid()) {
+						int res_idx = p_source_resources.find(res);
+						if (res_idx != -1) {
+							varray.set(i, p_target_resource.get(res_idx));
+							array_requires_updating = true;
+						} else {
+							_replace_resources_in_object_properties(v, p_source_resources, p_target_resource);
+						}
+					}
+				}
+				if (array_requires_updating) {
+					p_obj->set(E.name, varray);
+				}
+			} break;
+			case Variant::DICTIONARY: {
+				Dictionary d = p_obj->get(E.name);
+				List<Variant> keys;
+				bool dictionary_requires_updating = false;
+				d.get_key_list(&keys);
+				for (const Variant &F : keys) {
+					Variant v = d[F];
+					Ref<Resource> res = v;
+
+					if (res.is_valid()) {
+						int res_idx = p_source_resources.find(res);
+						if (res_idx != -1) {
+							d[F] = p_target_resource.get(res_idx);
+							dictionary_requires_updating = true;
+						} else {
+							_replace_resources_in_object_properties(v, p_source_resources, p_target_resource);
+						}
+					}
+				}
+				if (dictionary_requires_updating) {
+					p_obj->set(E.name, d);
+				}
+			} break;
+			default: {
+				break;
+			}
+		}
+	}
+}
+
+void EditorNode::_replace_resources_in_node(Node *p_node, const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource) {
+	if (p_node) {
+		_replace_resources_in_object_properties(p_node, p_source_resources, p_target_resource);
+
+		for (int i = 0; i < p_node->get_child_count(); i++) {
+			_replace_resources_in_node(p_node->get_child(i), p_source_resources, p_target_resource);
+		}
+	}
+}
+
 void EditorNode::_fs_changed() {
 	for (FileDialog *E : file_dialogs) {
 		E->invalidate();
@@ -3205,6 +3290,13 @@ void EditorNode::editor_select(int p_which) {
 		} else {
 			set_distraction_free_mode(scene_distraction_free);
 		}
+	}
+}
+
+void EditorNode::replace_resources_in_scenes(const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource) {
+	for (int i = 0; i < editor_data.get_edited_scene_count(); i++) {
+		Node *edited_scene_root = editor_data.get_edited_scene_root(i);
+		_replace_resources_in_node(edited_scene_root, p_source_resources, p_target_resource);
 	}
 }
 
@@ -6510,11 +6602,25 @@ void EditorNode::remove_resource_conversion_plugin(const Ref<EditorResourceConve
 	resource_conversion_plugins.erase(p_plugin);
 }
 
-Vector<Ref<EditorResourceConversionPlugin>> EditorNode::find_resource_conversion_plugin(const Ref<Resource> &p_for_resource) {
+Vector<Ref<EditorResourceConversionPlugin>> EditorNode::find_resource_conversion_plugin_for_resource(const Ref<Resource> &p_for_resource) {
+	Vector<Ref<EditorResourceConversionPlugin>> ret;
+
+	if (p_for_resource.is_valid()) {
+		for (int i = 0; i < resource_conversion_plugins.size(); i++) {
+			if (resource_conversion_plugins[i].is_valid() && resource_conversion_plugins[i]->handles(p_for_resource)) {
+				ret.push_back(resource_conversion_plugins[i]);
+			}
+		}
+	}
+
+	return ret;
+}
+
+Vector<Ref<EditorResourceConversionPlugin>> EditorNode::find_resource_conversion_plugin_for_type_name(const String &p_type) {
 	Vector<Ref<EditorResourceConversionPlugin>> ret;
 
 	for (int i = 0; i < resource_conversion_plugins.size(); i++) {
-		if (resource_conversion_plugins[i].is_valid() && resource_conversion_plugins[i]->handles(p_for_resource)) {
+		if (resource_conversion_plugins[i].is_valid() && resource_conversion_plugins[i]->handles_type_name(p_type)) {
 			ret.push_back(resource_conversion_plugins[i]);
 		}
 	}

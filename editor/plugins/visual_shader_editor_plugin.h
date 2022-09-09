@@ -594,6 +594,7 @@ class VisualShaderConversionPlugin : public EditorResourceConversionPlugin {
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 

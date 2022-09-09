@@ -6870,6 +6870,10 @@ bool VisualShaderConversionPlugin::handles(const Ref<Resource> &p_resource) cons
 	return vshader.is_valid();
 }
 
+bool VisualShaderConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "VisualShader");
+}
+
 Ref<Resource> VisualShaderConversionPlugin::convert(const Ref<Resource> &p_resource) const {
 	Ref<VisualShader> vshader = p_resource;
 	ERR_FAIL_COND_V(!vshader.is_valid(), Ref<Resource>());

@@ -669,6 +669,10 @@ private:
 	void _update_update_spinner();
 
 	void _resources_changed(const Vector<String> &p_resources);
+
+	void _replace_resources_in_object_properties(Object *p_obj, const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource);
+	void _replace_resources_in_node(Node *p_node, const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource);
+
 	void _scan_external_changes();
 	void _reload_modified_scenes();
 	void _reload_project_settings();
@@ -781,6 +785,8 @@ public:
 	void edit_item(Object *p_object, Object *p_editing_owner);
 	void push_node_item(Node *p_node);
 	void hide_unused_editors(const Object *p_editing_owner = nullptr);
+
+	void replace_resources_in_scenes(const Vector<Ref<Resource>> &p_source_resources, const Vector<Ref<Resource>> &p_target_resource);
 
 	void select_editor_by_name(const String &p_name);
 
@@ -928,7 +934,8 @@ public:
 
 	void add_resource_conversion_plugin(const Ref<EditorResourceConversionPlugin> &p_plugin);
 	void remove_resource_conversion_plugin(const Ref<EditorResourceConversionPlugin> &p_plugin);
-	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin(const Ref<Resource> &p_for_resource);
+	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin_for_resource(const Ref<Resource> &p_for_resource);
+	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin_for_type_name(const String &p_type);
 
 	bool ensure_main_scene(bool p_from_native);
 };

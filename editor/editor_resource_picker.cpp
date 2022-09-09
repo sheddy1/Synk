@@ -276,7 +276,7 @@ void EditorResourcePicker::_update_menu_items() {
 
 	// Add options to convert existing resource to another type of resource.
 	if (is_editable() && edited_resource.is_valid()) {
-		Vector<Ref<EditorResourceConversionPlugin>> conversions = EditorNode::get_singleton()->find_resource_conversion_plugin(edited_resource);
+		Vector<Ref<EditorResourceConversionPlugin>> conversions = EditorNode::get_singleton()->find_resource_conversion_plugin_for_resource(edited_resource);
 		if (conversions.size()) {
 			edit_menu->add_separator();
 		}
@@ -438,7 +438,7 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 
 			if (p_which >= CONVERT_BASE_ID) {
 				int to_type = p_which - CONVERT_BASE_ID;
-				Vector<Ref<EditorResourceConversionPlugin>> conversions = EditorNode::get_singleton()->find_resource_conversion_plugin(edited_resource);
+				Vector<Ref<EditorResourceConversionPlugin>> conversions = EditorNode::get_singleton()->find_resource_conversion_plugin_for_resource(edited_resource);
 				ERR_FAIL_INDEX(to_type, conversions.size());
 
 				edited_resource = conversions[to_type]->convert(edited_resource);

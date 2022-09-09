@@ -364,6 +364,10 @@ bool StandardMaterial3DConversionPlugin::handles(const Ref<Resource> &p_resource
 	return mat.is_valid();
 }
 
+bool StandardMaterial3DConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "StandardMaterial3D");
+}
+
 Ref<Resource> StandardMaterial3DConversionPlugin::convert(const Ref<Resource> &p_resource) const {
 	Ref<StandardMaterial3D> mat = p_resource;
 	ERR_FAIL_COND_V(!mat.is_valid(), Ref<Resource>());
@@ -408,6 +412,10 @@ String ORMMaterial3DConversionPlugin::converts_to() const {
 bool ORMMaterial3DConversionPlugin::handles(const Ref<Resource> &p_resource) const {
 	Ref<ORMMaterial3D> mat = p_resource;
 	return mat.is_valid();
+}
+
+bool ORMMaterial3DConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "ORMMaterial3D");
 }
 
 Ref<Resource> ORMMaterial3DConversionPlugin::convert(const Ref<Resource> &p_resource) const {
@@ -456,6 +464,10 @@ bool ParticleProcessMaterialConversionPlugin::handles(const Ref<Resource> &p_res
 	return mat.is_valid();
 }
 
+bool ParticleProcessMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "ParticleProcessMaterial");
+}
+
 Ref<Resource> ParticleProcessMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
 	Ref<ParticleProcessMaterial> mat = p_resource;
 	ERR_FAIL_COND_V(!mat.is_valid(), Ref<Resource>());
@@ -493,6 +505,10 @@ String CanvasItemMaterialConversionPlugin::converts_to() const {
 bool CanvasItemMaterialConversionPlugin::handles(const Ref<Resource> &p_resource) const {
 	Ref<CanvasItemMaterial> mat = p_resource;
 	return mat.is_valid();
+}
+
+bool CanvasItemMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "CanvasItemMaterial");
 }
 
 Ref<Resource> CanvasItemMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
@@ -534,6 +550,10 @@ bool ProceduralSkyMaterialConversionPlugin::handles(const Ref<Resource> &p_resou
 	return mat.is_valid();
 }
 
+bool ProceduralSkyMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "ProceduralSkyMaterial");
+}
+
 Ref<Resource> ProceduralSkyMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
 	Ref<ProceduralSkyMaterial> mat = p_resource;
 	ERR_FAIL_COND_V(!mat.is_valid(), Ref<Resource>());
@@ -571,6 +591,10 @@ String PanoramaSkyMaterialConversionPlugin::converts_to() const {
 bool PanoramaSkyMaterialConversionPlugin::handles(const Ref<Resource> &p_resource) const {
 	Ref<PanoramaSkyMaterial> mat = p_resource;
 	return mat.is_valid();
+}
+
+bool PanoramaSkyMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "PanoramaSkyMaterial");
 }
 
 Ref<Resource> PanoramaSkyMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
@@ -612,6 +636,10 @@ bool PhysicalSkyMaterialConversionPlugin::handles(const Ref<Resource> &p_resourc
 	return mat.is_valid();
 }
 
+bool PhysicalSkyMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "PhysicalSkyMaterial");
+}
+
 Ref<Resource> PhysicalSkyMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
 	Ref<PhysicalSkyMaterial> mat = p_resource;
 	ERR_FAIL_COND_V(!mat.is_valid(), Ref<Resource>());
@@ -649,6 +677,10 @@ String FogMaterialConversionPlugin::converts_to() const {
 bool FogMaterialConversionPlugin::handles(const Ref<Resource> &p_resource) const {
 	Ref<FogMaterial> mat = p_resource;
 	return mat.is_valid();
+}
+
+bool FogMaterialConversionPlugin::handles_type_name(const String &p_type) const {
+	return ClassDB::is_parent_class(p_type, "FogMaterial");
 }
 
 Ref<Resource> FogMaterialConversionPlugin::convert(const Ref<Resource> &p_resource) const {
