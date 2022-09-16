@@ -1,6 +1,5 @@
 # Properly detect languages on Github
 *.h linguist-language=C++
-*.c linguist-language=C++
 *.inc linguist-language=C++
 thirdparty/* linguist-vendored
 
