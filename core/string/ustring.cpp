@@ -33,6 +33,7 @@
 #include "core/crypto/crypto_core.h"
 #include "core/math/color.h"
 #include "core/math/math_funcs.h"
+#include "core/object/object.h"
 #include "core/os/memory.h"
 #include "core/string/print_string.h"
 #include "core/string/string_name.h"
@@ -3378,8 +3379,17 @@ String String::format(const Variant &values, String placeholder) const {
 		for (const Variant &key : keys) {
 			new_string = new_string.replace(placeholder.replace("_", key), d[key]);
 		}
+	} else if (values.get_type() == Variant::OBJECT) {
+		Object *obj = values;
+
+		List<PropertyInfo> props;
+		obj->get_property_list(&props);
+
+		for (const PropertyInfo &E : props) {
+			new_string = new_string.replace(placeholder.replace("_", E.name), obj->get(E.name));
+		}
 	} else {
-		ERR_PRINT(String("Invalid type: use Array or Dictionary.").ascii().get_data());
+		ERR_PRINT(String("Invalid type: use Array, Dictionary or Object.").ascii().get_data());
 	}
 
 	return new_string;
