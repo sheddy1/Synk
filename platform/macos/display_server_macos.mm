@@ -30,6 +30,7 @@
 
 #include "display_server_macos.h"
 
+#include "godot_button_view.h"
 #include "godot_content_view.h"
 #include "godot_menu_delegate.h"
 #include "godot_menu_item.h"
@@ -2639,6 +2640,14 @@ bool DisplayServerMacOS::window_minimize_on_title_dbl_click() const {
 	return false;
 }
 
+void DisplayServerMacOS::window_set_window_buttons_offset(const Vector2i &p_offset, WindowID p_window) {
+	_THREAD_SAFE_METHOD_
+
+	ERR_FAIL_COND(!windows.has(p_window));
+	WindowData &wd = windows[p_window];
+	wd.wb_offset = p_offset;
+}
+
 Vector2i DisplayServerMacOS::window_get_safe_title_margins(WindowID p_window) const {
 	_THREAD_SAFE_METHOD_
 
@@ -2660,6 +2669,30 @@ Vector2i DisplayServerMacOS::window_get_safe_title_margins(WindowID p_window) co
 	}
 
 	return Vector2i(max_x * screen_get_max_scale(), 0);
+}
+
+void DisplayServerMacOS::window_set_custom_window_buttons(WindowData &p_wd, bool p_enabled) {
+	if (p_wd.window_button_view) {
+		[p_wd.window_button_view removeFromSuperview];
+		p_wd.window_button_view = nil;
+	}
+	if (p_enabled) {
+		float window_buttons_spacing = NSMinX([[p_wd.window_object standardWindowButton:NSWindowMiniaturizeButton] frame]) - NSMinX([[p_wd.window_object standardWindowButton:NSWindowCloseButton] frame]);
+
+		[p_wd.window_object setTitleVisibility:NSWindowTitleHidden];
+		[[p_wd.window_object standardWindowButton:NSWindowZoomButton] setHidden:YES];
+		[[p_wd.window_object standardWindowButton:NSWindowMiniaturizeButton] setHidden:YES];
+		[[p_wd.window_object standardWindowButton:NSWindowCloseButton] setHidden:YES];
+
+		p_wd.window_button_view = [[GodotButtonView alloc] initWithFrame:NSZeroRect];
+		[p_wd.window_button_view initButtons:window_buttons_spacing offset:NSMakePoint(p_wd.wb_offset.x, p_wd.wb_offset.y)];
+		[p_wd.window_view addSubview:p_wd.window_button_view];
+	} else {
+		[p_wd.window_object setTitleVisibility:NSWindowTitleVisible];
+		[[p_wd.window_object standardWindowButton:NSWindowZoomButton] setHidden:NO];
+		[[p_wd.window_object standardWindowButton:NSWindowMiniaturizeButton] setHidden:NO];
+		[[p_wd.window_object standardWindowButton:NSWindowCloseButton] setHidden:NO];
+	}
 }
 
 void DisplayServerMacOS::window_set_flag(WindowFlags p_flag, bool p_enabled, WindowID p_window) {
@@ -2684,12 +2717,18 @@ void DisplayServerMacOS::window_set_flag(WindowFlags p_flag, bool p_enabled, Win
 			NSRect rect = [wd.window_object frame];
 			if (p_enabled) {
 				[wd.window_object setTitlebarAppearsTransparent:YES];
-				[wd.window_object setTitleVisibility:NSWindowTitleHidden];
 				[wd.window_object setStyleMask:[wd.window_object styleMask] | NSWindowStyleMaskFullSizeContentView];
+
+				if (!wd.fullscreen) {
+					window_set_custom_window_buttons(wd, true);
+				}
 			} else {
 				[wd.window_object setTitlebarAppearsTransparent:NO];
-				[wd.window_object setTitleVisibility:NSWindowTitleVisible];
 				[wd.window_object setStyleMask:[wd.window_object styleMask] & ~NSWindowStyleMaskFullSizeContentView];
+
+				if (!wd.fullscreen) {
+					window_set_custom_window_buttons(wd, false);
+				}
 			}
 			[wd.window_object setFrame:rect display:YES];
 		} break;

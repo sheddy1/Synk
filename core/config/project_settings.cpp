@@ -101,10 +101,15 @@ const PackedStringArray ProjectSettings::_get_supported_features() {
 	features.append(VERSION_BRANCH "." _MKSTR(VERSION_PATCH));
 	features.append(VERSION_FULL_CONFIG);
 	features.append(VERSION_FULL_BUILD);
-	// For now, assume Vulkan is always supported.
-	// This should be removed if it's possible to build the editor without Vulkan.
-	features.append("Vulkan Clustered");
-	features.append("Vulkan Mobile");
+
+#ifdef VULKAN_ENABLED
+	features.append("Forward Plus");
+	features.append("Mobile");
+#endif
+
+#ifdef GLES3_ENABLED
+	features.append("GL Compatibility");
+#endif
 	return features;
 }
 
@@ -909,7 +914,7 @@ Error ProjectSettings::save_custom(const String &p_path, const CustomMap &p_cust
 		project_features = ProjectSettings::get_required_features();
 	}
 	// Check the rendering API.
-	const String rendering_api = has_setting("rendering/quality/driver/driver_name") ? (String)get_setting("rendering/quality/driver/driver_name") : String();
+	const String rendering_api = has_setting("rendering/renderer/rendering_method") ? (String)get_setting("rendering/renderer/rendering_method") : String();
 	if (!rendering_api.is_empty()) {
 		// Add the rendering API as a project feature if it doesn't already exist.
 		if (!project_features.has(rendering_api)) {
@@ -1139,6 +1144,7 @@ void ProjectSettings::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_order", "name"), &ProjectSettings::get_order);
 	ClassDB::bind_method(D_METHOD("set_initial_value", "name", "value"), &ProjectSettings::set_initial_value);
 	ClassDB::bind_method(D_METHOD("add_property_info", "hint"), &ProjectSettings::_add_property_info_bind);
+	ClassDB::bind_method(D_METHOD("set_restart_if_changed", "name", "restart"), &ProjectSettings::set_restart_if_changed);
 	ClassDB::bind_method(D_METHOD("clear", "name"), &ProjectSettings::clear);
 	ClassDB::bind_method(D_METHOD("localize_path", "path"), &ProjectSettings::localize_path);
 	ClassDB::bind_method(D_METHOD("globalize_path", "path"), &ProjectSettings::globalize_path);
