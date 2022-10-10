@@ -33,6 +33,8 @@
 
 #include "core/templates/local_vector.h"
 #include "scene/3d/visual_instance_3d.h"
+#include "physics_body_3d.h"
+
 class Skin;
 class SkinReference;
 
@@ -82,13 +84,13 @@ public:
 	Ref<Material> get_active_material(int p_surface) const;
 
 	Node *create_trimesh_collision_node();
-	void create_trimesh_collision();
+	StaticBody3D *create_trimesh_collision();
 
 	Node *create_convex_collision_node(bool p_clean = true, bool p_simplify = false);
-	void create_convex_collision(bool p_clean = true, bool p_simplify = false);
+	StaticBody3D *create_convex_collision(bool p_clean = true, bool p_simplify = false);
 
 	Node *create_multiple_convex_collisions_node();
-	void create_multiple_convex_collisions();
+	StaticBody3D *create_multiple_convex_collisions();
 
 	MeshInstance3D *create_debug_tangents_node();
 	void create_debug_tangents();
@@ -97,6 +99,9 @@ public:
 
 	MeshInstance3D();
 	~MeshInstance3D();
+
+private:
+    String default_collider_suffix = "_staticbody3D";
 };
 
 #endif // MESH_INSTANCE_3D_H

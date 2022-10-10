@@ -236,10 +236,10 @@ Node *MeshInstance3D::create_trimesh_collision_node() {
 	return static_body;
 }
 
-void MeshInstance3D::create_trimesh_collision() {
+StaticBody3D *MeshInstance3D::create_trimesh_collision() {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_trimesh_collision_node());
-	ERR_FAIL_COND(!static_body);
-	static_body->set_name(String(get_name()) + "_col");
+    ERR_FAIL_COND_V(!static_body,nullptr);
+    static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
 	if (get_owner()) {
@@ -247,6 +247,7 @@ void MeshInstance3D::create_trimesh_collision() {
 		static_body->set_owner(get_owner());
 		cshape->set_owner(get_owner());
 	}
+    return static_body;
 }
 
 Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify) {
@@ -266,10 +267,12 @@ Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify
 	return static_body;
 }
 
-void MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
+StaticBody3D *MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_convex_collision_node(p_clean, p_simplify));
-	ERR_FAIL_COND(!static_body);
-	static_body->set_name(String(get_name()) + "_col");
+
+    ERR_FAIL_COND_V(!static_body,nullptr);
+
+    static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
 	if (get_owner()) {
@@ -277,6 +280,7 @@ void MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
 		static_body->set_owner(get_owner());
 		cshape->set_owner(get_owner());
 	}
+    return static_body;
 }
 
 Node *MeshInstance3D::create_multiple_convex_collisions_node() {
@@ -299,10 +303,10 @@ Node *MeshInstance3D::create_multiple_convex_collisions_node() {
 	return static_body;
 }
 
-void MeshInstance3D::create_multiple_convex_collisions() {
+StaticBody3D *MeshInstance3D::create_multiple_convex_collisions() {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_multiple_convex_collisions_node());
-	ERR_FAIL_COND(!static_body);
-	static_body->set_name(String(get_name()) + "_col");
+    ERR_FAIL_COND_V(!static_body,nullptr);
+	static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
 	if (get_owner()) {
@@ -313,6 +317,7 @@ void MeshInstance3D::create_multiple_convex_collisions() {
 			cshape->set_owner(get_owner());
 		}
 	}
+    return static_body;
 }
 
 void MeshInstance3D::_notification(int p_what) {
