@@ -32,8 +32,8 @@
 #define MESH_INSTANCE_3D_H
 
 #include "core/templates/local_vector.h"
-#include "scene/3d/visual_instance_3d.h"
 #include "physics_body_3d.h"
+#include "scene/3d/visual_instance_3d.h"
 
 class Skin;
 class SkinReference;
@@ -101,7 +101,7 @@ public:
 	~MeshInstance3D();
 
 private:
-    String default_collider_suffix = "_staticbody3D";
+    String default_collider_suffix = "_col";
 };
 
 #endif // MESH_INSTANCE_3D_H

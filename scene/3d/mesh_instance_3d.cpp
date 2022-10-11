@@ -238,8 +238,8 @@ Node *MeshInstance3D::create_trimesh_collision_node() {
 
 StaticBody3D *MeshInstance3D::create_trimesh_collision() {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_trimesh_collision_node());
-    ERR_FAIL_COND_V(!static_body,nullptr);
-    static_body->set_name(String(get_name()) + default_collider_suffix);
+	ERR_FAIL_COND_V(!static_body, nullptr);
+	static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
 	if (get_owner()) {
@@ -269,10 +269,8 @@ Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify
 
 StaticBody3D *MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_convex_collision_node(p_clean, p_simplify));
-
-    ERR_FAIL_COND_V(!static_body,nullptr);
-
-    static_body->set_name(String(get_name()) + default_collider_suffix);
+	ERR_FAIL_COND_V(!static_body, nullptr);
+	static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
 	if (get_owner()) {
@@ -305,7 +303,7 @@ Node *MeshInstance3D::create_multiple_convex_collisions_node() {
 
 StaticBody3D *MeshInstance3D::create_multiple_convex_collisions() {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_multiple_convex_collisions_node());
-    ERR_FAIL_COND_V(!static_body,nullptr);
+	ERR_FAIL_COND_V(!static_body, nullptr);
 	static_body->set_name(String(get_name()) + default_collider_suffix);
 
 	add_child(static_body, true);
