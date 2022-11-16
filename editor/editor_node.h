@@ -415,7 +415,6 @@ private:
 	DependencyEditor *dependency_fixer = nullptr;
 	OrphanResourcesDialog *orphan_resources = nullptr;
 	ConfirmationDialog *open_imported = nullptr;
-	Button *new_inherited_button = nullptr;
 	String open_import_request;
 
 	Vector<Control *> floating_docks;
@@ -666,7 +665,7 @@ private:
 
 	void _toggle_distraction_free_mode();
 
-	void _inherit_imported(const String &p_action);
+	void _inherit_imported();
 	void _open_imported();
 
 	void _save_default_environment();
