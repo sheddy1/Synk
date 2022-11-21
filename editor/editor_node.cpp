@@ -615,6 +615,11 @@ void EditorNode::_notification(int p_what) {
 			ResourceImporterTexture::get_singleton()->update_imports();
 
 			bottom_panel_updating = false;
+
+			if (settings_overrides_changed) {
+				EditorSettings::get_singleton()->notify_changes();
+				settings_overrides_changed = false;
+			}
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
@@ -6675,6 +6680,10 @@ int EditorNode::execute_and_show_output(const String &p_title, const String &p_p
 	}
 
 	return eta.exitcode;
+}
+
+void EditorNode::notify_settings_overrides_changed() {
+	settings_overrides_changed = true;
 }
 
 EditorNode::EditorNode() {
