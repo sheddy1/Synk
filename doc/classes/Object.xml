@@ -955,5 +955,9 @@
 		<constant name="CONNECT_REFERENCE_COUNTED" value="8" enum="ConnectFlags">
 			Reference-counted connections can be assigned to the same [Callable] multiple times. Each disconnection decreases the internal counter. The signal fully disconnects only when the counter reaches 0.
 		</constant>
+		<constant name="CONNECT_NO_EDITOR" value="32" enum="ConnectFlags">
+			No-editor connections will not fire inside the editor. Useful when connecting core signals, as they might sometimes cause unwanted side-effects when editing the scene. Enabled by default when connection from the connection dialog.
+			Has no effect outside the editor.
+		</constant>
 	</constants>
 </class>

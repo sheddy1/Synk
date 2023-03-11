@@ -133,6 +133,7 @@ private:
 	OptionButton *type_list = nullptr;
 	CheckBox *deferred = nullptr;
 	CheckBox *one_shot = nullptr;
+	CheckBox *no_editor = nullptr;
 	CheckButton *advanced = nullptr;
 	Vector<Control *> bind_controls;
 
@@ -178,6 +179,7 @@ public:
 
 	bool get_deferred() const;
 	bool get_one_shot() const;
+	bool get_no_editor() const;
 	bool is_editing() const;
 
 	void init(const ConnectionData &p_cd, const PackedStringArray &p_signal_args, bool p_edit = false);
