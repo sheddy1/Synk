@@ -1033,6 +1033,12 @@ Error Object::emit_signalp(const StringName &p_name, const Variant **p_args, int
 	for (int i = 0; i < ssize; i++) {
 		const Connection &c = slot_map.getv(i).conn;
 
+#ifdef TOOLS_ENABLED
+		if (c.flags & CONNECT_NO_EDITOR && Engine::get_singleton()->is_editor_hint()) {
+			continue;
+		}
+#endif
+
 		Object *target = c.callable.get_object();
 		if (!target) {
 			// Target might have been deleted during signal callback, this is expected and OK.
@@ -1597,6 +1603,7 @@ void Object::_bind_methods() {
 	BIND_ENUM_CONSTANT(CONNECT_PERSIST);
 	BIND_ENUM_CONSTANT(CONNECT_ONE_SHOT);
 	BIND_ENUM_CONSTANT(CONNECT_REFERENCE_COUNTED);
+	BIND_ENUM_CONSTANT(CONNECT_NO_EDITOR);
 }
 
 void Object::set_deferred(const StringName &p_property, const Variant &p_value) {
