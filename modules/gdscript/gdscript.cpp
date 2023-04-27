@@ -2227,6 +2227,7 @@ void GDScriptLanguage::get_reserved_words(List<String> *p_words) const {
 		"enum",
 		"static",
 		"var",
+		"let",
 		// control flow
 		"break",
 		"continue",
