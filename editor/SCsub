@@ -79,30 +79,55 @@ if env.editor_build:
     # Generated with `make include-list` for each resource.
 
     # Editor translations
-    tlist = glob.glob(env.Dir("#editor/translations/editor").abspath + "/*.po")
+    if env["editor_localization"]:
+        tlist = glob.glob(env.Dir("#editor/translations/editor").abspath + "/*.po")
+    else:
+        tlist = []
     env.Depends("#editor/editor_translations.gen.h", tlist)
     env.CommandNoCache(
         "#editor/editor_translations.gen.h",
         tlist,
-        env.Run(editor_builders.make_editor_translations_header, "Generating editor translations header."),
+        env.Run(
+            editor_builders.make_editor_translations_header,
+            "Generating editor translations header%s." % " (localization is disabled, will only contain English)"
+            if not env["editor_localization"]
+            else "",
+        ),
     )
 
     # Property translations
-    tlist = glob.glob(env.Dir("#editor/translations/properties").abspath + "/*.po")
+    if env["editor_localization"]:
+        tlist = glob.glob(env.Dir("#editor/translations/properties").abspath + "/*.po")
+    else:
+        tlist = []
     env.Depends("#editor/property_translations.gen.h", tlist)
     env.CommandNoCache(
         "#editor/property_translations.gen.h",
         tlist,
-        env.Run(editor_builders.make_property_translations_header, "Generating property translations header."),
+        env.Run(
+            editor_builders.make_property_translations_header,
+            "Generating property translations header %s." % " (localization is disabled, will only contain English)"
+            if not env["editor_localization"]
+            else "",
+        ),
     )
 
     # Documentation translations
-    tlist = glob.glob(env.Dir("#doc/translations").abspath + "/*.po")
+    if env["editor_localization"]:
+        tlist = glob.glob(env.Dir("#doc/translations").abspath + "/*.po")
+    else:
+        tlist = []
     env.Depends("#editor/doc_translations.gen.h", tlist)
     env.CommandNoCache(
         "#editor/doc_translations.gen.h",
         tlist,
-        env.Run(editor_builders.make_doc_translations_header, "Generating translations header."),
+        env.Run(
+            editor_builders.make_doc_translations_header,
+            "Generating class reference translations header %s."
+            % " (localization is disabled, will only contain English)"
+            if not env["editor_localization"]
+            else "",
+        ),
     )
 
     # Fonts
