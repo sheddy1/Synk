@@ -108,6 +108,24 @@ protected:
 
 	static FileCloseFailNotify close_fail_notify;
 
+#ifndef DISABLE_DEPRECATED
+	void store_8_78289(uint8_t p_dest);
+	void store_16_78289(uint16_t p_dest);
+	void store_32_78289(uint32_t p_dest);
+	void store_64_78289(uint64_t p_dest);
+	void store_buffer_78289(const Vector<uint8_t> &p_buffer);
+	void store_var_78289(const Variant &p_var, bool p_full_objects = false);
+	void store_float_78289(float p_dest);
+	void store_double_78289(double p_dest);
+	void store_real_78289(real_t p_real);
+	void store_string_78289(const String &p_string);
+	void store_line_78289(const String &p_line);
+	void store_csv_line_78289(const Vector<String> &p_values, const String &p_delim = ",");
+	void store_pascal_string_78289(const String &p_string);
+
+	static void _bind_compatibility_methods();
+#endif
+
 private:
 	static bool backup_save;
 	thread_local static Error last_file_open_error;
@@ -166,26 +184,26 @@ public:
 	virtual Error get_error() const = 0; ///< get last error
 
 	virtual void flush() = 0;
-	virtual void store_8(uint8_t p_dest) = 0; ///< store a byte
-	virtual void store_16(uint16_t p_dest); ///< store 16 bits uint
-	virtual void store_32(uint32_t p_dest); ///< store 32 bits uint
-	virtual void store_64(uint64_t p_dest); ///< store 64 bits uint
+	virtual bool store_8(uint8_t p_dest) = 0; ///< store a byte
+	virtual bool store_16(uint16_t p_dest); ///< store 16 bits uint
+	virtual bool store_32(uint32_t p_dest); ///< store 32 bits uint
+	virtual bool store_64(uint64_t p_dest); ///< store 64 bits uint
 
-	virtual void store_float(float p_dest);
-	virtual void store_double(double p_dest);
-	virtual void store_real(real_t p_real);
+	virtual bool store_float(float p_dest);
+	virtual bool store_double(double p_dest);
+	virtual bool store_real(real_t p_real);
 
-	virtual void store_string(const String &p_string);
-	virtual void store_line(const String &p_line);
-	virtual void store_csv_line(const Vector<String> &p_values, const String &p_delim = ",");
+	virtual bool store_string(const String &p_string);
+	virtual bool store_line(const String &p_line);
+	virtual bool store_csv_line(const Vector<String> &p_values, const String &p_delim = ",");
 
-	virtual void store_pascal_string(const String &p_string);
+	virtual bool store_pascal_string(const String &p_string);
 	virtual String get_pascal_string();
 
-	virtual void store_buffer(const uint8_t *p_src, uint64_t p_length); ///< store an array of bytes
-	void store_buffer(const Vector<uint8_t> &p_buffer);
+	virtual bool store_buffer(const uint8_t *p_src, uint64_t p_length); ///< store an array of bytes
+	bool store_buffer(const Vector<uint8_t> &p_buffer);
 
-	void store_var(const Variant &p_var, bool p_full_objects = false);
+	bool store_var(const Variant &p_var, bool p_full_objects = false);
 
 	virtual void close() = 0;
 

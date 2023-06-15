@@ -147,8 +147,8 @@ void FileAccessAndroid::flush() {
 	ERR_FAIL();
 }
 
-void FileAccessAndroid::store_8(uint8_t p_dest) {
-	ERR_FAIL();
+bool FileAccessAndroid::store_8(uint8_t p_dest) {
+	ERR_FAIL_V(false);
 }
 
 bool FileAccessAndroid::file_exists(const String &p_path) {

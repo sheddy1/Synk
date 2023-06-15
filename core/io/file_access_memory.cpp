@@ -157,20 +157,22 @@ void FileAccessMemory::flush() {
 	ERR_FAIL_NULL(data);
 }
 
-void FileAccessMemory::store_8(uint8_t p_byte) {
-	ERR_FAIL_NULL(data);
-	ERR_FAIL_COND(pos >= length);
+bool FileAccessMemory::store_8(uint8_t p_byte) {
+	ERR_FAIL_NULL_V(data, false);
+	ERR_FAIL_COND_V(pos >= length, false);
 	data[pos++] = p_byte;
+	return true;
 }
 
-void FileAccessMemory::store_buffer(const uint8_t *p_src, uint64_t p_length) {
-	ERR_FAIL_COND(!p_src && p_length > 0);
+bool FileAccessMemory::store_buffer(const uint8_t *p_src, uint64_t p_length) {
+	ERR_FAIL_COND_V(!p_src && p_length > 0, false);
 	uint64_t left = length - pos;
 	uint64_t write = MIN(p_length, left);
-	if (write < p_length) {
-		WARN_PRINT("Writing less data than requested");
-	}
 
 	memcpy(&data[pos], p_src, write);
 	pos += write;
+
+	ERR_FAIL_COND_V_MSG(write < p_length, false, "Writing less data than requested.");
+
+	return true;
 }

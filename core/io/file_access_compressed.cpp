@@ -341,12 +341,13 @@ void FileAccessCompressed::flush() {
 	// compressed files keep data in memory till close()
 }
 
-void FileAccessCompressed::store_8(uint8_t p_dest) {
-	ERR_FAIL_COND_MSG(f.is_null(), "File must be opened before use.");
-	ERR_FAIL_COND_MSG(!writing, "File has not been opened in write mode.");
+bool FileAccessCompressed::store_8(uint8_t p_dest) {
+	ERR_FAIL_COND_V_MSG(f.is_null(), false, "File must be opened before use.");
+	ERR_FAIL_COND_V_MSG(!writing, false, "File has not been opened in write mode.");
 
 	WRITE_FIT(1);
 	write_ptr[write_pos++] = p_dest;
+	return true;
 }
 
 bool FileAccessCompressed::file_exists(const String &p_name) {

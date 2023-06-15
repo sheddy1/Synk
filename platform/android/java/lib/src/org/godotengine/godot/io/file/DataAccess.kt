@@ -170,14 +170,16 @@ internal abstract class DataAccess(private val filePath: String) {
 		}
 	}
 
-	fun write(buffer: ByteBuffer) {
+	fun write(buffer: ByteBuffer): Boolean {
 		try {
 			val writtenBytes = fileChannel.write(buffer)
 			if (writtenBytes > 0) {
 				endOfFile = false
 			}
+			return true
 		} catch (e: IOException) {
 			Log.w(TAG, "Exception while writing to file $filePath.", e)
+			return false
 		}
 	}
 }

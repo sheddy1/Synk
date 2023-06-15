@@ -328,8 +328,8 @@ void FileAccessZip::flush() {
 	ERR_FAIL();
 }
 
-void FileAccessZip::store_8(uint8_t p_dest) {
-	ERR_FAIL();
+bool FileAccessZip::store_8(uint8_t p_dest) {
+	ERR_FAIL_V(false);
 }
 
 bool FileAccessZip::file_exists(const String &p_name) {
