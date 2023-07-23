@@ -110,6 +110,7 @@
 #include "tests/scene/test_node_2d.h"
 #include "tests/scene/test_packed_scene.h"
 #include "tests/scene/test_path_2d.h"
+#include "tests/scene/test_popup_menu.h"
 #include "tests/scene/test_primitives.h"
 #include "tests/scene/test_sprite_frames.h"
 #include "tests/scene/test_text_edit.h"
