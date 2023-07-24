@@ -34,7 +34,7 @@
 #include "scene/gui/text_edit.h"
 
 class CodeEdit : public TextEdit {
-	GDCLASS(CodeEdit, TextEdit)
+	GDCLASS(CodeEdit, TextEdit);
 
 public:
 	// Keep enums in sync with:

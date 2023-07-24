@@ -416,8 +416,11 @@ void CodeEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 				if (symbol_lookup_new_word != symbol_lookup_word) {
 					emit_signal(SNAME("symbol_validate"), symbol_lookup_new_word);
 				}
-			} else if (!mm->is_command_or_control_pressed() || (!mm->get_button_mask().is_empty() && symbol_lookup_pos != get_line_column_at_pos(mpos))) {
-				set_symbol_lookup_word_as_valid(false);
+			} else {
+				emit_signal("symbol_hovered", get_word_at_pos(mpos), get_word_line_column_at_pos(mpos));
+				if (!mm->is_command_or_control_pressed() || (!mm->get_button_mask().is_empty() && symbol_lookup_pos != get_line_column_at_pos(mpos))) {
+					set_symbol_lookup_word_as_valid(false);
+				}
 			}
 		}
 
@@ -2522,6 +2525,7 @@ void CodeEdit::_bind_methods() {
 	/* Symbol lookup */
 	ADD_SIGNAL(MethodInfo("symbol_lookup", PropertyInfo(Variant::STRING, "symbol"), PropertyInfo(Variant::INT, "line"), PropertyInfo(Variant::INT, "column")));
 	ADD_SIGNAL(MethodInfo("symbol_validate", PropertyInfo(Variant::STRING, "symbol")));
+	ADD_SIGNAL(MethodInfo("symbol_hovered", PropertyInfo(Variant::STRING, "symbol"), PropertyInfo(Variant::VECTOR2I, "symbol_column_line")));
 }
 
 /* Auto brace completion */
