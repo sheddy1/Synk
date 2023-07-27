@@ -3064,8 +3064,8 @@ BaseMaterial3D::BaseMaterial3D(bool p_orm) :
 
 	set_grow(0.0);
 
-	set_heightmap_deep_parallax_min_layers(8);
-	set_heightmap_deep_parallax_max_layers(32);
+	set_heightmap_deep_parallax_min_layers(6);
+	set_heightmap_deep_parallax_max_layers(16);
 	set_heightmap_deep_parallax_flip_tangent(false); //also sets binormal
 
 	flags[FLAG_ALBEDO_TEXTURE_MSDF] = false;
