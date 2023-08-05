@@ -450,7 +450,7 @@ void ProjectSettings::_convert_to_last_version(int p_from_version) {
 			if (String(E.key).begins_with("input/") && value.get_type() == Variant::ARRAY) {
 				Array array = value;
 				Dictionary action;
-				action["deadzone"] = Variant(0.5f);
+				action["deadzone"] = Variant(0.2f);
 				action["events"] = array;
 				E.value.variant = action;
 			}
