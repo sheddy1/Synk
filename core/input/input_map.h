@@ -74,7 +74,7 @@ public:
 
 	bool has_action(const StringName &p_action) const;
 	List<StringName> get_actions() const;
-	void add_action(const StringName &p_action, float p_deadzone = 0.5);
+	void add_action(const StringName &p_action, float p_deadzone = 0.2);
 	void erase_action(const StringName &p_action);
 
 	float action_get_deadzone(const StringName &p_action);
