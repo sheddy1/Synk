@@ -516,8 +516,8 @@ GroupDialog::GroupDialog() {
 
 	VBoxContainer *vbc_buttons = memnew(VBoxContainer);
 	hbc->add_child(vbc_buttons);
-	vbc_buttons->set_h_size_flags(Control::SIZE_SHRINK_CENTER);
 	vbc_buttons->set_v_size_flags(Control::SIZE_SHRINK_CENTER);
+	vbc_buttons->add_theme_constant_override("separation", 8 * EDSCALE);
 
 	add_button = memnew(Button);
 	add_button->set_flat(true);
@@ -525,9 +525,6 @@ GroupDialog::GroupDialog() {
 	add_button->connect("pressed", callable_mp(this, &GroupDialog::_add_pressed));
 
 	vbc_buttons->add_child(add_button);
-	vbc_buttons->add_spacer();
-	vbc_buttons->add_spacer();
-	vbc_buttons->add_spacer();
 
 	remove_button = memnew(Button);
 	remove_button->set_flat(true);

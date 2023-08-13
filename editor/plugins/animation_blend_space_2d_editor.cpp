@@ -1007,12 +1007,12 @@ AnimationNodeBlendSpace2DEditor::AnimationNodeBlendSpace2DEditor() {
 		left_vbox->set_v_size_flags(SIZE_EXPAND_FILL);
 		max_y_value = memnew(SpinBox);
 		left_vbox->add_child(max_y_value);
-		left_vbox->add_spacer();
 		label_y = memnew(LineEdit);
+		label_y->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		left_vbox->add_child(label_y);
 		label_y->set_expand_to_text_length_enabled(true);
-		left_vbox->add_spacer();
 		min_y_value = memnew(SpinBox);
+		min_y_value->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		left_vbox->add_child(min_y_value);
 
 		max_y_value->set_max(10000);
@@ -1043,12 +1043,12 @@ AnimationNodeBlendSpace2DEditor::AnimationNodeBlendSpace2DEditor() {
 		bottom_vbox->set_h_size_flags(SIZE_EXPAND_FILL);
 		min_x_value = memnew(SpinBox);
 		bottom_vbox->add_child(min_x_value);
-		bottom_vbox->add_spacer();
 		label_x = memnew(LineEdit);
+		label_x->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		bottom_vbox->add_child(label_x);
 		label_x->set_expand_to_text_length_enabled(true);
-		bottom_vbox->add_spacer();
 		max_x_value = memnew(SpinBox);
+		max_x_value->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		bottom_vbox->add_child(max_x_value);
 
 		max_x_value->set_max(10000);

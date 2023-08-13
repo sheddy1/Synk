@@ -133,10 +133,7 @@ EditorAbout::EditorAbout() {
 	hbc->add_child(_logo);
 
 	VBoxContainer *version_info_vbc = memnew(VBoxContainer);
-
-	// Add a dummy control node for spacing.
-	Control *v_spacer = memnew(Control);
-	version_info_vbc->add_child(v_spacer);
+	version_info_vbc->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_END);
 
 	version_btn = memnew(LinkButton);
 	String hash = String(VERSION_HASH);

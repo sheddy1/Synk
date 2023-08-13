@@ -817,10 +817,6 @@ TileSetEditor::TileSetEditor() {
 
 	set_process_internal(true);
 
-	VBoxContainer *main_vb = memnew(VBoxContainer);
-	add_child(main_vb);
-	main_vb->set_anchors_and_offsets_preset(PRESET_FULL_RECT);
-
 	// TabBar.
 	tabs_bar = memnew(TabBar);
 	tabs_bar->set_tab_alignment(TabBar::ALIGNMENT_CENTER);
@@ -832,15 +828,14 @@ TileSetEditor::TileSetEditor() {
 	tile_set_toolbar = memnew(HBoxContainer);
 	tile_set_toolbar->set_h_size_flags(SIZE_EXPAND_FILL);
 	tile_set_toolbar->add_child(tabs_bar);
-	main_vb->add_child(tile_set_toolbar);
+	add_child(tile_set_toolbar);
 
 	//// Tiles ////
 	// Split container.
 	split_container = memnew(HSplitContainer);
 	split_container->set_name(TTR("Tiles"));
-	split_container->set_h_size_flags(SIZE_EXPAND_FILL);
-	split_container->set_v_size_flags(SIZE_EXPAND_FILL);
-	main_vb->add_child(split_container);
+	split_container->set_anchors_preset(PRESET_FULL_RECT);
+	add_child(split_container);
 
 	// Sources list.
 	VBoxContainer *split_container_left_side = memnew(VBoxContainer);
@@ -864,7 +859,6 @@ TileSetEditor::TileSetEditor() {
 
 	sources_list = memnew(ItemList);
 	sources_list->set_fixed_icon_size(Size2(60, 60) * EDSCALE);
-	sources_list->set_h_size_flags(SIZE_EXPAND_FILL);
 	sources_list->set_v_size_flags(SIZE_EXPAND_FILL);
 	sources_list->connect("item_selected", callable_mp(this, &TileSetEditor::_source_selected));
 	sources_list->connect("item_selected", callable_mp(TilesEditorUtils::get_singleton(), &TilesEditorUtils::set_sources_lists_current));
@@ -947,7 +941,7 @@ TileSetEditor::TileSetEditor() {
 	patterns_item_list->set_fixed_icon_size(Size2(thumbnail_size, thumbnail_size));
 	patterns_item_list->set_v_size_flags(Control::SIZE_EXPAND_FILL);
 	patterns_item_list->connect("gui_input", callable_mp(this, &TileSetEditor::_patterns_item_list_gui_input));
-	main_vb->add_child(patterns_item_list);
+	add_child(patterns_item_list);
 	patterns_item_list->hide();
 
 	patterns_help_label = memnew(Label);

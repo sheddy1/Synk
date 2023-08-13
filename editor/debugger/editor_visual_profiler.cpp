@@ -762,9 +762,9 @@ EditorVisualProfiler::EditorVisualProfiler() {
 	hb->add_child(linked);
 	linked->connect("pressed", callable_mp(this, &EditorVisualProfiler::_update_plot));
 
-	hb->add_spacer();
-
-	hb->add_child(memnew(Label(TTR("Frame #:"))));
+	Label *frame = memnew(Label(TTR("Frame #:")));
+	frame->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
+	hb->add_child(frame);
 
 	cursor_metric_edit = memnew(SpinBox);
 	cursor_metric_edit->set_h_size_flags(SIZE_FILL);

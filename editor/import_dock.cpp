@@ -191,10 +191,8 @@ void ImportDock::_update_options(const String &p_path, const Ref<ConfigFile> &p_
 
 	if (params->importer.is_valid() && params->paths.size() == 1 && params->importer->has_advanced_options()) {
 		advanced->show();
-		advanced_spacer->show();
 	} else {
 		advanced->hide();
-		advanced_spacer->hide();
 	}
 }
 
@@ -317,10 +315,8 @@ void ImportDock::set_edit_multiple_paths(const Vector<String> &p_paths) {
 
 	if (params->paths.size() == 1 && params->importer->has_advanced_options()) {
 		advanced->show();
-		advanced_spacer->show();
 	} else {
 		advanced->hide();
-		advanced_spacer->hide();
 	}
 }
 
@@ -736,28 +732,26 @@ ImportDock::ImportDock() {
 	hb = memnew(HBoxContainer);
 	content->add_child(hb);
 	import = memnew(Button);
+	import->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_CENTER);
 	import->set_text(TTR("Reimport"));
 	import->set_disabled(true);
 	import->connect("pressed", callable_mp(this, &ImportDock::_reimport_attempt));
 	if (!DisplayServer::get_singleton()->get_swap_cancel_ok()) {
-		advanced_spacer = hb->add_spacer();
 		advanced = memnew(Button);
 		advanced->set_text(TTR("Advanced..."));
 		hb->add_child(advanced);
 	}
-	hb->add_spacer();
+
 	hb->add_child(import);
-	hb->add_spacer();
 
 	if (DisplayServer::get_singleton()->get_swap_cancel_ok()) {
 		advanced = memnew(Button);
+		advanced->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_CENTER);
 		advanced->set_text(TTR("Advanced..."));
 		hb->add_child(advanced);
-		advanced_spacer = hb->add_spacer();
 	}
 
 	advanced->hide();
-	advanced_spacer->hide();
 	advanced->connect("pressed", callable_mp(this, &ImportDock::_advanced_options));
 
 	reimport_confirm = memnew(ConfirmationDialog);

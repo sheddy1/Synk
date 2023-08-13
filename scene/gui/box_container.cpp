@@ -346,8 +346,10 @@ Control *BoxContainer::add_spacer(bool p_begin) {
 
 	if (vertical) {
 		c->set_v_size_flags(SIZE_EXPAND_FILL);
+		c->set_h_size_flags(SIZE_SHRINK_BEGIN);
 	} else {
 		c->set_h_size_flags(SIZE_EXPAND_FILL);
+		c->set_v_size_flags(SIZE_SHRINK_BEGIN);
 	}
 
 	add_child(c);

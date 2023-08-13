@@ -3986,9 +3986,9 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	debugger->get_default_debugger()->connect("set_breakpoint", callable_mp(this, &ScriptEditor::_set_breakpoint));
 	debugger->get_default_debugger()->connect("clear_breakpoints", callable_mp(this, &ScriptEditor::_clear_breakpoints));
 
-	menu_hb->add_spacer();
-
 	script_icon = memnew(TextureRect);
+	script_icon->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
+	script_icon->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 	menu_hb->add_child(script_icon);
 	script_name_label = memnew(Label);
 	menu_hb->add_child(script_name_label);
@@ -3996,9 +3996,8 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 	script_icon->hide();
 	script_name_label->hide();
 
-	menu_hb->add_spacer();
-
 	site_search = memnew(Button);
+	site_search->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	site_search->set_flat(true);
 	site_search->set_text(TTR("Online Docs"));
 	site_search->connect("pressed", callable_mp(this, &ScriptEditor::_menu_option).bind(SEARCH_WEBSITE));

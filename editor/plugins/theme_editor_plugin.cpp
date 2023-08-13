@@ -1182,9 +1182,8 @@ ThemeItemImportTree::ThemeItemImportTree() {
 	import_buttons->add_child(import_deselect_all_button);
 	import_deselect_all_button->connect("pressed", callable_mp(this, &ThemeItemImportTree::_deselect_all_items_pressed));
 
-	import_buttons->add_spacer();
-
 	Button *import_add_selected_button = memnew(Button);
+	import_add_selected_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	import_add_selected_button->set_text(TTR("Import Selected"));
 	import_buttons->add_child(import_add_selected_button);
 	import_add_selected_button->connect("pressed", callable_mp(this, &ThemeItemImportTree::_import_selected));
@@ -3628,9 +3627,8 @@ ThemeEditor::ThemeEditor() {
 	theme_name->set_theme_type_variation("HeaderSmall");
 	top_menu->add_child(theme_name);
 
-	top_menu->add_spacer(false);
-
 	Button *theme_save_button = memnew(Button);
+	theme_save_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	theme_save_button->set_text(TTR("Save"));
 	theme_save_button->set_flat(true);
 	theme_save_button->connect("pressed", callable_mp(this, &ThemeEditor::_theme_save_button_cbk).bind(false));
