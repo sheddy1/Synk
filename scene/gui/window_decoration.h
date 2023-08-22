@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  line_2d_editor_plugin.cpp                                             */
+/*  window_decoration.h                                                   */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,40 +28,37 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "line_2d_editor_plugin.h"
+#ifndef WINDOW_DECORATION_H
+#define WINDOW_DECORATION_H
 
-#include "editor/editor_node.h"
-#include "editor/editor_undo_redo_manager.h"
+#include "scene/gui/control.h"
 
-CanvasItem *Line2DEditor::_get_node() const {
-	return node;
-}
+class WindowDecoration : public Control {
+	GDCLASS(WindowDecoration, Control);
 
-void Line2DEditor::_set_node(Node *p_line) {
-	node = Object::cast_to<Line2D>(p_line);
-}
+private:
+	DisplayServer::WindowDecorationType dec_type = DisplayServer::WINDOW_DECORATION_MOVE;
+	int id = -1;
+	bool non_rect = false;
+	Vector<Point2> polygon;
 
-bool Line2DEditor::_is_line() const {
-	return true;
-}
+	void _region_changed();
 
-Variant Line2DEditor::_get_polygon(int p_idx) const {
-	return _get_node()->get("points");
-}
+protected:
+	static void _bind_methods();
+	void _notification(int p_what);
 
-void Line2DEditor::_set_polygon(int p_idx, const Variant &p_polygon) const {
-	_get_node()->set("points", p_polygon);
-}
+public:
+	void set_decoration_type(DisplayServer::WindowDecorationType p_dec_type);
+	DisplayServer::WindowDecorationType get_decoration_type() const;
 
-void Line2DEditor::_action_set_polygon(int p_idx, const Variant &p_previous, const Variant &p_polygon) {
-	CanvasItem *_node = _get_node();
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-	undo_redo->add_do_method(_node, "set_points", p_polygon);
-	undo_redo->add_undo_method(_node, "set_points", p_previous);
-}
+	void set_non_rectangular_region(bool p_non_rect);
+	bool is_non_rectangular_region() const;
 
-Line2DEditor::Line2DEditor() {}
+	void set_polygon(const Vector<Point2> &p_polygon);
+	Vector<Point2> get_polygon() const;
 
-Line2DEditorPlugin::Line2DEditorPlugin() :
-		AbstractPolygon2DEditorPlugin(memnew(Line2DEditor), "Line2D") {
-}
+	WindowDecoration();
+};
+
+#endif // WINDOW_DECORATION_H

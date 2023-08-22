@@ -51,7 +51,7 @@
 #include "scene/gui/texture_rect.h"
 #include "scene/gui/view_panner.h"
 
-Node2D *Polygon2DEditor::_get_node() const {
+CanvasItem *Polygon2DEditor::_get_node() const {
 	return node;
 }
 
