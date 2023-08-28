@@ -451,3 +451,12 @@ Validate extension JSON: Error: Field 'classes/PopupMenu/methods/add_icon_shortc
 Validate extension JSON: Error: Field 'classes/PopupMenu/methods/add_shortcut/arguments': size changed value in new API, from 3 to 4.
 
 Added optional argument. Compatibility methods registered.
+
+
+GH-80418
+--------
+Validate extension JSON: JSON file: Field was added in a way that breaks compatibility 'classes/Script/methods/get_script_method_list': arguments
+Validate extension JSON: JSON file: Field was added in a way that breaks compatibility 'classes/Script/methods/get_script_property_list': arguments
+Validate extension JSON: JSON file: Field was added in a way that breaks compatibility 'classes/Script/methods/get_script_signal_list': arguments
+
+Added optional argument. Compatibility method registered.

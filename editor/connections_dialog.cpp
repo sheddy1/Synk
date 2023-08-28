@@ -31,7 +31,6 @@
 #include "connections_dialog.h"
 
 #include "core/config/project_settings.h"
-#include "core/templates/hash_set.h"
 #include "editor/doc_tools.h"
 #include "editor/editor_help.h"
 #include "editor/editor_inspector.h"
@@ -1280,25 +1279,9 @@ void ConnectionsDock::update_tree() {
 				class_icon = get_theme_icon(native_base, SNAME("EditorIcons"));
 			}
 
-			script_base->get_script_signal_list(&class_signals);
+			script_base->get_script_signal_list(&class_signals, true);
 
-			// TODO: Core: Add optional parameter to ignore base classes (no_inheritance like in ClassDB).
-			Ref<Script> base = script_base->get_base_script();
-			if (base.is_valid()) {
-				List<MethodInfo> base_signals;
-				base->get_script_signal_list(&base_signals);
-				HashSet<String> base_signal_names;
-				for (List<MethodInfo>::Element *F = base_signals.front(); F; F = F->next()) {
-					base_signal_names.insert(F->get().name);
-				}
-				for (List<MethodInfo>::Element *F = class_signals.front(); F; F = F->next()) {
-					if (base_signal_names.has(F->get().name)) {
-						class_signals.erase(F);
-					}
-				}
-			}
-
-			script_base = base;
+			script_base = script_base->get_base_script();
 		} else {
 			class_name = native_base;
 			doc_class_name = class_name;

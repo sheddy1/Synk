@@ -280,7 +280,7 @@ void GDScript::_placeholder_erased(PlaceHolderScriptInstance *p_placeholder) {
 }
 #endif
 
-void GDScript::_get_script_method_list(List<MethodInfo> *r_list, bool p_include_base) const {
+void GDScript::_get_script_method_list(List<MethodInfo> *r_list, bool p_no_inheritance) const {
 	const GDScript *current = this;
 	while (current) {
 		for (const KeyValue<StringName, GDScriptFunction *> &E : current->member_functions) {
@@ -305,7 +305,8 @@ void GDScript::_get_script_method_list(List<MethodInfo> *r_list, bool p_include_
 			mi.return_val = func->get_return_type();
 			r_list->push_back(mi);
 		}
-		if (!p_include_base) {
+
+		if (p_no_inheritance) {
 			return;
 		}
 
@@ -313,11 +314,11 @@ void GDScript::_get_script_method_list(List<MethodInfo> *r_list, bool p_include_
 	}
 }
 
-void GDScript::get_script_method_list(List<MethodInfo> *r_list) const {
-	_get_script_method_list(r_list, true);
+void GDScript::get_script_method_list(List<MethodInfo> *r_list, bool p_no_inheritance) const {
+	_get_script_method_list(r_list, p_no_inheritance);
 }
 
-void GDScript::_get_script_property_list(List<PropertyInfo> *r_list, bool p_include_base) const {
+void GDScript::_get_script_property_list(List<PropertyInfo> *r_list, bool p_no_inheritance) const {
 	const GDScript *sptr = this;
 	List<PropertyInfo> props;
 
@@ -345,8 +346,8 @@ void GDScript::_get_script_property_list(List<PropertyInfo> *r_list, bool p_incl
 			r_list->push_back(E);
 		}
 
-		if (!p_include_base) {
-			break;
+		if (p_no_inheritance) {
+			return;
 		}
 
 		props.clear();
@@ -354,8 +355,8 @@ void GDScript::_get_script_property_list(List<PropertyInfo> *r_list, bool p_incl
 	}
 }
 
-void GDScript::get_script_property_list(List<PropertyInfo> *r_list) const {
-	_get_script_property_list(r_list, true);
+void GDScript::get_script_property_list(List<PropertyInfo> *r_list, bool p_no_inheritance) const {
+	_get_script_property_list(r_list, p_no_inheritance);
 }
 
 bool GDScript::has_method(const StringName &p_method) const {
@@ -1240,7 +1241,7 @@ bool GDScript::has_script_signal(const StringName &p_signal) const {
 	return false;
 }
 
-void GDScript::_get_script_signal_list(List<MethodInfo> *r_list, bool p_include_base) const {
+void GDScript::_get_script_signal_list(List<MethodInfo> *r_list, bool p_no_inheritance) const {
 	for (const KeyValue<StringName, Vector<StringName>> &E : _signals) {
 		MethodInfo mi;
 		mi.name = E.key;
@@ -1252,7 +1253,7 @@ void GDScript::_get_script_signal_list(List<MethodInfo> *r_list, bool p_include_
 		r_list->push_back(mi);
 	}
 
-	if (!p_include_base) {
+	if (p_no_inheritance) {
 		return;
 	}
 
@@ -1266,8 +1267,8 @@ void GDScript::_get_script_signal_list(List<MethodInfo> *r_list, bool p_include_
 #endif
 }
 
-void GDScript::get_script_signal_list(List<MethodInfo> *r_signals) const {
-	_get_script_signal_list(r_signals, true);
+void GDScript::get_script_signal_list(List<MethodInfo> *r_signals, bool p_no_inheritance) const {
+	_get_script_signal_list(r_signals, p_no_inheritance);
 }
 
 String GDScript::_get_gdscript_reference_class_name(const GDScript *p_gdscript) {

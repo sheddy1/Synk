@@ -169,12 +169,12 @@ public:
 	Error reload(bool p_keep_state = false) override;
 
 	bool has_script_signal(const StringName &p_signal) const override;
-	void get_script_signal_list(List<MethodInfo> *r_signals) const override;
+	void get_script_signal_list(List<MethodInfo> *r_signals, bool p_no_inheritance = false) const override;
 
 	Vector<EventSignalInfo> get_script_event_signals() const;
 
 	bool get_property_default_value(const StringName &p_property, Variant &r_value) const override;
-	void get_script_property_list(List<PropertyInfo> *r_list) const override;
+	void get_script_property_list(List<PropertyInfo> *r_list, bool p_no_inheritance = false) const override;
 	void update_exports() override;
 
 	void get_members(HashSet<StringName> *p_members) override;
@@ -193,7 +193,7 @@ public:
 
 	ScriptLanguage *get_language() const override;
 
-	void get_script_method_list(List<MethodInfo> *p_list) const override;
+	void get_script_method_list(List<MethodInfo> *p_list, bool p_no_inheritance = false) const override;
 	bool has_method(const StringName &p_method) const override;
 	MethodInfo get_method_info(const StringName &p_method) const override;
 
