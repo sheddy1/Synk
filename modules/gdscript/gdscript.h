@@ -169,9 +169,9 @@ class GDScript : public Script {
 	void _save_orphaned_subclasses(GDScript::ClearData *p_clear_data);
 	void _init_rpc_methods_properties();
 
-	void _get_script_property_list(List<PropertyInfo> *r_list, bool p_include_base) const;
-	void _get_script_method_list(List<MethodInfo> *r_list, bool p_include_base) const;
-	void _get_script_signal_list(List<MethodInfo> *r_list, bool p_include_base) const;
+	void _get_script_property_list(List<PropertyInfo> *r_list, bool p_no_inheritance) const;
+	void _get_script_method_list(List<MethodInfo> *r_list, bool p_no_inheritance) const;
+	void _get_script_signal_list(List<MethodInfo> *r_list, bool p_no_inheritance) const;
 
 	// This method will map the class name from "RefCounted" to "MyClass.InnerClass".
 	static String _get_gdscript_reference_class_name(const GDScript *p_gdscript);
@@ -220,7 +220,7 @@ public:
 	RBSet<GDScript *> get_must_clear_dependencies();
 
 	virtual bool has_script_signal(const StringName &p_signal) const override;
-	virtual void get_script_signal_list(List<MethodInfo> *r_signals) const override;
+	virtual void get_script_signal_list(List<MethodInfo> *r_signals, bool p_no_inheritance = false) const override;
 
 	bool is_tool() const override { return tool; }
 	Ref<GDScript> get_base() const;
@@ -260,11 +260,11 @@ public:
 
 	bool get_property_default_value(const StringName &p_property, Variant &r_value) const override;
 
-	virtual void get_script_method_list(List<MethodInfo> *p_list) const override;
+	virtual void get_script_method_list(List<MethodInfo> *p_list, bool p_no_inheritance = false) const override;
 	virtual bool has_method(const StringName &p_method) const override;
 	virtual MethodInfo get_method_info(const StringName &p_method) const override;
 
-	virtual void get_script_property_list(List<PropertyInfo> *p_list) const override;
+	virtual void get_script_property_list(List<PropertyInfo> *p_list, bool p_no_inheritance = false) const override;
 
 	virtual ScriptLanguage *get_language() const override;
 

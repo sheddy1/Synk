@@ -98,6 +98,30 @@ partial class RichTextLabel
     }
 }
 
+partial class Script
+{
+    /// <inheritdoc cref="GetScriptPropertyList(bool)"/>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetScriptPropertyList()
+    {
+        return GetScriptPropertyList(noInheritance: false);
+    }
+
+    /// <inheritdoc cref="GetScriptMethodList(bool)"/>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetScriptMethodList()
+    {
+        return GetScriptMethodList(noInheritance: false);
+    }
+
+    /// <inheritdoc cref="GetScriptSignalList(bool)"/>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public Godot.Collections.Array<Godot.Collections.Dictionary> GetScriptSignalList()
+    {
+        return GetScriptSignalList(noInheritance: false);
+    }
+}
+
 partial class SurfaceTool
 {
     /// <inheritdoc cref="AddTriangleFan(Vector3[], Vector2[], Color[], Vector2[], Vector3[], Godot.Collections.Array{Plane})"/>

@@ -106,11 +106,11 @@ public:
 	EXBIND0RC(ScriptLanguage *, get_language)
 	EXBIND1RC(bool, has_script_signal, const StringName &)
 
-	GDVIRTUAL0RC(TypedArray<Dictionary>, _get_script_signal_list)
+	GDVIRTUAL1RC(TypedArray<Dictionary>, _get_script_signal_list, bool)
 
-	virtual void get_script_signal_list(List<MethodInfo> *r_signals) const override {
+	virtual void get_script_signal_list(List<MethodInfo> *r_signals, bool p_no_inheritance = false) const override {
 		TypedArray<Dictionary> sl;
-		GDVIRTUAL_REQUIRED_CALL(_get_script_signal_list, sl);
+		GDVIRTUAL_REQUIRED_CALL(_get_script_signal_list, p_no_inheritance, sl);
 		for (int i = 0; i < sl.size(); i++) {
 			r_signals->push_back(MethodInfo::from_dict(sl[i]));
 		}
@@ -132,23 +132,23 @@ public:
 
 	EXBIND0(update_exports)
 
-	GDVIRTUAL0RC(TypedArray<Dictionary>, _get_script_method_list)
+	GDVIRTUAL1RC(TypedArray<Dictionary>, _get_script_method_list, bool)
 
-	virtual void get_script_method_list(List<MethodInfo> *r_methods) const override {
+	virtual void get_script_method_list(List<MethodInfo> *r_methods, bool p_no_inheritance = false) const override {
 		TypedArray<Dictionary> sl;
-		GDVIRTUAL_REQUIRED_CALL(_get_script_method_list, sl);
+		GDVIRTUAL_REQUIRED_CALL(_get_script_method_list, p_no_inheritance, sl);
 		for (int i = 0; i < sl.size(); i++) {
 			r_methods->push_back(MethodInfo::from_dict(sl[i]));
 		}
 	}
 
-	GDVIRTUAL0RC(TypedArray<Dictionary>, _get_script_property_list)
+	GDVIRTUAL1RC(TypedArray<Dictionary>, _get_script_property_list, bool)
 
-	virtual void get_script_property_list(List<PropertyInfo> *r_propertys) const override {
+	virtual void get_script_property_list(List<PropertyInfo> *r_properties, bool p_no_inheritance = false) const override {
 		TypedArray<Dictionary> sl;
-		GDVIRTUAL_REQUIRED_CALL(_get_script_property_list, sl);
+		GDVIRTUAL_REQUIRED_CALL(_get_script_property_list, p_no_inheritance, sl);
 		for (int i = 0; i < sl.size(); i++) {
-			r_propertys->push_back(PropertyInfo::from_dict(sl[i]));
+			r_properties->push_back(PropertyInfo::from_dict(sl[i]));
 		}
 	}
 
