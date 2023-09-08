@@ -134,26 +134,44 @@ static void test_parser(const String &p_code, const String &p_script_path, const
 #endif
 }
 
-static void recursively_disassemble_functions(const Ref<GDScript> script, const Vector<String> &p_lines) {
-	for (const KeyValue<StringName, GDScriptFunction *> &E : script->get_member_functions()) {
-		const GDScriptFunction *func = E.value;
-
-		String signature = "Disassembling " + func->get_name().operator String() + "(";
-		for (int i = 0; i < func->get_argument_count(); i++) {
-			if (i > 0) {
-				signature += ", ";
-			}
-			signature += func->get_argument_name(i);
+static void disassemble_function(const GDScriptFunction *p_func, const Vector<String> &p_lines) {
+	ERR_FAIL_COND(p_func == nullptr);
+	String signature = "Disassembling " + p_func->get_name().operator String() + "(";
+	for (int i = 0; i < p_func->get_argument_count(); i++) {
+		if (i > 0) {
+			signature += ", ";
 		}
-		print_line(signature + ")");
+		signature += p_func->get_argument_name(i);
+	}
+	print_line(signature + ")");
 #ifdef TOOLS_ENABLED
-		func->disassemble(p_lines);
+	p_func->disassemble(p_lines);
 #endif
-		print_line("");
-		print_line("");
+	print_line("");
+	print_line("");
+}
+
+static void recursively_disassemble_functions(const Ref<GDScript> p_script, const Vector<String> &p_lines) {
+	const GDScriptFunction *static_initializer = p_script->get_static_initializer();
+	if (static_initializer) {
+		disassemble_function(static_initializer, p_lines);
 	}
 
-	for (const KeyValue<StringName, Ref<GDScript>> &F : script->get_subclasses()) {
+	const GDScriptFunction *implicit_initializer = p_script->get_implicit_initializer();
+	if (implicit_initializer) {
+		disassemble_function(implicit_initializer, p_lines);
+	}
+
+	const GDScriptFunction *implicit_ready = p_script->get_implicit_ready();
+	if (implicit_ready) {
+		disassemble_function(implicit_ready, p_lines);
+	}
+
+	for (const KeyValue<StringName, GDScriptFunction *> &E : p_script->get_member_functions()) {
+		disassemble_function(E.value, p_lines);
+	}
+
+	for (const KeyValue<StringName, Ref<GDScript>> &F : p_script->get_subclasses()) {
 		const Ref<GDScript> inner_script = F.value;
 		print_line("");
 		print_line(vformat("Inner Class: %s", inner_script->get_script_class_name()));

@@ -128,10 +128,11 @@ class GDScript : public Script {
 
 	HashMap<StringName, PropertyInfo> member_info;
 
-	GDScriptFunction *implicit_initializer = nullptr;
-	GDScriptFunction *initializer = nullptr; //direct pointer to new , faster to locate
+	GDScriptFunction *static_initializer = nullptr; // Implicit too, **not** the `_static_init()` function (it's called at the end).
+	GDScriptFunction *implicit_initializer = nullptr; // `@implicit_new()`.
 	GDScriptFunction *implicit_ready = nullptr;
-	GDScriptFunction *static_initializer = nullptr;
+
+	GDScriptFunction *initializer = nullptr; // Direct pointer to `new()`/`_init()` function, faster to locate.
 
 	Error _static_init();
 
@@ -215,6 +216,10 @@ public:
 	const HashMap<StringName, GDScriptFunction *> &get_member_functions() const { return member_functions; }
 	const Ref<GDScriptNativeClass> &get_native() const { return native; }
 	const String &get_script_class_name() const { return name; }
+
+	const GDScriptFunction *get_static_initializer() const { return static_initializer; }
+	const GDScriptFunction *get_implicit_initializer() const { return implicit_initializer; }
+	const GDScriptFunction *get_implicit_ready() const { return implicit_ready; }
 
 	RBSet<GDScript *> get_dependencies();
 	RBSet<GDScript *> get_inverted_dependencies();
