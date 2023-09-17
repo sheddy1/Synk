@@ -332,6 +332,9 @@ public:
 
 	FUNC1(joint_clear, RID)
 
+	FUNC3(joint_set_flag, RID, JointFlag, bool)
+	FUNC2RC(bool, joint_get_flag, RID, JointFlag)
+
 	FUNC5(joint_make_pin, RID, RID, const Vector3 &, RID, const Vector3 &)
 
 	FUNC3(pin_joint_set_param, RID, PinJointParam, real_t)

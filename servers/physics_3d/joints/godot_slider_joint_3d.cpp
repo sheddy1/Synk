@@ -58,14 +58,13 @@ April 04, 2008
 //-----------------------------------------------------------------------------
 
 GodotSliderJoint3D::GodotSliderJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Transform3D &frameInA, const Transform3D &frameInB) :
-		GodotJoint3D(_arr, 2),
+		GodotJoint3D(),
 		m_frameInA(frameInA),
 		m_frameInB(frameInB) {
 	A = rbA;
 	B = rbB;
 
-	A->add_constraint(this, 0);
-	B->add_constraint(this, 1);
+	add_constraints();
 }
 
 //-----------------------------------------------------------------------------
@@ -134,6 +133,9 @@ bool GodotSliderJoint3D::setup(real_t p_step) {
 //-----------------------------------------------------------------------------
 
 void GodotSliderJoint3D::solve(real_t p_step) {
+	if (!are_constraints_enabled()) {
+		return;
+	}
 	int i;
 	// linear
 	Vector3 velA = A->get_velocity_in_local_point(m_relPosA);

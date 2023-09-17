@@ -842,6 +842,11 @@ void PhysicsServer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("joint_create"), &PhysicsServer3D::joint_create);
 	ClassDB::bind_method(D_METHOD("joint_clear", "joint"), &PhysicsServer3D::joint_clear);
 
+	BIND_ENUM_CONSTANT(JOINT_FLAG_CONSTRAINTS_ENABLED);
+
+	ClassDB::bind_method(D_METHOD("joint_set_flag", "joint", "flag", "enabled"), &PhysicsServer3D::joint_set_flag);
+	ClassDB::bind_method(D_METHOD("joint_get_flag", "joint", "flag"), &PhysicsServer3D::joint_get_flag);
+
 	BIND_ENUM_CONSTANT(JOINT_TYPE_PIN);
 	BIND_ENUM_CONSTANT(JOINT_TYPE_HINGE);
 	BIND_ENUM_CONSTANT(JOINT_TYPE_SLIDER);

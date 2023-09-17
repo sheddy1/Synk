@@ -52,15 +52,14 @@ Written by: Marcus Hennix
 #include "godot_cone_twist_joint_3d.h"
 
 GodotConeTwistJoint3D::GodotConeTwistJoint3D(GodotBody3D *rbA, GodotBody3D *rbB, const Transform3D &rbAFrame, const Transform3D &rbBFrame) :
-		GodotJoint3D(_arr, 2) {
+		GodotJoint3D() {
 	A = rbA;
 	B = rbB;
 
 	m_rbAFrame = rbAFrame;
 	m_rbBFrame = rbBFrame;
 
-	A->add_constraint(this, 0);
-	B->add_constraint(this, 1);
+	add_constraints();
 }
 
 bool GodotConeTwistJoint3D::setup(real_t p_timestep) {
@@ -197,6 +196,9 @@ bool GodotConeTwistJoint3D::setup(real_t p_timestep) {
 }
 
 void GodotConeTwistJoint3D::solve(real_t p_timestep) {
+	if (!are_constraints_enabled()) {
+		return;
+	}
 	Vector3 pivotAInW = A->get_transform().xform(m_rbAFrame.origin);
 	Vector3 pivotBInW = B->get_transform().xform(m_rbBFrame.origin);
 

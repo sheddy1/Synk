@@ -536,6 +536,13 @@ public:
 		JOINT_TYPE_MAX
 	};
 
+	enum JointFlag {
+		JOINT_FLAG_CONSTRAINTS_ENABLED,
+	};
+
+	virtual void joint_set_flag(RID p_joint, JointFlag p_flag, bool p_enabled) = 0;
+	virtual bool joint_get_flag(RID p_joint, JointFlag p_flag) const = 0;
+
 	enum JointParam {
 		JOINT_PARAM_BIAS,
 		JOINT_PARAM_MAX_BIAS,
@@ -838,6 +845,7 @@ VARIANT_ENUM_CAST(PhysicsServer2D::BodyParameter);
 VARIANT_ENUM_CAST(PhysicsServer2D::BodyDampMode);
 VARIANT_ENUM_CAST(PhysicsServer2D::BodyState);
 VARIANT_ENUM_CAST(PhysicsServer2D::CCDMode);
+VARIANT_ENUM_CAST(PhysicsServer2D::JointFlag);
 VARIANT_ENUM_CAST(PhysicsServer2D::JointParam);
 VARIANT_ENUM_CAST(PhysicsServer2D::JointType);
 VARIANT_ENUM_CAST(PhysicsServer2D::PinJointParam);

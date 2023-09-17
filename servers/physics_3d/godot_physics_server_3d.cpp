@@ -1220,6 +1220,29 @@ void GodotPhysicsServer3D::joint_clear(RID p_joint) {
 	}
 }
 
+void GodotPhysicsServer3D::joint_set_flag(RID p_joint, JointFlag p_flag, bool p_enabled) {
+	GodotJoint3D *joint = joint_owner.get_or_null(p_joint);
+	ERR_FAIL_NULL(joint);
+
+	switch (p_flag) {
+		case JOINT_FLAG_CONSTRAINTS_ENABLED:
+			joint->set_constraints_enabled(p_enabled);
+			break;
+	}
+}
+
+bool GodotPhysicsServer3D::joint_get_flag(RID p_joint, JointFlag p_flag) const {
+	const GodotJoint3D *joint = joint_owner.get_or_null(p_joint);
+	ERR_FAIL_NULL_V(joint, false);
+
+	switch (p_flag) {
+		case JOINT_FLAG_CONSTRAINTS_ENABLED:
+			return joint->are_constraints_enabled();
+	}
+
+	return false;
+}
+
 void GodotPhysicsServer3D::joint_make_pin(RID p_joint, RID p_body_A, const Vector3 &p_local_A, RID p_body_B, const Vector3 &p_local_B) {
 	GodotBody3D *body_A = body_owner.get_or_null(p_body_A);
 	ERR_FAIL_NULL(body_A);
