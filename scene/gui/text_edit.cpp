@@ -37,7 +37,7 @@
 #include "core/object/script_language.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
-#include "core/string/string_builder.h"
+#include "core/string/string_buffer.h"
 #include "core/string/translation.h"
 #include "scene/gui/label.h"
 #include "scene/main/window.h"
@@ -3410,7 +3410,7 @@ void TextEdit::set_text(const String &p_text) {
 }
 
 String TextEdit::get_text() const {
-	StringBuilder ret_text;
+	StringBuffer<> ret_text;
 	const int text_size = text.size();
 	for (int i = 0; i < text_size; i++) {
 		ret_text += text[i];
@@ -4914,7 +4914,7 @@ int TextEdit::get_caret_wrap_index(int p_caret) const {
 String TextEdit::get_word_under_caret(int p_caret) const {
 	ERR_FAIL_COND_V(p_caret > carets.size(), "");
 
-	StringBuilder selected_text;
+	StringBuffer<> selected_text;
 	for (int c = 0; c < carets.size(); c++) {
 		if (p_caret != -1 && p_caret != c) {
 			continue;
@@ -5154,7 +5154,7 @@ bool TextEdit::has_selection(int p_caret) const {
 String TextEdit::get_selected_text(int p_caret) {
 	ERR_FAIL_COND_V(p_caret > carets.size(), "");
 
-	StringBuilder selected_text;
+	StringBuffer<> selected_text;
 	Vector<int> caret_edit_order = get_caret_index_edit_order();
 	for (int i = caret_edit_order.size() - 1; i >= 0; i--) {
 		int caret_idx = caret_edit_order[i];
@@ -6670,7 +6670,7 @@ void TextEdit::_cut_internal(int p_caret) {
 	begin_complex_operation();
 	Vector<int> carets_to_remove;
 
-	StringBuilder clipboard;
+	StringBuffer<> clipboard;
 	// This is the exception and has to edit in reverse order else the string copied to the clipboard will be backwards.
 	Vector<int> caret_edit_order = get_caret_index_edit_order();
 	for (int i = caret_edit_order.size() - 1; i >= 0; i--) {
@@ -6740,7 +6740,7 @@ void TextEdit::_copy_internal(int p_caret) {
 		return;
 	}
 
-	StringBuilder clipboard;
+	StringBuffer<> clipboard;
 	Vector<int> caret_edit_order = get_caret_index_edit_order();
 	for (int i = caret_edit_order.size() - 1; i >= 0; i--) {
 		int caret_idx = caret_edit_order[i];
@@ -7830,7 +7830,7 @@ String TextEdit::_base_get_text(int p_from_line, int p_from_column, int p_to_lin
 	ERR_FAIL_COND_V(p_to_line < p_from_line, String()); // 'from > to'.
 	ERR_FAIL_COND_V(p_to_line == p_from_line && p_to_column < p_from_column, String()); // 'from > to'.
 
-	StringBuilder ret;
+	StringBuffer<> ret;
 
 	for (int i = p_from_line; i <= p_to_line; i++) {
 		int begin = (i == p_from_line) ? p_from_column : 0;

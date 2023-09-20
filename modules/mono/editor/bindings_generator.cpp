@@ -45,12 +45,14 @@
 #include "core/os/os.h"
 #include "main/main.h"
 
-StringBuilder &operator<<(StringBuilder &r_sb, const String &p_string) {
+template <int SHORT_BUFFER_SIZE>
+StringBuffer<SHORT_BUFFER_SIZE> &operator<<(StringBuffer<SHORT_BUFFER_SIZE> &r_sb, const String &p_string) {
 	r_sb.append(p_string);
 	return r_sb;
 }
 
-StringBuilder &operator<<(StringBuilder &r_sb, const char *p_cstring) {
+template <int SHORT_BUFFER_SIZE>
+StringBuffer<SHORT_BUFFER_SIZE> &operator<<(StringBuffer<SHORT_BUFFER_SIZE> &r_sb, const char *p_cstring) {
 	r_sb.append(p_cstring);
 	return r_sb;
 }
@@ -159,7 +161,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 
 	String bbcode = p_bbcode;
 
-	StringBuilder xml_output;
+	StringBuffer<> xml_output;
 
 	xml_output.append("<para>");
 
@@ -498,7 +500,7 @@ String BindingsGenerator::bbcode_to_xml(const String &p_bbcode, const TypeInterf
 	return xml_output.as_string();
 }
 
-void BindingsGenerator::_append_xml_method(StringBuilder &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
+void BindingsGenerator::_append_xml_method(StringBuffer<> &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
 	if (p_link_target_parts[0] == name_cache.type_at_GlobalScope) {
 		if (OS::get_singleton()->is_stdout_verbose()) {
 			OS::get_singleton()->print("Cannot resolve @GlobalScope method reference in documentation: %s\n", p_link_target.utf8().get_data());
@@ -569,7 +571,7 @@ void BindingsGenerator::_append_xml_method(StringBuilder &p_xml_output, const Ty
 	}
 }
 
-void BindingsGenerator::_append_xml_member(StringBuilder &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
+void BindingsGenerator::_append_xml_member(StringBuffer<> &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
 	if (p_link_target.find("/") >= 0) {
 		// Properties with '/' (slash) in the name are not declared in C#, so there is nothing to reference.
 		_append_xml_undeclared(p_xml_output, p_link_target);
@@ -611,7 +613,7 @@ void BindingsGenerator::_append_xml_member(StringBuilder &p_xml_output, const Ty
 	}
 }
 
-void BindingsGenerator::_append_xml_signal(StringBuilder &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
+void BindingsGenerator::_append_xml_signal(StringBuffer<> &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
 	if (!p_target_itype || !p_target_itype->is_object_type) {
 		if (OS::get_singleton()->is_stdout_verbose()) {
 			if (p_target_itype) {
@@ -642,7 +644,7 @@ void BindingsGenerator::_append_xml_signal(StringBuilder &p_xml_output, const Ty
 	}
 }
 
-void BindingsGenerator::_append_xml_enum(StringBuilder &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
+void BindingsGenerator::_append_xml_enum(StringBuffer<> &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
 	const StringName search_cname = !p_target_itype ? p_target_cname : StringName(p_target_itype->name + "." + (String)p_target_cname);
 
 	HashMap<StringName, TypeInterface>::ConstIterator enum_match = enum_types.find(search_cname);
@@ -666,7 +668,7 @@ void BindingsGenerator::_append_xml_enum(StringBuilder &p_xml_output, const Type
 	}
 }
 
-void BindingsGenerator::_append_xml_constant(StringBuilder &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
+void BindingsGenerator::_append_xml_constant(StringBuffer<> &p_xml_output, const TypeInterface *p_target_itype, const StringName &p_target_cname, const String &p_link_target, const Vector<String> &p_link_target_parts) {
 	if (p_link_target_parts[0] == name_cache.type_at_GlobalScope) {
 		_append_xml_constant_in_global_scope(p_xml_output, p_target_cname, p_link_target);
 	} else if (!p_target_itype || !p_target_itype->is_object_type) {
@@ -736,7 +738,7 @@ void BindingsGenerator::_append_xml_constant(StringBuilder &p_xml_output, const 
 	}
 }
 
-void BindingsGenerator::_append_xml_constant_in_global_scope(StringBuilder &p_xml_output, const String &p_target_cname, const String &p_link_target) {
+void BindingsGenerator::_append_xml_constant_in_global_scope(StringBuffer<> &p_xml_output, const String &p_target_cname, const String &p_link_target) {
 	// Try to find as a global constant
 	const ConstantInterface *target_iconst = find_constant_by_name(p_target_cname, global_constants);
 
@@ -770,7 +772,7 @@ void BindingsGenerator::_append_xml_constant_in_global_scope(StringBuilder &p_xm
 	}
 }
 
-void BindingsGenerator::_append_xml_param(StringBuilder &p_xml_output, const String &p_link_target, bool p_is_signal) {
+void BindingsGenerator::_append_xml_param(StringBuffer<> &p_xml_output, const String &p_link_target, bool p_is_signal) {
 	const String link_target = snake_to_camel_case(p_link_target);
 
 	if (!p_is_signal) {
@@ -785,7 +787,7 @@ void BindingsGenerator::_append_xml_param(StringBuilder &p_xml_output, const Str
 	}
 }
 
-void BindingsGenerator::_append_xml_undeclared(StringBuilder &p_xml_output, const String &p_link_target) {
+void BindingsGenerator::_append_xml_undeclared(StringBuffer<> &p_xml_output, const String &p_link_target) {
 	p_xml_output.append("<c>");
 	p_xml_output.append(p_link_target);
 	p_xml_output.append("</c>");
@@ -917,7 +919,7 @@ Error BindingsGenerator::_populate_method_icalls_table(const TypeInterface &p_it
 	return OK;
 }
 
-void BindingsGenerator::_generate_array_extensions(StringBuilder &p_output) {
+void BindingsGenerator::_generate_array_extensions(StringBuffer<> &p_output) {
 	p_output.append("namespace " BINDINGS_NAMESPACE ";\n\n");
 	p_output.append("using System;\n\n");
 	// The class where we put the extensions doesn't matter, so just use "GD".
@@ -984,7 +986,7 @@ void BindingsGenerator::_generate_array_extensions(StringBuilder &p_output) {
 	p_output.append(CLOSE_BLOCK); // End of GD class.
 }
 
-void BindingsGenerator::_generate_global_constants(StringBuilder &p_output) {
+void BindingsGenerator::_generate_global_constants(StringBuffer<> &p_output) {
 	// Constants (in partial GD class)
 
 	p_output.append("namespace " BINDINGS_NAMESPACE ";\n\n");
@@ -1110,7 +1112,7 @@ Error BindingsGenerator::generate_cs_core_project(const String &p_proj_dir) {
 
 	// Generate source file for global scope constants and enums
 	{
-		StringBuilder constants_source;
+		StringBuffer<> constants_source;
 		_generate_global_constants(constants_source);
 		String output_file = path::join(base_gen_dir, BINDINGS_GLOBAL_SCOPE_CLASS "_constants.cs");
 		Error save_err = _save_file(output_file, constants_source);
@@ -1123,7 +1125,7 @@ Error BindingsGenerator::generate_cs_core_project(const String &p_proj_dir) {
 
 	// Generate source file for array extensions
 	{
-		StringBuilder extensions_source;
+		StringBuffer<> extensions_source;
 		_generate_array_extensions(extensions_source);
 		String output_file = path::join(base_gen_dir, BINDINGS_GLOBAL_SCOPE_CLASS "_extensions.cs");
 		Error save_err = _save_file(output_file, extensions_source);
@@ -1157,7 +1159,7 @@ Error BindingsGenerator::generate_cs_core_project(const String &p_proj_dir) {
 
 	// Generate native calls
 
-	StringBuilder cs_icalls_content;
+	StringBuffer<> cs_icalls_content;
 
 	cs_icalls_content.append("namespace " BINDINGS_NAMESPACE ";\n\n");
 	cs_icalls_content.append("using System;\n"
@@ -1199,7 +1201,7 @@ Error BindingsGenerator::generate_cs_core_project(const String &p_proj_dir) {
 
 	// Generate GeneratedIncludes.props
 
-	StringBuilder includes_props_content;
+	StringBuffer<> includes_props_content;
 	includes_props_content.append("<Project>\n"
 								  "  <ItemGroup>\n");
 
@@ -1264,7 +1266,7 @@ Error BindingsGenerator::generate_cs_editor_project(const String &p_proj_dir) {
 
 	// Generate native calls
 
-	StringBuilder cs_icalls_content;
+	StringBuffer<> cs_icalls_content;
 
 	cs_icalls_content.append("namespace " BINDINGS_NAMESPACE ";\n\n");
 	cs_icalls_content.append("using System;\n"
@@ -1308,7 +1310,7 @@ Error BindingsGenerator::generate_cs_editor_project(const String &p_proj_dir) {
 
 	// Generate GeneratedIncludes.props
 
-	StringBuilder includes_props_content;
+	StringBuffer<> includes_props_content;
 	includes_props_content.append("<Project>\n"
 								  "  <ItemGroup>\n");
 
@@ -1393,7 +1395,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 
 	_log("Generating %s.cs...\n", itype.proxy_name.utf8().get_data());
 
-	StringBuilder output;
+	StringBuffer<> output;
 
 	output.append("namespace " BINDINGS_NAMESPACE ";\n\n");
 
@@ -1896,7 +1898,7 @@ Error BindingsGenerator::_generate_cs_type(const TypeInterface &itype, const Str
 	return _save_file(p_output_file, output);
 }
 
-Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInterface &p_itype, const PropertyInterface &p_iprop, StringBuilder &p_output) {
+Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInterface &p_itype, const PropertyInterface &p_iprop, StringBuffer<> &p_output) {
 	const MethodInterface *setter = p_itype.find_method_by_name(p_iprop.setter);
 
 	// Search it in base types too
@@ -2034,7 +2036,7 @@ Error BindingsGenerator::_generate_cs_property(const BindingsGenerator::TypeInte
 	return OK;
 }
 
-Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterface &p_itype, const BindingsGenerator::MethodInterface &p_imethod, int &p_method_bind_count, StringBuilder &p_output) {
+Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterface &p_itype, const BindingsGenerator::MethodInterface &p_imethod, int &p_method_bind_count, StringBuffer<> &p_output) {
 	const TypeInterface *return_type = _get_type_or_singleton_or_null(p_imethod.return_type);
 	ERR_FAIL_NULL_V(return_type, ERR_BUG); // Return type not found
 
@@ -2050,7 +2052,7 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 	String method_bind_field = CS_STATIC_FIELD_METHOD_BIND_PREFIX + itos(p_method_bind_count);
 
 	String arguments_sig;
-	StringBuilder cs_in_statements;
+	StringBuffer<> cs_in_statements;
 	bool cs_in_expr_is_unsafe = false;
 
 	String icall_params = method_bind_field;
@@ -2069,7 +2071,7 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 		icall_params += ", " + sformat(p_itype.cs_in_expr, self_reference);
 	}
 
-	StringBuilder default_args_doc;
+	StringBuffer<> default_args_doc;
 
 	// Retrieve information from the arguments
 	const ArgumentInterface &first = p_imethod.arguments.front()->get();
@@ -2228,7 +2230,7 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 			}
 		}
 
-		if (default_args_doc.get_string_length()) {
+		if (default_args_doc.length()) {
 			p_output.append(default_args_doc.as_string());
 		}
 
@@ -2299,7 +2301,7 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 		im_call += ".";
 		im_call += im_icall->name;
 
-		if (p_imethod.arguments.size() && cs_in_statements.get_string_length() > 0) {
+		if (p_imethod.arguments.size() && cs_in_statements.length() > 0) {
 			p_output.append(cs_in_statements.as_string());
 		}
 
@@ -2321,7 +2323,7 @@ Error BindingsGenerator::_generate_cs_method(const BindingsGenerator::TypeInterf
 	return OK;
 }
 
-Error BindingsGenerator::_generate_cs_signal(const BindingsGenerator::TypeInterface &p_itype, const BindingsGenerator::SignalInterface &p_isignal, StringBuilder &p_output) {
+Error BindingsGenerator::_generate_cs_signal(const BindingsGenerator::TypeInterface &p_itype, const BindingsGenerator::SignalInterface &p_isignal, StringBuffer<> &p_output) {
 	String arguments_sig;
 	String delegate_type_params;
 
@@ -2506,15 +2508,15 @@ Error BindingsGenerator::_generate_cs_signal(const BindingsGenerator::TypeInterf
 	return OK;
 }
 
-Error BindingsGenerator::_generate_cs_native_calls(const InternalCall &p_icall, StringBuilder &r_output) {
+Error BindingsGenerator::_generate_cs_native_calls(const InternalCall &p_icall, StringBuffer<> &r_output) {
 	bool ret_void = p_icall.return_type.cname == name_cache.type_void;
 
 	const TypeInterface *return_type = _get_type_or_null(p_icall.return_type);
 	ERR_FAIL_NULL_V(return_type, ERR_BUG); // Return type not found
 
-	StringBuilder c_func_sig;
-	StringBuilder c_in_statements;
-	StringBuilder c_args_var_content;
+	StringBuffer<> c_func_sig;
+	StringBuffer<> c_in_statements;
+	StringBuffer<> c_args_var_content;
 
 	c_func_sig << "IntPtr " CS_PARAM_METHODBIND;
 
@@ -2721,7 +2723,7 @@ Error BindingsGenerator::_generate_cs_native_calls(const InternalCall &p_icall, 
 	return OK;
 }
 
-Error BindingsGenerator::_save_file(const String &p_path, const StringBuilder &p_content) {
+Error BindingsGenerator::_save_file(const String &p_path, const StringBuffer<> &p_content) {
 	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE);
 	ERR_FAIL_COND_V_MSG(file.is_null(), ERR_FILE_CANT_WRITE, "Cannot open file: '" + p_path + "'.");
 
