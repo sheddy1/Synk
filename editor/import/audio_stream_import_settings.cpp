@@ -533,8 +533,9 @@ AudioStreamImportSettings::AudioStreamImportSettings() {
 	loop->set_tooltip_text(TTR("Enable looping."));
 	loop->connect("toggled", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	loop_hb->add_child(loop);
-	loop_hb->add_spacer();
-	loop_hb->add_child(memnew(Label(TTR("Offset:"))));
+	Label *offset_lb = memnew(Label(TTR("Offset:")));
+	offset_lb->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_END);
+	loop_hb->add_child(offset_lb);
 	loop_offset = memnew(SpinBox);
 	loop_offset->set_max(10000);
 	loop_offset->set_step(0.001);
@@ -556,8 +557,8 @@ AudioStreamImportSettings::AudioStreamImportSettings() {
 	bpm_edit->set_tooltip_text(TTR("Configure the Beats Per Measure (tempo) used for the interactive streams.\nThis is required in order to configure beat information."));
 	bpm_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	interactive_hb->add_child(bpm_edit);
-	interactive_hb->add_spacer();
 	beats_enabled = memnew(CheckBox);
+	beats_enabled->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_END);
 	beats_enabled->set_text(TTR("Beat Count:"));
 	beats_enabled->connect("toggled", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	interactive_hb->add_child(beats_enabled);
@@ -569,12 +570,12 @@ AudioStreamImportSettings::AudioStreamImportSettings() {
 	bar_beats_label = memnew(Label(TTR("Bar Beats:")));
 	interactive_hb->add_child(bar_beats_label);
 	bar_beats_edit = memnew(SpinBox);
+	bar_beats_edit->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_BEGIN);
 	bar_beats_edit->set_tooltip_text(TTR("Configure the Beats Per Bar. This used for music-aware transitions between AudioStreams."));
 	bar_beats_edit->set_min(2);
 	bar_beats_edit->set_max(32);
 	bar_beats_edit->connect("value_changed", callable_mp(this, &AudioStreamImportSettings::_settings_changed).unbind(1));
 	interactive_hb->add_child(bar_beats_edit);
-	interactive_hb->add_spacer();
 	main_vbox->add_margin_child(TTR("Music Playback:"), interactive_hb);
 
 	color_rect = memnew(ColorRect);

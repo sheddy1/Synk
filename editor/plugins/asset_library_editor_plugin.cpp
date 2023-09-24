@@ -374,6 +374,7 @@ void EditorAssetLibraryItemDownload::_http_download_completed(int p_status, int 
 		download_error->popup_centered();
 		// Let the user retry the download.
 		retry_button->show();
+		install_button->set_h_size_flags(SIZE_FILL);
 		return;
 	}
 
@@ -486,6 +487,7 @@ void EditorAssetLibraryItemDownload::install() {
 void EditorAssetLibraryItemDownload::_make_request() {
 	// Hide the Retry button if we've just pressed it.
 	retry_button->hide();
+	install_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 
 	download->cancel_request();
 	download->set_download_file(EditorPaths::get_singleton()->get_cache_dir().path_join("tmp_asset_" + itos(asset_id)) + ".zip");
@@ -529,18 +531,17 @@ EditorAssetLibraryItemDownload::EditorAssetLibraryItemDownload() {
 
 	title->set_clip_text(true);
 
-	vb->add_spacer();
-
 	status = memnew(Label(TTR("Idle")));
+	status->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	vb->add_child(status);
 	progress = memnew(ProgressBar);
 	vb->add_child(progress);
 
 	HBoxContainer *hb2 = memnew(HBoxContainer);
 	vb->add_child(hb2);
-	hb2->add_spacer();
 
 	install_button = memnew(Button);
+	install_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	install_button->set_text(TTR("Install..."));
 	install_button->set_disabled(true);
 	install_button->connect("pressed", callable_mp(this, &EditorAssetLibraryItemDownload::install));
@@ -553,7 +554,7 @@ EditorAssetLibraryItemDownload::EditorAssetLibraryItemDownload() {
 
 	hb2->add_child(retry_button);
 	hb2->add_child(install_button);
-	set_custom_minimum_size(Size2(310, 0) * EDSCALE);
+	set_custom_minimum_size(Size2(256, 0) * EDSCALE);
 
 	download = memnew(HTTPRequest);
 	panel->add_child(download);
@@ -1017,10 +1018,10 @@ HBoxContainer *EditorAssetLibrary::_make_pages(int p_page, int p_page_count, int
 		to = p_page_count;
 	}
 
-	hbc->add_spacer();
 	hbc->add_theme_constant_override("separation", 5 * EDSCALE);
 
 	Button *first = memnew(Button);
+	first->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	first->set_text(TTR("First", "Pagination"));
 	if (p_page != 0) {
 		first->connect("pressed", callable_mp(this, &EditorAssetLibrary::_search).bind(0));
@@ -1072,6 +1073,7 @@ HBoxContainer *EditorAssetLibrary::_make_pages(int p_page, int p_page_count, int
 	hbc->add_child(next);
 
 	Button *last = memnew(Button);
+	last->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_BEGIN);
 	last->set_text(TTR("Last", "Pagination"));
 	if (p_page != p_page_count - 1) {
 		last->connect("pressed", callable_mp(this, &EditorAssetLibrary::_search).bind(p_page_count - 1));
@@ -1080,8 +1082,6 @@ HBoxContainer *EditorAssetLibrary::_make_pages(int p_page, int p_page_count, int
 		last->set_focus_mode(Control::FOCUS_NONE);
 	}
 	hbc->add_child(last);
-
-	hbc->add_spacer();
 
 	return hbc;
 }

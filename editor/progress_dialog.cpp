@@ -245,9 +245,8 @@ ProgressDialog::ProgressDialog() {
 	main->add_child(cancel_hb);
 	cancel_hb->hide();
 	cancel = memnew(Button);
-	cancel_hb->add_spacer();
+	cancel->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_CENTER);
 	cancel_hb->add_child(cancel);
 	cancel->set_text(TTR("Cancel"));
-	cancel_hb->add_spacer();
 	cancel->connect("pressed", callable_mp(this, &ProgressDialog::_cancel_pressed));
 }

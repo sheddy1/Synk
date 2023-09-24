@@ -1952,13 +1952,9 @@ ScriptEditorDebugger::ScriptEditorDebugger() {
 		collapse_all_button->connect("pressed", callable_mp(this, &ScriptEditorDebugger::_collapse_errors_list));
 		error_hbox->add_child(collapse_all_button);
 
-		Control *space = memnew(Control);
-		space->set_h_size_flags(SIZE_EXPAND_FILL);
-		error_hbox->add_child(space);
-
 		clear_button = memnew(Button);
 		clear_button->set_text(TTR("Clear"));
-		clear_button->set_h_size_flags(0);
+		clear_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		clear_button->set_disabled(true);
 		clear_button->connect("pressed", callable_mp(this, &ScriptEditorDebugger::_clear_errors_list));
 		error_hbox->add_child(clear_button);

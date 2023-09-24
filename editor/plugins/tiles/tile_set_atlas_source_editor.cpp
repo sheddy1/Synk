@@ -2614,12 +2614,8 @@ TileSetAtlasSourceEditor::TileSetAtlasSourceEditor() {
 
 	_update_toolbar();
 
-	// Right side of toolbar.
-	Control *middle_space = memnew(Control);
-	middle_space->set_h_size_flags(SIZE_EXPAND_FILL);
-	tool_settings->add_child(middle_space);
-
 	tool_tile_id_label = memnew(Label);
+	tool_tile_id_label->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	tool_tile_id_label->set_mouse_filter(Control::MOUSE_FILTER_STOP);
 	tool_settings->add_child(tool_tile_id_label);
 	_update_tile_id_label();

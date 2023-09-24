@@ -1838,13 +1838,8 @@ SpriteFramesEditor::SpriteFramesEditor() {
 	frame_duration->set_allow_greater(true);
 	hbc_frame_duration->add_child(frame_duration);
 
-	// Wide empty separation control. (like BoxContainer::add_spacer())
-	Control *c = memnew(Control);
-	c->set_mouse_filter(MOUSE_FILTER_PASS);
-	c->set_h_size_flags(SIZE_EXPAND_FILL);
-	hfc->add_child(c);
-
 	HBoxContainer *hbc_zoom = memnew(HBoxContainer);
+	hbc_zoom->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	hfc->add_child(hbc_zoom);
 
 	zoom_out = memnew(Button);
@@ -1978,9 +1973,8 @@ SpriteFramesEditor::SpriteFramesEditor() {
 	clear_all->connect("pressed", callable_mp(this, &SpriteFramesEditor::_sheet_clear_all_frames));
 	split_sheet_menu_hb->add_child(clear_all);
 
-	split_sheet_menu_hb->add_spacer();
-
 	toggle_settings_button = memnew(Button);
+	toggle_settings_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	toggle_settings_button->set_h_size_flags(SIZE_SHRINK_END);
 	toggle_settings_button->set_flat(true);
 	toggle_settings_button->connect("pressed", callable_mp(this, &SpriteFramesEditor::_toggle_show_settings));

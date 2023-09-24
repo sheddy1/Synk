@@ -1560,10 +1560,8 @@ ConnectionsDock::ConnectionsDock() {
 	tree->set_allow_rmb_select(true);
 
 	connect_button = memnew(Button);
-	HBoxContainer *hb = memnew(HBoxContainer);
-	vbc->add_child(hb);
-	hb->add_spacer();
-	hb->add_child(connect_button);
+	connect_button->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
+	vbc->add_child(connect_button);
 	connect_button->connect("pressed", callable_mp(this, &ConnectionsDock::_connect_pressed));
 
 	connect_dialog = memnew(ConnectDialog);

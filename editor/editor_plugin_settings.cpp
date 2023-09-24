@@ -215,8 +215,8 @@ EditorPluginSettings::EditorPluginSettings() {
 	Label *l = memnew(Label(TTR("Installed Plugins:")));
 	l->set_theme_type_variation("HeaderSmall");
 	title_hb->add_child(l);
-	title_hb->add_spacer();
 	Button *create_plugin = memnew(Button(TTR("Create New Plugin")));
+	create_plugin->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 	create_plugin->connect("pressed", callable_mp(this, &EditorPluginSettings::_create_clicked));
 	title_hb->add_child(create_plugin);
 	add_child(title_hb);

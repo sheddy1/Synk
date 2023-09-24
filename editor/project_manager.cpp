@@ -950,14 +950,12 @@ ProjectDialog::ProjectDialog() {
 	l->set_text(TTR("Version Control Metadata:"));
 	default_files_container->add_child(l);
 	vcs_metadata_selection = memnew(OptionButton);
+	vcs_metadata_selection->set_h_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_BEGIN);
 	vcs_metadata_selection->set_custom_minimum_size(Size2(100, 20));
 	vcs_metadata_selection->add_item(TTR("None"), (int)EditorVCSInterface::VCSMetadata::NONE);
 	vcs_metadata_selection->add_item(TTR("Git"), (int)EditorVCSInterface::VCSMetadata::GIT);
 	vcs_metadata_selection->select((int)EditorVCSInterface::VCSMetadata::GIT);
 	default_files_container->add_child(vcs_metadata_selection);
-	Control *spacer = memnew(Control);
-	spacer->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	default_files_container->add_child(spacer);
 
 	fdialog = memnew(EditorFileDialog);
 	fdialog->set_previews_enabled(false); //Crucial, otherwise the engine crashes.
@@ -2981,9 +2979,8 @@ ProjectManager::ProjectManager() {
 		erase_missing_btn->connect("pressed", callable_mp(this, &ProjectManager::_erase_missing_projects));
 		tree_vb->add_child(erase_missing_btn);
 
-		tree_vb->add_spacer();
-
 		about_btn = memnew(Button);
+		about_btn->set_v_size_flags(Control::SIZE_EXPAND | Control::SIZE_SHRINK_END);
 		about_btn->set_text(TTR("About"));
 		about_btn->connect("pressed", callable_mp(this, &ProjectManager::_show_about));
 		tree_vb->add_child(about_btn);
@@ -2992,18 +2989,13 @@ ProjectManager::ProjectManager() {
 	{
 		// Version info and language options
 		settings_hb = memnew(HBoxContainer);
+		settings_hb->add_theme_constant_override("separation", 8 * EDSCALE);
 		settings_hb->set_alignment(BoxContainer::ALIGNMENT_END);
 		settings_hb->set_h_grow_direction(Control::GROW_DIRECTION_BEGIN);
 		settings_hb->set_anchors_and_offsets_preset(Control::PRESET_TOP_RIGHT);
 
-		// A VBoxContainer that contains a dummy Control node to adjust the LinkButton's vertical position.
-		VBoxContainer *spacer_vb = memnew(VBoxContainer);
-		settings_hb->add_child(spacer_vb);
-
-		Control *v_spacer = memnew(Control);
-		spacer_vb->add_child(v_spacer);
-
 		version_btn = memnew(LinkButton);
+		version_btn->set_v_size_flags(SIZE_EXPAND | SIZE_SHRINK_CENTER);
 		String hash = String(VERSION_HASH);
 		if (hash.length() != 0) {
 			hash = " " + vformat("[%s]", hash.left(9));
@@ -3014,12 +3006,7 @@ ProjectManager::ProjectManager() {
 		version_btn->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
 		version_btn->set_tooltip_text(TTR("Click to copy."));
 		version_btn->connect("pressed", callable_mp(this, &ProjectManager::_version_button_pressed));
-		spacer_vb->add_child(version_btn);
-
-		// Add a small horizontal spacer between the version and language buttons
-		// to distinguish them.
-		Control *h_spacer = memnew(Control);
-		settings_hb->add_child(h_spacer);
+		settings_hb->add_child(version_btn);
 
 		language_btn = memnew(OptionButton);
 		language_btn->set_focus_mode(Control::FOCUS_NONE);

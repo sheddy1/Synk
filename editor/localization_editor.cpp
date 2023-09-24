@@ -615,11 +615,11 @@ LocalizationEditor::LocalizationEditor() {
 		HBoxContainer *thb = memnew(HBoxContainer);
 		Label *l = memnew(Label(TTR("Translations:")));
 		l->set_theme_type_variation("HeaderSmall");
-		thb->add_child(l);
-		thb->add_spacer();
 		tvb->add_child(thb);
+		thb->add_child(l);
 
 		Button *addtr = memnew(Button(TTR("Add...")));
+		addtr->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		addtr->connect("pressed", callable_mp(this, &LocalizationEditor::_translation_file_open));
 		thb->add_child(addtr);
 
@@ -649,11 +649,11 @@ LocalizationEditor::LocalizationEditor() {
 		HBoxContainer *thb = memnew(HBoxContainer);
 		Label *l = memnew(Label(TTR("Resources:")));
 		l->set_theme_type_variation("HeaderSmall");
-		thb->add_child(l);
-		thb->add_spacer();
 		tvb->add_child(thb);
+		thb->add_child(l);
 
 		Button *addtr = memnew(Button(TTR("Add...")));
+		addtr->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		addtr->connect("pressed", callable_mp(this, &LocalizationEditor::_translation_res_file_open));
 		thb->add_child(addtr);
 
@@ -675,11 +675,11 @@ LocalizationEditor::LocalizationEditor() {
 		thb = memnew(HBoxContainer);
 		l = memnew(Label(TTR("Remaps by Locale:")));
 		l->set_theme_type_variation("HeaderSmall");
-		thb->add_child(l);
-		thb->add_spacer();
 		tvb->add_child(thb);
+		thb->add_child(l);
 
 		addtr = memnew(Button(TTR("Add...")));
+		addtr->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		addtr->connect("pressed", callable_mp(this, &LocalizationEditor::_translation_res_option_file_open));
 		translation_res_option_add_button = addtr;
 		thb->add_child(addtr);
@@ -718,11 +718,11 @@ LocalizationEditor::LocalizationEditor() {
 		HBoxContainer *thb = memnew(HBoxContainer);
 		Label *l = memnew(Label(TTR("Files with translation strings:")));
 		l->set_theme_type_variation("HeaderSmall");
-		thb->add_child(l);
-		thb->add_spacer();
 		tvb->add_child(thb);
+		thb->add_child(l);
 
 		Button *addtr = memnew(Button(TTR("Add...")));
+		addtr->set_h_size_flags(SIZE_EXPAND | SIZE_SHRINK_END);
 		addtr->connect("pressed", callable_mp(this, &LocalizationEditor::_pot_file_open));
 		thb->add_child(addtr);
 
