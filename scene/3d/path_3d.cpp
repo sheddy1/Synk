@@ -92,7 +92,7 @@ void Path3D::_update_debug_mesh() {
 		RS::get_singleton()->instance_set_visible(debug_instance, false);
 		return;
 	}
-	if (!debug_show){
+	if (!debug_show) {
 		RS::get_singleton()->instance_set_visible(debug_instance, false);
 		return;
 	}
@@ -111,7 +111,7 @@ void Path3D::_update_debug_mesh() {
 	mesh_array[Mesh::ARRAY_VERTEX] = vertex_array;
 
 	_update_debug_path_material();
-	
+
 	debug_mesh->clear_surfaces();
 	debug_mesh->add_surface_from_arrays(Mesh::PRIMITIVE_LINES, mesh_array);
 	debug_mesh->surface_set_material(0, debug_material);
