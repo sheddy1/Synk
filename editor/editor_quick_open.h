@@ -59,6 +59,7 @@ class EditorQuickOpen : public ConfirmationDialog {
 
 	void _sbox_input(const Ref<InputEvent> &p_ie);
 	void _text_changed(const String &p_newtext);
+	void _draw_search_options();
 
 	void _theme_changed();
 
