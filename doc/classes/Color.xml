@@ -505,6 +505,9 @@
 		<member name="v" type="float" setter="" getter="" default="0.0">
 			The HSV value (brightness) of this color, on the range 0 to 1.
 		</member>
+		<member name="ok_hsl_l" type="double" setter="" getter="" default="0.0">
+			The OkHSL lightness of this color, on the range 0 to 1.
+		</member>
 	</members>
 	<constants>
 		<constant name="ALICE_BLUE" value="Color(0.941176, 0.972549, 1, 1)">
