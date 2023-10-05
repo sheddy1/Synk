@@ -539,7 +539,8 @@ bool GDScript::_update_exports(bool *r_err, bool p_recursive_call, PlaceHolderSc
 					case GDScriptParser::ClassNode::Member::SIGNAL: {
 						_signals[member.signal->identifier->name] = member.signal->method_info;
 					} break;
-					case GDScriptParser::ClassNode::Member::GROUP: {
+					case GDScriptParser::ClassNode::Member::GROUP:
+					case GDScriptParser::ClassNode::Member::TOOL_BUTTON: {
 						members_cache.push_back(member.annotation->export_info);
 					} break;
 					default:
