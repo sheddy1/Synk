@@ -84,6 +84,20 @@ struct _NO_DISCARD_ Quaternion {
 		r_axis.z = z * r;
 	}
 
+	_FORCE_INLINE_ Quaternion rotate_toward(const Quaternion &p_to, real_t p_delta) const {
+		Quaternion to = p_to;
+
+		if (p_delta < 0.0) {
+			p_delta = -p_delta;
+			to = p_to.inverse();
+		}
+		real_t angle = angle_to(p_to);
+		if (angle < p_delta) {
+			return to;
+		}
+		return slerp(to, p_delta / angle);
+	}
+
 	void operator*=(const Quaternion &p_q);
 	Quaternion operator*(const Quaternion &p_q) const;
 
