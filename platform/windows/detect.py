@@ -182,6 +182,7 @@ def get_opts():
         ),
         BoolVariable("use_mingw", "Use the Mingw compiler, even if MSVC is installed.", False),
         BoolVariable("use_llvm", "Use the LLVM compiler", False),
+        BoolVariable("use_dwarf", "Produce DWARF debug symbols instead of PDB when using the LLVM compiler", False),
         BoolVariable("use_static_cpp", "Link MinGW/MSVC C++ runtime libraries statically", True),
         BoolVariable("use_asan", "Use address sanitizer (ASAN)", False),
         BoolVariable("debug_crt", "Compile with MSVC's debug CRT (/MDd)", False),
@@ -329,6 +330,38 @@ def setup_mingw(env):
         sys.exit(202)
 
     print("Using MinGW, arch %s" % (env["arch"]))
+
+
+def setup_llvm(env):
+    """Set up env for use with clang"""
+
+    Version = False
+
+    try:
+        out = subprocess.Popen(
+            "clang --version",
+            shell=True,
+            encoding="utf-8",
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        outs, errs = out.communicate()
+        if out.returncode == 0:
+            import re
+
+            Version = re.search("^clang version ([0-9\\.]+)\n", outs).group(1)
+    except Exception:
+        pass
+
+    if not Version:
+        print(
+            """
+            CLang could not be found, make sure it is installed and in PATH.
+            """
+        )
+        sys.exit(200)
+
+    print("Found clang version %s, arch %s" % (Version, env["arch"]))
 
 
 def configure_msvc(env, vcvars_msvc_config):
@@ -642,6 +675,137 @@ def configure_mingw(env):
     env.Append(BUILDERS={"RES": env.Builder(action=build_res_file, suffix=".o", src_suffix=".rc")})
 
 
+def configure_llvm(env):
+    env.use_windows_spawn_fix()
+
+    if env["target"] != "template_release" and env.dev_build:
+        # Allow big objects. It's supposed not to have drawbacks but seems to break
+        # GCC LTO, so enabling for debug builds only (which are not built with LTO
+        # and are the only ones with too big objects).
+        env.Append(CCFLAGS=["-Wa,-mbig-obj"])
+
+    if env["windows_subsystem"] == "gui":
+        env.Append(LINKFLAGS=["-Wl,-subsystem:windows"])
+    else:
+        env.Append(LINKFLAGS=["-Wl,-subsystem:console"])
+        env.AppendUnique(CPPDEFINES=["WINDOWS_SUBSYSTEM_CONSOLE"])
+
+    ## Compiler configuration
+
+    if os.name != "nt":
+        env["PROGSUFFIX"] = env["PROGSUFFIX"] + ".exe"  # for linux cross-compilation
+
+    if env["arch"] == "x86_32":
+        if env["use_static_cpp"]:
+            env.Append(LINKFLAGS=["-static"])
+            env.Append(LINKFLAGS=["-static-libgcc"])
+            env.Append(LINKFLAGS=["-static-libstdc++"])
+    else:
+        if env["use_static_cpp"]:
+            env.Append(LINKFLAGS=["-static"])
+
+    # FIXME: Temporarily disabled, because llvm doesn't like the assembly
+    # if env["arch"] in ["x86_32", "x86_64"]:
+    #    env["x86_libtheora_opt_gcc"] = True
+
+    env["CC"] = "clang"
+    env["CXX"] = "clang++"
+    env["AS"] = "clang"  # CLang can act as an assembler, so it is not usually bundled with llvm-as
+    env["AR"] = "llvm-ar"
+    env["RANLIB"] = "llvm-ranlib"
+    env.extra_suffix = ".llvm" + env.extra_suffix
+
+    ## LTO
+
+    if env["lto"] == "auto":  # Full LTO for production with LLVM.
+        env["lto"] = "full"
+
+    if env["lto"] != "none":
+        if env["lto"] == "thin":
+            env.Append(LINKFLAGS=["-flto=thin"])
+        else:
+            env.Append(LINKFLAGS=["-flto"])
+
+    env.Append(LINKFLAGS=["-Wl,-stack:" + str(STACK_SIZE)])
+
+    # Sanitizers
+
+    if env["use_asan"]:
+        env.extra_suffix += ".san"
+        env.Append(CCFLAGS=["-DSANITIZERS_ENABLED"])
+        env.Append(CCFLAGS=["-fsanitize=address,pointer-subtract,pointer-compare"])
+        env.Append(LINKFLAGS=["-fsanitize=address"])
+
+    ## Compile flags
+
+    # The mere use of Windows SDK which defines MSC_VER causes various libraries to assume
+    # that these features are enabled. Therefore, they must be enabled
+    env.Append(CCFLAGS=["-maes", "-mpclmul", "-msse2", "-msse4.1"])
+
+    env.Append(CPPDEFINES=[])
+    env.Append(
+        CPPDEFINES=[
+            "WINDOWS_ENABLED",
+            "WASAPI_ENABLED",
+            "WINMIDI_ENABLED",
+            "TYPED_METHOD_BIND",
+            "WIN32",
+            # Prevent Windows SDK headers from defining min and max macros,
+            # which conflict with min and max templates
+            "NOMINMAX",
+            # The inline assembly trick used for older MSVC versions does not work for LLVM.
+            # Fall back to portable implementation.
+            # An alternative is to define __MINGW32__ but this would influence other libraries
+            "R128_STDC_ONLY",
+            ("WINVER", env["target_win_version"]),
+            ("_WIN32_WINNT", env["target_win_version"]),
+        ]
+    )
+    env.Append(
+        LIBS=[
+            "avrt",
+            "bcrypt",
+            "crypt32",
+            "dinput8",
+            "dsound",
+            "dwmapi",
+            "dwrite",
+            "dxguid",
+            "gdi32",
+            "imm32",
+            "iphlpapi",
+            "kernel32",
+            "ole32",
+            "oleaut32",
+            "sapi",
+            "shell32",
+            "advapi32",
+            "shlwapi",
+            "user32",
+            "uuid",
+            "wbemuuid",
+            "winmm",
+            "ws2_32",
+            "wsock32",
+        ]
+    )
+
+    if env.debug_features:
+        env.Append(LIBS=["psapi", "dbghelp"])
+
+    if env["vulkan"]:
+        env.Append(CPPDEFINES=["VULKAN_ENABLED"])
+        if not env["use_volk"]:
+            env.Append(LIBS=["vulkan"])
+
+    if env["opengl3"]:
+        env.Append(CPPDEFINES=["GLES3_ENABLED"])
+        env.Append(LIBS=["opengl32"])
+
+    # resrc
+    env.Append(BUILDERS={"RES": env.Builder(action=build_res_file, suffix=".o", src_suffix=".rc")})
+
+
 def configure(env: "Environment"):
     # Validate arch.
     supported_arches = ["x86_32", "x86_64", "arm32", "arm64"]
@@ -660,7 +824,10 @@ def configure(env: "Environment"):
         env["ENV"]["TMP"] = os.environ["TMP"]
 
     # First figure out which compiler, version, and target arch we're using
-    if os.getenv("VCINSTALLDIR") and detect_build_env_arch() and not env["use_mingw"]:
+    if env["use_llvm"] and not env["use_mingw"]:
+        setup_llvm(env)
+        env.msvc = False
+    elif os.getenv("VCINSTALLDIR") and detect_build_env_arch() and not env["use_mingw"]:
         setup_msvc_manual(env)
         env.msvc = True
         vcvars_msvc_config = True
@@ -675,6 +842,9 @@ def configure(env: "Environment"):
     # Now set compiler/linker flags
     if env.msvc:
         configure_msvc(env, vcvars_msvc_config)
+
+    elif env["use_llvm"]:
+        configure_llvm(env)
 
     else:  # MinGW
         configure_mingw(env)

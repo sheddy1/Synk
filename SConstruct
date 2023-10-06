@@ -106,54 +106,6 @@ for x in sorted(glob.glob("platform/*")):
     sys.path.remove(tmppath)
     sys.modules.pop("detect")
 
-custom_tools = ["default"]
-
-platform_arg = ARGUMENTS.get("platform", ARGUMENTS.get("p", False))
-
-if platform_arg == "android":
-    custom_tools = ["clang", "clang++", "as", "ar", "link"]
-elif platform_arg == "web":
-    # Use generic POSIX build toolchain for Emscripten.
-    custom_tools = ["cc", "c++", "ar", "link", "textfile", "zip"]
-elif os.name == "nt" and methods.get_cmdline_bool("use_mingw", False):
-    custom_tools = ["mingw"]
-
-# We let SCons build its default ENV as it includes OS-specific things which we don't
-# want to have to pull in manually.
-# Then we prepend PATH to make it take precedence, while preserving SCons' own entries.
-env_base = Environment(tools=custom_tools)
-env_base.PrependENVPath("PATH", os.getenv("PATH"))
-env_base.PrependENVPath("PKG_CONFIG_PATH", os.getenv("PKG_CONFIG_PATH"))
-if "TERM" in os.environ:  # Used for colored output.
-    env_base["ENV"]["TERM"] = os.environ["TERM"]
-
-env_base.disabled_modules = []
-env_base.module_version_string = ""
-env_base.msvc = False
-
-env_base.__class__.disable_module = methods.disable_module
-
-env_base.__class__.add_module_version_string = methods.add_module_version_string
-
-env_base.__class__.add_source_files = methods.add_source_files
-env_base.__class__.use_windows_spawn_fix = methods.use_windows_spawn_fix
-
-env_base.__class__.add_shared_library = methods.add_shared_library
-env_base.__class__.add_library = methods.add_library
-env_base.__class__.add_program = methods.add_program
-env_base.__class__.CommandNoCache = methods.CommandNoCache
-env_base.__class__.Run = methods.Run
-env_base.__class__.disable_warnings = methods.disable_warnings
-env_base.__class__.force_optimization_on_debug = methods.force_optimization_on_debug
-env_base.__class__.module_add_dependencies = methods.module_add_dependencies
-env_base.__class__.module_check_dependencies = methods.module_check_dependencies
-
-env_base["x86_libtheora_opt_gcc"] = False
-env_base["x86_libtheora_opt_vc"] = False
-
-# avoid issues when building with different versions of python out of the same directory
-env_base.SConsignFile(".sconsign{0}.dblite".format(pickle.HIGHEST_PROTOCOL))
-
 # Build options
 
 customs = ["custom.py"]
@@ -264,18 +216,22 @@ opts.Add("CFLAGS", "Custom flags for the C compiler")
 opts.Add("CXXFLAGS", "Custom flags for the C++ compiler")
 opts.Add("LINKFLAGS", "Custom flags for the linker")
 
-# Update the environment to have all above options defined
-# in following code (especially platform and custom_modules).
-opts.Update(env_base)
+# This allows reading the options before initializing the tools
+from SCons.Environment import SubstitutionEnvironment
+
+env_temp = SubstitutionEnvironment()
+opts.Update(env_temp)
+
+custom_tools = ["default"]
 
 # Platform selection: validate input, and add options.
 
 selected_platform = ""
 
-if env_base["platform"] != "":
-    selected_platform = env_base["platform"]
-elif env_base["p"] != "":
-    selected_platform = env_base["p"]
+if env_temp["platform"] != "":
+    selected_platform = env_temp["platform"]
+elif env_temp["p"] != "":
+    selected_platform = env_temp["p"]
 else:
     # Missing `platform` argument, try to detect platform automatically
     if (
@@ -320,14 +276,65 @@ if selected_platform in ["linux", "bsd", "x11"]:
     # Alias for convenience.
     selected_platform = "linuxbsd"
 
-# Make sure to update this to the found, valid platform as it's used through the buildsystem as the reference.
-# It should always be re-set after calling `opts.Update()` otherwise it uses the original input value.
-env_base["platform"] = selected_platform
-
 # Add platform-specific options.
 if selected_platform in platform_opts:
     for opt in platform_opts[selected_platform]:
         opts.Add(opt)
+opts.Update(env_temp)
+
+if selected_platform == "android":
+    custom_tools = ["clang", "clang++", "as", "ar", "link"]
+elif selected_platform == "web":
+    # Use generic POSIX build toolchain for Emscripten.
+    custom_tools = ["cc", "c++", "ar", "link", "textfile", "zip"]
+elif selected_platform == "windows" and env_temp["use_mingw"]:
+    custom_tools = ["mingw"]
+elif selected_platform == "windows" and env_temp["use_llvm"]:
+    custom_tools = ["clang", "clangxx", "ar", "link"]
+
+# We let SCons build its default ENV as it includes OS-specific things which we don't
+# want to have to pull in manually.
+# Then we prepend PATH to make it take precedence, while preserving SCons' own entries.
+env_base = Environment(tools=custom_tools)
+env_base.PrependENVPath("PATH", os.getenv("PATH"))
+env_base.PrependENVPath("PKG_CONFIG_PATH", os.getenv("PKG_CONFIG_PATH"))
+if "TERM" in os.environ:  # Used for colored output.
+    env_base["ENV"]["TERM"] = os.environ["TERM"]
+
+env_base.disabled_modules = []
+env_base.module_version_string = ""
+env_base.msvc = False
+
+env_base.__class__.disable_module = methods.disable_module
+
+env_base.__class__.add_module_version_string = methods.add_module_version_string
+
+env_base.__class__.add_source_files = methods.add_source_files
+env_base.__class__.use_windows_spawn_fix = methods.use_windows_spawn_fix
+
+env_base.__class__.add_shared_library = methods.add_shared_library
+env_base.__class__.add_library = methods.add_library
+env_base.__class__.add_program = methods.add_program
+env_base.__class__.CommandNoCache = methods.CommandNoCache
+env_base.__class__.Run = methods.Run
+env_base.__class__.disable_warnings = methods.disable_warnings
+env_base.__class__.force_optimization_on_debug = methods.force_optimization_on_debug
+env_base.__class__.module_add_dependencies = methods.module_add_dependencies
+env_base.__class__.module_check_dependencies = methods.module_check_dependencies
+
+env_base["x86_libtheora_opt_gcc"] = False
+env_base["x86_libtheora_opt_vc"] = False
+
+# avoid issues when building with different versions of python out of the same directory
+env_base.SConsignFile(".sconsign{0}.dblite".format(pickle.HIGHEST_PROTOCOL))
+
+# Update the environment to have all above options defined
+# in following code (especially platform and custom_modules).
+opts.Update(env_base)
+
+# Make sure to update this to the found, valid platform as it's used through the buildsystem as the reference.
+# It should always be re-set after calling `opts.Update()` otherwise it uses the original input value.
+env_base["platform"] = selected_platform
 
 # Update the environment to take platform-specific options into account.
 opts.Update(env_base)
@@ -598,9 +605,17 @@ if selected_platform in platform_list:
             env.Append(CCFLAGS=["/Od"])
     else:
         if env["debug_symbols"]:
-            # Adding dwarf-4 explicitly makes stacktraces work with clang builds,
-            # otherwise addr2line doesn't understand them
-            env.Append(CCFLAGS=["-gdwarf-4"])
+            if selected_platform == "windows" and env["use_llvm"] and not env["use_dwarf"]:
+                # On Windows when using LLVM the -gcodeview creates debug symbols compatible
+                # with Microsoft debuggers.
+                # Additionally -g must be sent to the linker to make it actually produce
+                # a PDB file containing the debug symbols, otherwise they are discarded.
+                env.Append(CCFLAGS=["-gcodeview"])
+                env.Append(LINKFLAGS=["-g"])
+            else:
+                # Adding dwarf-4 explicitly makes stacktraces work with clang builds,
+                # otherwise addr2line doesn't understand them
+                env.Append(CCFLAGS=["-gdwarf-4"])
             if env.dev_build:
                 env.Append(CCFLAGS=["-g3"])
             else:
