@@ -2411,12 +2411,17 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_resolution", "probe", "resolution"), &RenderingServer::reflection_probe_set_resolution);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_mesh_lod_threshold", "probe", "pixels"), &RenderingServer::reflection_probe_set_mesh_lod_threshold);
 
+	ClassDB::bind_method(D_METHOD("reflections_set_filter", "filter"), &RenderingServer::reflections_set_filter);
+
 	BIND_ENUM_CONSTANT(REFLECTION_PROBE_UPDATE_ONCE);
 	BIND_ENUM_CONSTANT(REFLECTION_PROBE_UPDATE_ALWAYS);
 
 	BIND_ENUM_CONSTANT(REFLECTION_PROBE_AMBIENT_DISABLED);
 	BIND_ENUM_CONSTANT(REFLECTION_PROBE_AMBIENT_ENVIRONMENT);
 	BIND_ENUM_CONSTANT(REFLECTION_PROBE_AMBIENT_COLOR);
+
+	BIND_ENUM_CONSTANT(REFLECTION_FILTER_NEAREST);
+	BIND_ENUM_CONSTANT(REFLECTION_FILTER_LINEAR);
 
 	/* DECAL */
 
@@ -3344,15 +3349,16 @@ void RenderingServer::init() {
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/strip_debug", false);
 	GLOBAL_DEF("rendering/shader_compiler/shader_cache/strip_debug.release", true);
 
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "rendering/reflections/filter", PROPERTY_HINT_ENUM, "Nearest,Linear"), REFLECTION_FILTER_LINEAR);
 	GLOBAL_DEF_RST("rendering/reflections/sky_reflections/roughness_layers", 8); // Assumes a 256x256 cubemap
 	GLOBAL_DEF_RST("rendering/reflections/sky_reflections/texture_array_reflections", true);
 	GLOBAL_DEF("rendering/reflections/sky_reflections/texture_array_reflections.mobile", false);
 	GLOBAL_DEF_RST("rendering/reflections/sky_reflections/ggx_samples", 32);
 	GLOBAL_DEF("rendering/reflections/sky_reflections/ggx_samples.mobile", 16);
-	GLOBAL_DEF("rendering/reflections/sky_reflections/fast_filter_high_quality", false);
-	GLOBAL_DEF("rendering/reflections/reflection_atlas/reflection_size", 256);
+	GLOBAL_DEF_RST("rendering/reflections/sky_reflections/fast_filter_high_quality", false);
+	GLOBAL_DEF_RST("rendering/reflections/reflection_atlas/reflection_size", 256);
 	GLOBAL_DEF("rendering/reflections/reflection_atlas/reflection_size.mobile", 128);
-	GLOBAL_DEF("rendering/reflections/reflection_atlas/reflection_count", 64);
+	GLOBAL_DEF_RST("rendering/reflections/reflection_atlas/reflection_count", 64);
 
 	GLOBAL_DEF("rendering/global_illumination/gi/use_half_resolution", false);
 

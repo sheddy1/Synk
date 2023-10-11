@@ -307,6 +307,7 @@ public:
 	virtual void render_probes() = 0;
 	virtual void update_visibility_notifiers() = 0;
 
+	virtual void reflections_set_filter(RS::ReflectionFilter p_filter) = 0;
 	virtual void decals_set_filter(RS::DecalFilter p_filter) = 0;
 	virtual void light_projectors_set_filter(RS::LightProjectorFilter p_filter) = 0;
 
