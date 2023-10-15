@@ -133,7 +133,6 @@ EditorAbout::EditorAbout() {
 	hbc->set_alignment(BoxContainer::ALIGNMENT_CENTER);
 	hbc->add_theme_constant_override("separation", 30 * EDSCALE);
 	vbc->add_child(hbc);
-
 	_logo = memnew(TextureRect);
 	_logo->set_stretch_mode(TextureRect::STRETCH_KEEP_ASPECT_CENTERED);
 	hbc->add_child(_logo);
@@ -145,13 +144,19 @@ EditorAbout::EditorAbout() {
 	version_info_vbc->add_child(v_spacer);
 
 	version_btn = memnew(LinkButton);
+	String branch = String::utf8(VERSION_GIT_BRANCH);
+	if (branch.length() != 0) {
+		// Trim branch name display if it's too long.
+		constexpr int MAX_BRANCH_NAME_LENGTH = 32;
+		branch = " " + vformat((branch.length() > MAX_BRANCH_NAME_LENGTH) ? "(%s...)" : "(%s)", branch.left(MAX_BRANCH_NAME_LENGTH));
+	}
 	String hash = String(VERSION_HASH);
 	if (hash.length() != 0) {
 		hash = " " + vformat("[%s]", hash.left(9));
 	}
-	version_btn->set_text(VERSION_FULL_NAME + hash);
+	version_btn->set_text(VERSION_FULL_NAME + branch + hash);
 	// Set the text to copy in metadata as it slightly differs from the button's text.
-	version_btn->set_meta(META_TEXT_TO_COPY, "v" VERSION_FULL_BUILD + hash);
+	version_btn->set_meta(META_TEXT_TO_COPY, "v" VERSION_FULL_BUILD + branch + hash);
 	version_btn->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
 	version_btn->set_tooltip_text(TTR("Click to copy."));
 	version_btn->connect("pressed", callable_mp(this, &EditorAbout::_version_button_pressed));

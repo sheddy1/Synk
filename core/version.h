@@ -75,6 +75,12 @@
 #define VERSION_FULL_NAME VERSION_NAME " v" VERSION_FULL_BUILD
 
 // Git commit hash, generated at build time in `core/version_hash.gen.cpp`.
+// If the `.git` folder isn't available at build time, this is an empty string.
 extern const char *const VERSION_HASH;
+
+// Git commit branch, generated at build time in `core/version_hash.gen.cpp`.
+// Only stored for non-default branch names. For default branch names, this is an empty string.
+// If the `.git` folder isn't available at build time, this is an empty string.
+extern const char *const VERSION_GIT_BRANCH;
 
 #endif // VERSION_H

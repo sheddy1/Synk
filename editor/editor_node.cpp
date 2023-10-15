@@ -7130,13 +7130,19 @@ EditorNode::EditorNode() {
 	version_info_vbc->add_child(v_spacer);
 
 	version_btn = memnew(LinkButton);
-	version_btn->set_text(VERSION_FULL_CONFIG);
+	String branch = String::utf8(VERSION_GIT_BRANCH);
+	if (branch.length() != 0) {
+		// Trim branch name display if it's too long.
+		constexpr int MAX_BRANCH_NAME_LENGTH = 32;
+		branch = " " + vformat((branch.length() > MAX_BRANCH_NAME_LENGTH) ? "(%s...)" : "(%s)", branch.left(MAX_BRANCH_NAME_LENGTH));
+	}
 	String hash = String(VERSION_HASH);
 	if (hash.length() != 0) {
 		hash = " " + vformat("[%s]", hash.left(9));
 	}
+	version_btn->set_text(VERSION_FULL_CONFIG + branch);
 	// Set the text to copy in metadata as it slightly differs from the button's text.
-	version_btn->set_meta(META_TEXT_TO_COPY, "v" VERSION_FULL_BUILD + hash);
+	version_btn->set_meta(META_TEXT_TO_COPY, "v" VERSION_FULL_BUILD + branch + hash);
 	// Fade out the version label to be less prominent, but still readable.
 	version_btn->set_self_modulate(Color(1, 1, 1, 0.65));
 	version_btn->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
