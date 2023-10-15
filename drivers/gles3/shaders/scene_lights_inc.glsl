@@ -62,6 +62,98 @@ uniform uint spot_light_count;
 #endif // DISABLE_LIGHT_SPOT
 #endif // !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT)
 
+#ifndef MODE_RENDER_DEPTH
+#ifdef USE_ADDITIVE_LIGHTING
+#ifdef ADDITIVE_OMNI
+uniform highp samplerCubeShadow omni_shadow_texture; // texunit:-3
+uniform lowp uint omni_light_index;
+#endif
+#ifdef ADDITIVE_SPOT
+uniform highp sampler2DShadow spot_shadow_texture; // texunit:-3
+uniform lowp uint spot_light_index;
+#endif
+
+#if defined(ADDITIVE_OMNI) || defined(ADDITIVE_SPOT)
+struct PositionalShadowData {
+	highp mat4 shadow_matrix;
+	highp vec3 light_position;
+	highp float shadow_normal_bias;
+	vec3 pad;
+	highp float shadow_atlas_pixel_size;
+};
+
+layout(std140) uniform PositionalShadows { // ubo:9
+	PositionalShadowData positional_shadows[MAX_LIGHT_DATA_STRUCTS];
+};
+
+uniform lowp uint positional_shadow_index;
+#else // ADDITIVE_DIRECTIONAL
+struct DirectionalShadowData {
+	highp vec3 direction;
+	highp float shadow_atlas_pixel_size;
+	highp vec4 shadow_normal_bias;
+	highp vec4 shadow_split_offsets;
+	highp mat4 shadow_matrix1;
+	highp mat4 shadow_matrix2;
+	highp mat4 shadow_matrix3;
+	highp mat4 shadow_matrix4;
+	mediump float fade_from;
+	mediump float fade_to;
+	mediump vec2 pad;
+};
+
+layout(std140) uniform DirectionalShadows { // ubo:10
+	DirectionalShadowData directional_shadows[MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS];
+};
+
+uniform lowp uint directional_shadow_index;
+#endif // !(defined(ADDITIVE_OMNI) || defined(ADDITIVE_SPOT))
+
+#if !defined(ADDITIVE_OMNI)
+float sample_shadow(highp sampler2DShadow shadow, float shadow_pixel_size, vec4 pos) {
+	float avg = textureProj(shadow, pos);
+#ifdef SHADOW_MODE_PCF_13
+	pos /= pos.w;
+	avg += textureProj(shadow, vec4(pos.xy + vec2(shadow_pixel_size * 2.0, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(-shadow_pixel_size * 2.0, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, shadow_pixel_size * 2.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, -shadow_pixel_size * 2.0), pos.zw));
+
+	// Early bail if distant samples are fully shaded (or none are shaded) to improve performance.
+	if (avg <= 0.000001) {
+		// None shaded at all.
+		return 0.0;
+	} else if (avg >= 4.999999) {
+		// All fully shaded.
+		return 1.0;
+	}
+
+	avg += textureProj(shadow, vec4(pos.xy + vec2(shadow_pixel_size, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(-shadow_pixel_size, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, -shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(shadow_pixel_size, shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(-shadow_pixel_size, shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(shadow_pixel_size, -shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(-shadow_pixel_size, -shadow_pixel_size), pos.zw));
+	return avg * (1.0 / 13.0);
+#endif
+
+#ifdef SHADOW_MODE_PCF_5
+	pos /= pos.w;
+	avg += textureProj(shadow, vec4(pos.xy + vec2(shadow_pixel_size, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(-shadow_pixel_size, 0.0), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, shadow_pixel_size), pos.zw));
+	avg += textureProj(shadow, vec4(pos.xy + vec2(0.0, -shadow_pixel_size), pos.zw));
+	return avg * (1.0 / 5.0);
+
+#endif
+
+	return avg;
+}
+#endif //!defined(ADDITIVE_OMNI)
+#endif // USE_ADDITIVE_LIGHTING
+#endif // !MODE_RENDER_DEPTH
 // Functions related to lighting
 
 vec3 F0(float metallic, float specular, vec3 albedo) {
