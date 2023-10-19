@@ -763,10 +763,6 @@ void main() {
 
 #endif // ADDITIVE_SPOT
 
-	diffuse_light_interp.rgb *= albedo;
-	diffuse_light_interp.rgb *= 1.0 - metallic;
-	vec3 additive_light_color = diffuse_light_interp.rgb + specular_light_interp.rgb;
-
 #endif // USE_ADDITIVE_LIGHTING
 #endif //!MODE_RENDER_DEPTH
 #endif // USE_VERTEX_LIGHTING

@@ -255,7 +255,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 #endif //defined(LIGHT_CODE_USED)
 }
 
-#ifndef SHADOWS_DISABLED
+#if !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 
 // Interleaved Gradient Noise
 // https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
@@ -401,8 +401,7 @@ float sample_directional_soft_shadow(texture2D shadow, vec3 pssm_coord, vec2 tex
 	}
 }
 
-#endif // SHADOWS_DISABLED
-
+#endif // !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 float get_omni_attenuation(float distance, float inv_range, float decay) {
 	float nd = distance * inv_range;
 	nd *= nd;
@@ -413,7 +412,7 @@ float get_omni_attenuation(float distance, float inv_range, float decay) {
 }
 
 float light_process_omni_shadow(uint idx, vec3 vertex, vec3 normal) {
-#ifndef SHADOWS_DISABLED
+#if !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 	if (omni_lights.data[idx].shadow_opacity > 0.001) {
 		// there is a shadowmap
 		vec2 texel_size = scene_data_block.data.shadow_atlas_pixel_size;
@@ -542,7 +541,7 @@ float light_process_omni_shadow(uint idx, vec3 vertex, vec3 normal) {
 
 		return shadow;
 	}
-#endif
+#endif // !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 
 	return 1.0;
 }
@@ -578,7 +577,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 		float t = omni_lights.data[idx].size / max(0.001, light_length);
 		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
 	}
-
+#ifndef USE_VERTEX_LIGHTING
 #ifdef LIGHT_TRANSMITTANCE_USED
 	float transmittance_z = transmittance_depth; //no transmittance by default
 	transmittance_color.a *= light_attenuation;
@@ -667,7 +666,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 			color *= proj.rgb * proj.a;
 		}
 	}
-
+#endif // !USE_VERTEX_LIGHTING
 	light_attenuation *= shadow;
 
 	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, light_attenuation, f0, orms, omni_lights.data[idx].specular_amount, albedo, alpha,
@@ -694,7 +693,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 }
 
 float light_process_spot_shadow(uint idx, vec3 vertex, vec3 normal) {
-#ifndef SHADOWS_DISABLED
+#if !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 	if (spot_lights.data[idx].shadow_opacity > 0.001) {
 		vec3 light_rel_vec = spot_lights.data[idx].position - vertex;
 		float light_length = length(light_rel_vec);
@@ -771,8 +770,7 @@ float light_process_spot_shadow(uint idx, vec3 vertex, vec3 normal) {
 		return shadow;
 	}
 
-#endif // SHADOWS_DISABLED
-
+#endif // !defined(SHADOWS_DISABLED) && !defined(USE_VERTEX_LIGHTING)
 	return 1.0;
 }
 
@@ -831,6 +829,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
 	}
 
+#ifndef USE_VERTEX_LIGHTING
 #ifdef LIGHT_TRANSMITTANCE_USED
 	float transmittance_z = transmittance_depth;
 	transmittance_color.a *= light_attenuation;
@@ -875,6 +874,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 			color *= proj.rgb * proj.a;
 		}
 	}
+#endif // !USE_VERTEX_LIGHTING
 	light_attenuation *= shadow;
 
 	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, light_attenuation, f0, orms, spot_lights.data[idx].specular_amount, albedo, alpha,
@@ -978,7 +978,7 @@ void reflection_process(uint ref_index, vec3 vertex, vec3 ref_vec, vec3 normal, 
 		} break;
 	}
 }
-
+#ifndef USE_VERTEX_LIGHTING
 float blur_shadow(float shadow) {
 	return shadow;
 #if 0
@@ -998,3 +998,4 @@ float blur_shadow(float shadow) {
 	return shadow;
 #endif
 }
+#endif // !USE_VERTEX_LIGHTING
