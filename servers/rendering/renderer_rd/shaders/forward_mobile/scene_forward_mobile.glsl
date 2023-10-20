@@ -560,6 +560,9 @@ void main() {
 				continue; //not masked
 			}
 
+			if (directional_lights.data[i].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
+				continue; // Statically baked light and object uses lightmap, skip
+			}
 			// We're not doing light transmittence
 
 			float shadow = 1.0;

@@ -623,6 +623,10 @@ void vertex_shader(vec3 vertex_input,
 				continue; //not masked
 			}
 
+			if (directional_lights.data[i].bake_mode == LIGHT_BAKE_STATIC && bool(instances.data[instance_index].flags & INSTANCE_FLAGS_USE_LIGHTMAP)) {
+				continue; // Statically baked light and object uses lightmap, skip
+			}
+
 #ifdef LIGHT_TRANSMITTANCE_USED
 			float transmittance_z = transmittance_depth;
 
