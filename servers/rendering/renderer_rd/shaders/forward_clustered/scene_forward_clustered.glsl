@@ -396,9 +396,8 @@ void vertex_shader(vec3 vertex_input,
 #ifdef OVERRIDE_POSITION
 	vec4 position;
 #endif
-
-#ifdef USE_MULTIVIEW
 	mat4 combined_projection = scene_data.projection_matrix;
+#ifdef USE_MULTIVIEW
 	mat4 projection_matrix = scene_data.projection_matrix_view[ViewIndex];
 	mat4 inv_projection_matrix = scene_data.inv_projection_matrix_view[ViewIndex];
 	vec3 eye_offset = scene_data.eye_offset[ViewIndex].xyz;
@@ -519,9 +518,7 @@ void vertex_shader(vec3 vertex_input,
 	gl_Position = projection_matrix * vec4(vertex_interp, 1.0);
 #endif
 
-#ifdef USE_MULTIVIEW
 	combined_projected = combined_projection * vec4(vertex_interp, 1.0);
-#endif
 
 #ifdef MOTION_VECTORS
 	screen_pos = gl_Position;
@@ -563,17 +560,12 @@ void vertex_shader(vec3 vertex_input,
 	diffuse_light_interp = vec4(0.0);
 	specular_light_interp = vec4(0.0);
 
-#ifdef USE_MULTIVIEW
 	// UV in our combined frustum space is used for certain screen uv processes where it's
 	// overkill to render separate left and right eye views
 	vec2 combined_uv = (combined_projected.xy / combined_projected.w) * 0.5 + 0.5;
 
 	uvec2 cluster_pos = uvec2(combined_uv.xy / scene_data.screen_pixel_size) >> implementation_data.cluster_shift;
 	vec3 view = -normalize(vertex_interp - eye_offset);
-#else
-	uvec2 cluster_pos = uvec2(gl_Position.xy) >> implementation_data.cluster_shift;
-	vec3 view = -normalize(vertex_interp);
-#endif
 	uint cluster_offset = (implementation_data.cluster_width * cluster_pos.y + cluster_pos.x) * (implementation_data.max_cluster_element_count_div_32 + 32);
 
 	uint cluster_z = uint(clamp((-vertex.z / scene_data.z_far) * 32.0, 0.0, 31.0));
