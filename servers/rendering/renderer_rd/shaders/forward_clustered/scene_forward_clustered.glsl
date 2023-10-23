@@ -1699,7 +1699,10 @@ void fragment_shader(in SceneData scene_data) {
 	vec3 specular_light = vec3(0.0, 0.0, 0.0);
 	vec3 diffuse_light = vec3(0.0, 0.0, 0.0);
 	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
-
+#if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING) // Pass Vertex Lighting colors
+	specular_light = specular_light_interp.rgb;
+	diffuse_light = diffuse_light_interp.rgb;
+#endif
 #ifndef MODE_UNSHADED
 	// Used in regular draw pass and when drawing SDFs for SDFGI and materials for VoxelGI.
 	emission *= scene_data.emissive_exposure_normalization;
@@ -2148,10 +2151,6 @@ void fragment_shader(in SceneData scene_data) {
 #endif
 
 // LIGHTING
-#if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING) // Pass Vertex Lighting colors
-	specular_light = specular_light_interp.rgb;
-	diffuse_light = diffuse_light_interp.rgb;
-#endif
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && !defined(USE_VERTEX_LIGHTING)
 
 	{ // Directional light.
