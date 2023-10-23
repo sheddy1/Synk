@@ -505,7 +505,6 @@ void main() {
 
 // VERTEX LIGHTING
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING)
-	vec3 ambient_light = vec3(0.0, 0.0, 0.0);
 #ifdef USE_MULTIVIEW
 	vec3 view = -normalize(vertex_interp - eye_offset);
 #else
@@ -697,27 +696,6 @@ void main() {
 					diffuse_light_interp.rgb, specular_light_interp.rgb);
 		}
 	} //spot lights
-
-#ifdef USE_SHADOW_TO_OPACITY
-	alpha = min(alpha, clamp(length(ambient_light), 0.0, 1.0));
-
-#if defined(ALPHA_SCISSOR_USED)
-	if (alpha < alpha_scissor) {
-		discard;
-	}
-#else
-#ifdef MODE_RENDER_DEPTH
-#ifdef USE_OPAQUE_PREPASS
-
-	if (alpha < scene_data.opaque_prepass_threshold) {
-		discard;
-	}
-
-#endif // USE_OPAQUE_PREPASS
-#endif // MODE_RENDER_DEPTH
-#endif // !ALPHA_SCISSOR_USED
-
-#endif // USE_SHADOW_TO_OPACITY
 
 #endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING)
 
@@ -2042,6 +2020,8 @@ void main() {
 		}
 	} //spot lights
 
+#endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && !defined(USE_VERTEX_LIGHTING)
+
 #ifdef USE_SHADOW_TO_OPACITY
 #ifndef MODE_RENDER_DEPTH
 	alpha = min(alpha, clamp(length(ambient_light), 0.0, 1.0));
@@ -2054,8 +2034,6 @@ void main() {
 
 #endif // !MODE_RENDER_DEPTH
 #endif // USE_SHADOW_TO_OPACITY
-
-#endif //!defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && !defined(USE_VERTEX_LIGHTING)
 
 #ifdef MODE_RENDER_DEPTH
 

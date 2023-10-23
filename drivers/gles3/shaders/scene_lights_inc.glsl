@@ -6,6 +6,8 @@ struct DirectionalLightData {
 	mediump float energy;
 	mediump vec3 color;
 	mediump float size;
+	lowp uint unused;
+	lowp uint bake_mode;
 	mediump vec2 pad;
 	mediump float shadow_opacity;
 	mediump float specular;
@@ -39,6 +41,9 @@ struct LightData { // This structure needs to be as packed as possible.
 	mediump float cone_angle;
 	mediump float specular_amount;
 	mediump float shadow_opacity;
+
+	lowp vec3 pad;
+	lowp uint bake_mode;
 };
 
 #if !defined(DISABLE_LIGHT_OMNI) || defined(ADDITIVE_OMNI)
