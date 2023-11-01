@@ -50,6 +50,7 @@ class ProjectSettings : public Object {
 public:
 	typedef HashMap<String, Variant> CustomMap;
 	static const String PROJECT_DATA_DIR_NAME_SUFFIX;
+	static const String EDITOR_SETTING_OVERRIDE_PREFIX;
 
 	enum {
 		// Properties that are not for built in values begin from this value, so builtin ones are displayed first.
@@ -207,6 +208,10 @@ public:
 	void remove_autoload(const StringName &p_autoload);
 	bool has_autoload(const StringName &p_autoload) const;
 	AutoloadInfo get_autoload(const StringName &p_name) const;
+
+	void set_editor_setting_override(const String &p_setting, const Variant &p_value);
+	bool has_editor_setting_override(const String &p_setting) const;
+	Variant get_editor_setting_override(const String &p_setting) const;
 
 	ProjectSettings();
 	~ProjectSettings();

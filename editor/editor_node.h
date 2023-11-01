@@ -458,6 +458,7 @@ private:
 	bool immediate_dialog_confirmed = false;
 	bool opening_prev = false;
 	bool restoring_scenes = false;
+	bool settings_overrides_changed = true;
 	bool unsaved_cache = true;
 	bool waiting_for_first_scan = true;
 
@@ -917,6 +918,8 @@ public:
 	void save_before_run();
 	void try_autosave();
 	void restart_editor();
+
+	void notify_settings_overrides_changed();
 
 	void dim_editor(bool p_dimming);
 	bool is_editor_dimmed() const;

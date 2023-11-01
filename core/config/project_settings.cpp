@@ -48,6 +48,7 @@
 #endif // TOOLS_ENABLED
 
 const String ProjectSettings::PROJECT_DATA_DIR_NAME_SUFFIX = "godot";
+const String ProjectSettings::EDITOR_SETTING_OVERRIDE_PREFIX = "editor_overrides/";
 
 ProjectSettings *ProjectSettings::singleton = nullptr;
 
@@ -1238,6 +1239,18 @@ bool ProjectSettings::has_autoload(const StringName &p_autoload) const {
 ProjectSettings::AutoloadInfo ProjectSettings::get_autoload(const StringName &p_name) const {
 	ERR_FAIL_COND_V_MSG(!autoloads.has(p_name), AutoloadInfo(), "Trying to get non-existent autoload.");
 	return autoloads[p_name];
+}
+
+void ProjectSettings::set_editor_setting_override(const String &p_setting, const Variant &p_value) {
+	set_setting(EDITOR_SETTING_OVERRIDE_PREFIX + p_setting, p_value);
+}
+
+bool ProjectSettings::has_editor_setting_override(const String &p_setting) const {
+	return has_setting(EDITOR_SETTING_OVERRIDE_PREFIX + p_setting);
+}
+
+Variant ProjectSettings::get_editor_setting_override(const String &p_setting) const {
+	return get_setting(EDITOR_SETTING_OVERRIDE_PREFIX + p_setting);
 }
 
 void ProjectSettings::_bind_methods() {
