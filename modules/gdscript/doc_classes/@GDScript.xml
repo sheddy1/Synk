@@ -60,7 +60,7 @@
 		<method name="convert" is_deprecated="true">
 			<return type="Variant" />
 			<param index="0" name="what" type="Variant" />
-			<param index="1" name="type" type="int" />
+			<param index="1" name="type" type="int" enum="Variant.Type" />
 			<description>
 				[i]Deprecated.[/i] Use [method @GlobalScope.type_convert] instead.
 				Converts [param what] to [param type] in the best way possible. The [param type] uses the [enum Variant.Type] values.
