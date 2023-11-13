@@ -2855,7 +2855,7 @@ Vector2 TextServerAdvanced::_font_get_glyph_advance(const RID &p_font_rid, int64
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -2914,7 +2914,7 @@ Vector2 TextServerAdvanced::_font_get_glyph_offset(const RID &p_font_rid, const 
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -2965,7 +2965,7 @@ Vector2 TextServerAdvanced::_font_get_glyph_size(const RID &p_font_rid, const Ve
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -3016,7 +3016,7 @@ Rect2 TextServerAdvanced::_font_get_glyph_uv_rect(const RID &p_font_rid, const V
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -3056,7 +3056,7 @@ int64_t TextServerAdvanced::_font_get_glyph_texture_idx(const RID &p_font_rid, c
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -3096,7 +3096,7 @@ RID TextServerAdvanced::_font_get_glyph_texture_rid(const RID &p_font_rid, const
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -3142,7 +3142,7 @@ Size2 TextServerAdvanced::_font_get_glyph_texture_size(const RID &p_font_rid, co
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}
@@ -3504,6 +3504,10 @@ void TextServerAdvanced::_font_render_glyph(const RID &p_font_rid, const Vector2
 }
 
 void TextServerAdvanced::_font_draw_glyph(const RID &p_font_rid, const RID &p_canvas, int64_t p_size, const Vector2 &p_pos, int64_t p_index, const Color &p_color) const {
+	if (!RenderingServer::get_singleton()) {
+		return;
+	}
+
 	FontAdvanced *fd = _get_font_data(p_font_rid);
 	ERR_FAIL_NULL(fd);
 
@@ -3518,7 +3522,8 @@ void TextServerAdvanced::_font_draw_glyph(const RID &p_font_rid, const RID &p_ca
 	if (!fd->msdf && fd->cache[size]->face) {
 		// LCD layout, bits 24, 25, 26
 		if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-			TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+			TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)RenderingServer::get_singleton()->canvas_item_get_subpixel_layout(p_canvas);
+			fd->last_used_layout = layout;
 			if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 				lcd_aa = true;
 				index = index | (layout << 24);
@@ -3550,57 +3555,55 @@ void TextServerAdvanced::_font_draw_glyph(const RID &p_font_rid, const RID &p_ca
 				modulate.r = modulate.g = modulate.b = 1.0;
 			}
 #endif
-			if (RenderingServer::get_singleton() != nullptr) {
-				if (fd->cache[size]->textures[gl.texture_idx].dirty) {
-					ShelfPackTexture &tex = fd->cache[size]->textures.write[gl.texture_idx];
-					Ref<Image> img = Image::create_from_data(tex.texture_w, tex.texture_h, false, tex.format, tex.imgdata);
-					if (fd->mipmaps) {
-						img->generate_mipmaps();
-					}
-					if (tex.texture.is_null()) {
-						tex.texture = ImageTexture::create_from_image(img);
-					} else {
-						tex.texture->update(img);
-					}
-					tex.dirty = false;
+			if (fd->cache[size]->textures[gl.texture_idx].dirty) {
+				ShelfPackTexture &tex = fd->cache[size]->textures.write[gl.texture_idx];
+				Ref<Image> img = Image::create_from_data(tex.texture_w, tex.texture_h, false, tex.format, tex.imgdata);
+				if (fd->mipmaps) {
+					img->generate_mipmaps();
 				}
-				RID texture = fd->cache[size]->textures[gl.texture_idx].texture->get_rid();
-				if (fd->msdf) {
-					Point2 cpos = p_pos;
-					cpos += gl.rect.position * (double)p_size / (double)fd->msdf_source_size;
-					Size2 csize = gl.rect.size * (double)p_size / (double)fd->msdf_source_size;
-					RenderingServer::get_singleton()->canvas_item_add_msdf_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, 0, fd->msdf_range, (double)p_size / (double)fd->msdf_source_size);
+				if (tex.texture.is_null()) {
+					tex.texture = ImageTexture::create_from_image(img);
 				} else {
-					double scale = _font_get_scale(p_font_rid, p_size);
-					Point2 cpos = p_pos;
-					if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_QUARTER) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE)) {
-						cpos.x = cpos.x + 0.125;
-					} else if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_HALF) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE)) {
-						cpos.x = cpos.x + 0.25;
-					}
-					if (scale == 1.0) {
-						cpos.y = Math::floor(cpos.y);
-						cpos.x = Math::floor(cpos.x);
-					}
-					Vector2 gpos = gl.rect.position;
-					Size2 csize = gl.rect.size;
-					if (fd->fixed_size > 0 && fd->fixed_size_scale_mode != FIXED_SIZE_SCALE_DISABLE && size.x != p_size) {
-						if (fd->fixed_size_scale_mode == FIXED_SIZE_SCALE_ENABLED) {
-							double gl_scale = (double)p_size / (double)fd->fixed_size;
-							gpos *= gl_scale;
-							csize *= gl_scale;
-						} else {
-							double gl_scale = Math::round((double)p_size / (double)fd->fixed_size);
-							gpos *= gl_scale;
-							csize *= gl_scale;
-						}
-					}
-					cpos += gpos;
-					if (lcd_aa) {
-						RenderingServer::get_singleton()->canvas_item_add_lcd_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate);
+					tex.texture->update(img);
+				}
+				tex.dirty = false;
+			}
+			RID texture = fd->cache[size]->textures[gl.texture_idx].texture->get_rid();
+			if (fd->msdf) {
+				Point2 cpos = p_pos;
+				cpos += gl.rect.position * (double)p_size / (double)fd->msdf_source_size;
+				Size2 csize = gl.rect.size * (double)p_size / (double)fd->msdf_source_size;
+				RenderingServer::get_singleton()->canvas_item_add_msdf_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, 0, fd->msdf_range, (double)p_size / (double)fd->msdf_source_size);
+			} else {
+				double scale = _font_get_scale(p_font_rid, p_size);
+				Point2 cpos = p_pos;
+				if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_QUARTER) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE)) {
+					cpos.x = cpos.x + 0.125;
+				} else if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_HALF) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE)) {
+					cpos.x = cpos.x + 0.25;
+				}
+				if (scale == 1.0) {
+					cpos.y = Math::floor(cpos.y);
+					cpos.x = Math::floor(cpos.x);
+				}
+				Vector2 gpos = gl.rect.position;
+				Size2 csize = gl.rect.size;
+				if (fd->fixed_size > 0 && fd->fixed_size_scale_mode != FIXED_SIZE_SCALE_DISABLE && size.x != p_size) {
+					if (fd->fixed_size_scale_mode == FIXED_SIZE_SCALE_ENABLED) {
+						double gl_scale = (double)p_size / (double)fd->fixed_size;
+						gpos *= gl_scale;
+						csize *= gl_scale;
 					} else {
-						RenderingServer::get_singleton()->canvas_item_add_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, false, false);
+						double gl_scale = Math::round((double)p_size / (double)fd->fixed_size);
+						gpos *= gl_scale;
+						csize *= gl_scale;
 					}
+				}
+				cpos += gpos;
+				if (lcd_aa) {
+					RenderingServer::get_singleton()->canvas_item_add_lcd_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate);
+				} else {
+					RenderingServer::get_singleton()->canvas_item_add_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, false, false);
 				}
 			}
 		}
@@ -3608,6 +3611,10 @@ void TextServerAdvanced::_font_draw_glyph(const RID &p_font_rid, const RID &p_ca
 }
 
 void TextServerAdvanced::_font_draw_glyph_outline(const RID &p_font_rid, const RID &p_canvas, int64_t p_size, int64_t p_outline_size, const Vector2 &p_pos, int64_t p_index, const Color &p_color) const {
+	if (!RenderingServer::get_singleton()) {
+		return;
+	}
+
 	FontAdvanced *fd = _get_font_data(p_font_rid);
 	ERR_FAIL_NULL(fd);
 
@@ -3622,7 +3629,8 @@ void TextServerAdvanced::_font_draw_glyph_outline(const RID &p_font_rid, const R
 	if (!fd->msdf && fd->cache[size]->face) {
 		// LCD layout, bits 24, 25, 26
 		if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-			TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+			TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)RenderingServer::get_singleton()->canvas_item_get_subpixel_layout(p_canvas);
+			fd->last_used_layout = layout;
 			if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 				lcd_aa = true;
 				index = index | (layout << 24);
@@ -3654,57 +3662,55 @@ void TextServerAdvanced::_font_draw_glyph_outline(const RID &p_font_rid, const R
 				modulate.r = modulate.g = modulate.b = 1.0;
 			}
 #endif
-			if (RenderingServer::get_singleton() != nullptr) {
-				if (fd->cache[size]->textures[gl.texture_idx].dirty) {
-					ShelfPackTexture &tex = fd->cache[size]->textures.write[gl.texture_idx];
-					Ref<Image> img = Image::create_from_data(tex.texture_w, tex.texture_h, false, tex.format, tex.imgdata);
-					if (fd->mipmaps) {
-						img->generate_mipmaps();
-					}
-					if (tex.texture.is_null()) {
-						tex.texture = ImageTexture::create_from_image(img);
-					} else {
-						tex.texture->update(img);
-					}
-					tex.dirty = false;
+			if (fd->cache[size]->textures[gl.texture_idx].dirty) {
+				ShelfPackTexture &tex = fd->cache[size]->textures.write[gl.texture_idx];
+				Ref<Image> img = Image::create_from_data(tex.texture_w, tex.texture_h, false, tex.format, tex.imgdata);
+				if (fd->mipmaps) {
+					img->generate_mipmaps();
 				}
-				RID texture = fd->cache[size]->textures[gl.texture_idx].texture->get_rid();
-				if (fd->msdf) {
-					Point2 cpos = p_pos;
-					cpos += gl.rect.position * (double)p_size / (double)fd->msdf_source_size;
-					Size2 csize = gl.rect.size * (double)p_size / (double)fd->msdf_source_size;
-					RenderingServer::get_singleton()->canvas_item_add_msdf_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, p_outline_size, fd->msdf_range, (double)p_size / (double)fd->msdf_source_size);
+				if (tex.texture.is_null()) {
+					tex.texture = ImageTexture::create_from_image(img);
 				} else {
-					Point2 cpos = p_pos;
-					double scale = _font_get_scale(p_font_rid, p_size);
-					if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_QUARTER) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE)) {
-						cpos.x = cpos.x + 0.125;
-					} else if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_HALF) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE)) {
-						cpos.x = cpos.x + 0.25;
-					}
-					if (scale == 1.0) {
-						cpos.y = Math::floor(cpos.y);
-						cpos.x = Math::floor(cpos.x);
-					}
-					Vector2 gpos = gl.rect.position;
-					Size2 csize = gl.rect.size;
-					if (fd->fixed_size > 0 && fd->fixed_size_scale_mode != FIXED_SIZE_SCALE_DISABLE && size.x != p_size) {
-						if (fd->fixed_size_scale_mode == FIXED_SIZE_SCALE_ENABLED) {
-							double gl_scale = (double)p_size / (double)fd->fixed_size;
-							gpos *= gl_scale;
-							csize *= gl_scale;
-						} else {
-							double gl_scale = Math::round((double)p_size / (double)fd->fixed_size);
-							gpos *= gl_scale;
-							csize *= gl_scale;
-						}
-					}
-					cpos += gpos;
-					if (lcd_aa) {
-						RenderingServer::get_singleton()->canvas_item_add_lcd_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate);
+					tex.texture->update(img);
+				}
+				tex.dirty = false;
+			}
+			RID texture = fd->cache[size]->textures[gl.texture_idx].texture->get_rid();
+			if (fd->msdf) {
+				Point2 cpos = p_pos;
+				cpos += gl.rect.position * (double)p_size / (double)fd->msdf_source_size;
+				Size2 csize = gl.rect.size * (double)p_size / (double)fd->msdf_source_size;
+				RenderingServer::get_singleton()->canvas_item_add_msdf_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, p_outline_size, fd->msdf_range, (double)p_size / (double)fd->msdf_source_size);
+			} else {
+				Point2 cpos = p_pos;
+				double scale = _font_get_scale(p_font_rid, p_size);
+				if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_QUARTER) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_QUARTER_MAX_SIZE)) {
+					cpos.x = cpos.x + 0.125;
+				} else if ((fd->subpixel_positioning == SUBPIXEL_POSITIONING_ONE_HALF) || (fd->subpixel_positioning == SUBPIXEL_POSITIONING_AUTO && size.x <= SUBPIXEL_POSITIONING_ONE_HALF_MAX_SIZE)) {
+					cpos.x = cpos.x + 0.25;
+				}
+				if (scale == 1.0) {
+					cpos.y = Math::floor(cpos.y);
+					cpos.x = Math::floor(cpos.x);
+				}
+				Vector2 gpos = gl.rect.position;
+				Size2 csize = gl.rect.size;
+				if (fd->fixed_size > 0 && fd->fixed_size_scale_mode != FIXED_SIZE_SCALE_DISABLE && size.x != p_size) {
+					if (fd->fixed_size_scale_mode == FIXED_SIZE_SCALE_ENABLED) {
+						double gl_scale = (double)p_size / (double)fd->fixed_size;
+						gpos *= gl_scale;
+						csize *= gl_scale;
 					} else {
-						RenderingServer::get_singleton()->canvas_item_add_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, false, false);
+						double gl_scale = Math::round((double)p_size / (double)fd->fixed_size);
+						gpos *= gl_scale;
+						csize *= gl_scale;
 					}
+				}
+				cpos += gpos;
+				if (lcd_aa) {
+					RenderingServer::get_singleton()->canvas_item_add_lcd_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate);
+				} else {
+					RenderingServer::get_singleton()->canvas_item_add_texture_rect_region(p_canvas, Rect2(cpos, csize), texture, gl.uv_rect, modulate, false, false);
 				}
 			}
 		}
@@ -5825,7 +5831,7 @@ void TextServerAdvanced::_shape_run(ShapedTextDataAdvanced *p_sd, int64_t p_star
 
 	int mod = 0;
 	if (fd->antialiasing == FONT_ANTIALIASING_LCD) {
-		TextServer::FontLCDSubpixelLayout layout = (TextServer::FontLCDSubpixelLayout)(int)GLOBAL_GET("gui/theme/lcd_subpixel_layout");
+		TextServer::FontLCDSubpixelLayout layout = fd->last_used_layout;
 		if (layout != FONT_LCD_SUBPIXEL_LAYOUT_NONE) {
 			mod = (layout << 24);
 		}

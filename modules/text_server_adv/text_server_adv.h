@@ -302,6 +302,7 @@ class TextServerAdvanced : public TextServerExtension {
 	struct FontAdvanced {
 		Mutex mutex;
 
+		TextServer::FontLCDSubpixelLayout last_used_layout = TextServer::FONT_LCD_SUBPIXEL_LAYOUT_HRGB;
 		TextServer::FontAntialiasing antialiasing = TextServer::FONT_ANTIALIASING_GRAY;
 		bool mipmaps = false;
 		bool msdf = false;
