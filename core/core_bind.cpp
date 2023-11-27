@@ -360,6 +360,14 @@ String OS::get_version() const {
 	return ::OS::get_singleton()->get_version();
 }
 
+String OS::get_current_rendering_driver_name() const {
+	return ::OS::get_singleton()->get_current_rendering_driver_name();
+}
+
+String OS::get_current_rendering_method() const {
+	return ::OS::get_singleton()->get_current_rendering_method();
+}
+
 Vector<String> OS::get_video_adapter_driver_info() const {
 	return ::OS::get_singleton()->get_video_adapter_driver_info();
 }
@@ -603,6 +611,9 @@ void OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_version"), &OS::get_version);
 	ClassDB::bind_method(D_METHOD("get_cmdline_args"), &OS::get_cmdline_args);
 	ClassDB::bind_method(D_METHOD("get_cmdline_user_args"), &OS::get_cmdline_user_args);
+
+	ClassDB::bind_method(D_METHOD("get_current_rendering_driver_name"), &OS::get_current_rendering_driver_name);
+	ClassDB::bind_method(D_METHOD("get_current_rendering_method"), &OS::get_current_rendering_method);
 
 	ClassDB::bind_method(D_METHOD("get_video_adapter_driver_info"), &OS::get_video_adapter_driver_info);
 
