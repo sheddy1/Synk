@@ -244,6 +244,9 @@ def configure(env: "Environment"):
     if not env["builtin_enet"]:
         env.ParseConfig("pkg-config libenet --cflags --libs")
 
+    if not env["builtin_libffi"]:
+        env.ParseConfig("pkg-config libffi --cflags --libs")
+
     if not env["builtin_squish"]:
         # libsquish doesn't reliably install its .pc file, so some distros lack it.
         env.Append(LIBS=["libsquish"])

@@ -757,10 +757,14 @@ def glob_recursive(pattern, node="."):
 
 
 def add_to_vs_project(env, sources):
+    from SCons import Node
+
     for x in sources:
         if type(x) == type(""):
             fname = env.File(x).path
-        else:
+        elif type(x) is Node.FS.File:
+            fname = x.path
+        else:  # type(x) is Node.NodeList
             fname = env.File(x)[0].path
         pieces = fname.split(".")
         if len(pieces) > 0:
