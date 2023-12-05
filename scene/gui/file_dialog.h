@@ -58,12 +58,19 @@ public:
 		FILE_MODE_SAVE_FILE
 	};
 
+	enum CaseSensitivity {
+		CASE_SENSITIVITY_TRUE,
+		CASE_SENSITIVITY_FALSE,
+		CASE_SENSITIVITY_OS_DEFAULT,
+	};
+
 	typedef Ref<Texture2D> (*GetIconFunc)(const String &);
 	typedef void (*RegisterFunc)(FileDialog *);
 
 	static GetIconFunc get_icon_func;
 	static RegisterFunc register_func;
 	static RegisterFunc unregister_func;
+
 
 private:
 	ConfirmationDialog *makedialog = nullptr;
@@ -111,6 +118,9 @@ private:
 	bool use_native_dialog = false;
 
 	bool is_invalidating = false;
+
+	CaseSensitivity case_sensitive_filter = CASE_SENSITIVITY_OS_DEFAULT;
+
 
 	struct ThemeCache {
 		Ref<Texture2D> parent_folder;
@@ -245,6 +255,9 @@ public:
 	void set_show_hidden_files(bool p_show);
 	bool is_showing_hidden_files() const;
 
+	void set_case_sensitive_filter(CaseSensitivity p_case_sensitive);
+	CaseSensitivity get_case_sensitive_filter() const;
+
 	static void set_default_show_hidden_files(bool p_show);
 
 	void invalidate();
@@ -257,5 +270,6 @@ public:
 
 VARIANT_ENUM_CAST(FileDialog::FileMode);
 VARIANT_ENUM_CAST(FileDialog::Access);
+VARIANT_ENUM_CAST(FileDialog::CaseSensitivity);
 
 #endif // FILE_DIALOG_H

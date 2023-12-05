@@ -399,6 +399,8 @@ void FileDialog::_action_pressed() {
 
 	if (mode == FILE_MODE_SAVE_FILE) {
 		bool valid = false;
+		String osName = OS::get_singleton()->get_name();
+		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && osName != "Windows" && osName != "macOS";
 
 		if (filter->get_selected() == filter->get_item_count() - 1) {
 			valid = true; // match none
@@ -408,7 +410,7 @@ void FileDialog::_action_pressed() {
 				String flt = filters[i].get_slice(";", 0);
 				for (int j = 0; j < flt.get_slice_count(","); j++) {
 					String str = flt.get_slice(",", j).strip_edges();
-					if (f.match(str)) {
+					if (case_sensitive_filter && f.match(str) || !case_sensitive_filter && f.matchn(str)) {
 						valid = true;
 						break;
 					}
@@ -427,7 +429,7 @@ void FileDialog::_action_pressed() {
 				int filterSliceCount = flt.get_slice_count(",");
 				for (int j = 0; j < filterSliceCount; j++) {
 					String str = (flt.get_slice(",", j).strip_edges());
-					if (f.match(str)) {
+					if (use_case_sensitive_filter && f.match(str) || !use_case_sensitive_filter && f.matchn(str)) {
 						valid = true;
 						break;
 					}
@@ -1292,6 +1294,8 @@ void FileDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_root_subfolder"), &FileDialog::get_root_subfolder);
 	ClassDB::bind_method(D_METHOD("set_show_hidden_files", "show"), &FileDialog::set_show_hidden_files);
 	ClassDB::bind_method(D_METHOD("is_showing_hidden_files"), &FileDialog::is_showing_hidden_files);
+	ClassDB::bind_method(D_METHOD("set_case_sensitive_filter", "case sensitive filter"), &FileDialog::set_case_sensitive_filter);
+	ClassDB::bind_method(D_METHOD("get_case_sensitive_filter"), &FileDialog::get_case_sensitive_filter);
 	ClassDB::bind_method(D_METHOD("set_use_native_dialog", "native"), &FileDialog::set_use_native_dialog);
 	ClassDB::bind_method(D_METHOD("get_use_native_dialog"), &FileDialog::get_use_native_dialog);
 	ClassDB::bind_method(D_METHOD("deselect_all"), &FileDialog::deselect_all);
@@ -1305,6 +1309,7 @@ void FileDialog::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "filters"), "set_filters", "get_filters");
 	ADD_ARRAY_COUNT("Options", "option_count", "set_option_count", "get_option_count", "option_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_hidden_files"), "set_show_hidden_files", "is_showing_hidden_files");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "case_sensitive_filter", PROPERTY_HINT_ENUM, "True,False,OS Default"), "set_case_sensitive_filter", "get_case_sensitive_filter");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_native_dialog"), "set_use_native_dialog", "get_use_native_dialog");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "current_dir", PROPERTY_HINT_DIR, "", PROPERTY_USAGE_NONE), "set_current_dir", "get_current_dir");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "current_file", PROPERTY_HINT_FILE, "*", PROPERTY_USAGE_NONE), "set_current_file", "get_current_file");
@@ -1353,6 +1358,17 @@ void FileDialog::set_show_hidden_files(bool p_show) {
 
 bool FileDialog::is_showing_hidden_files() const {
 	return show_hidden_files;
+}
+
+void FileDialog::set_case_sensitive_filter(FileDialog::CaseSensitivity p_case_sensitive) {
+	if (get_case_sensitive_filter() == p_case_sensitive) {
+		return;
+	}
+	case_sensitive_filter = p_case_sensitive;
+	invalidate();
+}
+FileDialog::CaseSensitivity FileDialog::get_case_sensitive_filter() const {
+	return case_sensitive_filter;
 }
 
 void FileDialog::set_default_show_hidden_files(bool p_show) {
