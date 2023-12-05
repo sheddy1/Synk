@@ -399,8 +399,8 @@ void FileDialog::_action_pressed() {
 
 	if (mode == FILE_MODE_SAVE_FILE) {
 		bool valid = false;
-		String osName = OS::get_singleton()->get_name();
-		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && osName != "Windows" && osName != "macOS";
+
+		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && dir_access->is_case_sensitive(f);
 
 		if (filter->get_selected() == filter->get_item_count() - 1) {
 			valid = true; // match none

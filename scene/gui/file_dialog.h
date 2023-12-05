@@ -71,7 +71,6 @@ public:
 	static RegisterFunc register_func;
 	static RegisterFunc unregister_func;
 
-
 private:
 	ConfirmationDialog *makedialog = nullptr;
 	LineEdit *makedirname = nullptr;
@@ -120,7 +119,6 @@ private:
 	bool is_invalidating = false;
 
 	CaseSensitivity case_sensitive_filter = CASE_SENSITIVITY_OS_DEFAULT;
-
 
 	struct ThemeCache {
 		Ref<Texture2D> parent_folder;
