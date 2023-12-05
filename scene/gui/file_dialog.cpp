@@ -400,7 +400,7 @@ void FileDialog::_action_pressed() {
 	if (mode == FILE_MODE_SAVE_FILE) {
 		bool valid = false;
 
-		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && dir_access->is_case_sensitive(f);
+		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || (case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && dir_access->is_case_sensitive(f));
 
 		if (filter->get_selected() == filter->get_item_count() - 1) {
 			valid = true; // match none
@@ -410,7 +410,7 @@ void FileDialog::_action_pressed() {
 				String flt = filters[i].get_slice(";", 0);
 				for (int j = 0; j < flt.get_slice_count(","); j++) {
 					String str = flt.get_slice(",", j).strip_edges();
-					if (case_sensitive_filter && f.match(str) || !case_sensitive_filter && f.matchn(str)) {
+					if ((case_sensitive_filter && f.match(str)) || (!case_sensitive_filter && f.matchn(str))) {
 						valid = true;
 						break;
 					}
@@ -429,7 +429,7 @@ void FileDialog::_action_pressed() {
 				int filterSliceCount = flt.get_slice_count(",");
 				for (int j = 0; j < filterSliceCount; j++) {
 					String str = (flt.get_slice(",", j).strip_edges());
-					if (use_case_sensitive_filter && f.match(str) || !use_case_sensitive_filter && f.matchn(str)) {
+					if ((use_case_sensitive_filter && f.match(str)) || (!use_case_sensitive_filter && f.matchn(str))) {
 						valid = true;
 						break;
 					}
