@@ -1294,7 +1294,7 @@ void FileDialog::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_root_subfolder"), &FileDialog::get_root_subfolder);
 	ClassDB::bind_method(D_METHOD("set_show_hidden_files", "show"), &FileDialog::set_show_hidden_files);
 	ClassDB::bind_method(D_METHOD("is_showing_hidden_files"), &FileDialog::is_showing_hidden_files);
-	ClassDB::bind_method(D_METHOD("set_case_sensitive_filter", "case sensitive filter"), &FileDialog::set_case_sensitive_filter);
+	ClassDB::bind_method(D_METHOD("set_case_sensitive_filter", "case_sensitive_filter"), &FileDialog::set_case_sensitive_filter);
 	ClassDB::bind_method(D_METHOD("get_case_sensitive_filter"), &FileDialog::get_case_sensitive_filter);
 	ClassDB::bind_method(D_METHOD("set_use_native_dialog", "native"), &FileDialog::set_use_native_dialog);
 	ClassDB::bind_method(D_METHOD("get_use_native_dialog"), &FileDialog::get_use_native_dialog);
@@ -1329,6 +1329,10 @@ void FileDialog::_bind_methods() {
 	BIND_ENUM_CONSTANT(ACCESS_USERDATA);
 	BIND_ENUM_CONSTANT(ACCESS_FILESYSTEM);
 
+	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_TRUE);
+	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_FALSE);
+	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_OS_DEFAULT);
+
 	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, FileDialog, parent_folder);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, FileDialog, forward_folder);
 	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, FileDialog, back_folder);
@@ -1361,12 +1365,13 @@ bool FileDialog::is_showing_hidden_files() const {
 }
 
 void FileDialog::set_case_sensitive_filter(FileDialog::CaseSensitivity p_case_sensitive) {
-	if (get_case_sensitive_filter() == p_case_sensitive) {
+	if (case_sensitive_filter == p_case_sensitive) {
 		return;
 	}
 	case_sensitive_filter = p_case_sensitive;
 	invalidate();
 }
+
 FileDialog::CaseSensitivity FileDialog::get_case_sensitive_filter() const {
 	return case_sensitive_filter;
 }
