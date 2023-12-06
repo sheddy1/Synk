@@ -177,9 +177,8 @@ public:
 	virtual Error get_error() const override;
 
 	virtual void flush() override;
-	virtual void store_8(uint8_t p_dest) override;
-
-	virtual void store_buffer(const uint8_t *p_src, uint64_t p_length) override;
+	virtual bool store_8(uint8_t p_dest) override;
+	virtual bool store_buffer(const uint8_t *p_src, uint64_t p_length) override;
 
 	virtual bool file_exists(const String &p_name) override;
 
