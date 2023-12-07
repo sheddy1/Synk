@@ -114,12 +114,19 @@ struct Polygon {
 	Vector3 center;
 
 	real_t surface_area = 0.0;
+
+	/// Variables used by path finding to remember the polygon has been checked.
+	uint32_t path_search_id = UINT32_MAX;
+	uint32_t nav_poly_id;
 };
 
 struct NavigationPoly {
 	uint32_t self_id = 0;
 	/// This poly.
 	const Polygon *poly;
+
+	/// Index in the heap of traversable polygons.
+	uint32_t open_set_index = UINT32_MAX;
 
 	/// Those 4 variables are used to travel the path backwards.
 	int back_navigation_poly_id = -1;
@@ -129,20 +136,61 @@ struct NavigationPoly {
 
 	/// The entry position of this poly.
 	Vector3 entry;
-	/// The distance to the destination.
+	/// The distance traveled until now (g cost).
 	real_t traveled_distance = 0.0;
+	/// The distance to the destination (h cost).
+	real_t distance_to_destination = 0.0;
 
 	NavigationPoly() { poly = nullptr; }
 
 	NavigationPoly(const Polygon *p_poly) :
 			poly(p_poly) {}
 
-	bool operator==(const NavigationPoly &other) const {
-		return this->poly == other.poly;
+	/// The total travel cost (f cost).
+	real_t total_travel_cost() const {
+		return traveled_distance + distance_to_destination;
 	}
 
-	bool operator!=(const NavigationPoly &other) const {
-		return !operator==(other);
+	bool operator==(const NavigationPoly &p_other) const {
+		return this->poly == p_other.poly;
+	}
+
+	bool operator!=(const NavigationPoly &p_other) const {
+		return !operator==(p_other);
+	}
+};
+
+class NavPolyTravelCostLessThan {
+	const LocalVector<NavigationPoly> &_nav_polys;
+
+public:
+	NavPolyTravelCostLessThan(const LocalVector<NavigationPoly> &p_nav_polys) :
+			_nav_polys(p_nav_polys) {}
+
+	// Returns `true` if the travel cost of `a` is higher than that of `b`.
+	bool operator()(uint32_t p_id_a, uint32_t p_id_b) const {
+		real_t f_cost_a = _nav_polys[p_id_a].total_travel_cost();
+		real_t h_cost_a = _nav_polys[p_id_a].distance_to_destination;
+		real_t f_cost_b = _nav_polys[p_id_b].total_travel_cost();
+		real_t h_cost_b = _nav_polys[p_id_b].distance_to_destination;
+
+		if (f_cost_a != f_cost_b) {
+			return f_cost_a > f_cost_b;
+		} else {
+			return h_cost_a > h_cost_b;
+		}
+	}
+};
+
+class NavPolyHeapIndexer {
+	LocalVector<NavigationPoly> &_nav_polys;
+
+public:
+	NavPolyHeapIndexer(LocalVector<NavigationPoly> &p_nav_polys) :
+			_nav_polys(p_nav_polys) {}
+
+	void operator()(uint32_t p_nav_poly_id, uint32_t p_heap_index) {
+		_nav_polys[p_nav_poly_id].open_set_index = p_heap_index;
 	}
 };
 
