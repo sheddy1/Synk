@@ -48,6 +48,8 @@ draw_call;
 
 #include "../samplers_inc.glsl"
 
+layout(set = 0, binding = 1) uniform sampler reflection_sampler;
+
 layout(set = 0, binding = 2) uniform sampler shadow_sampler;
 
 layout(set = 0, binding = 3) uniform sampler decal_sampler;
