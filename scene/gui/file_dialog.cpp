@@ -400,7 +400,7 @@ void FileDialog::_action_pressed() {
 	if (mode == FILE_MODE_SAVE_FILE) {
 		bool valid = false;
 
-		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_TRUE || (case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && dir_access->is_case_sensitive(f));
+		bool use_case_sensitive_filter = case_sensitive_filter == CASE_SENSITIVITY_SENSITIVE || (case_sensitive_filter == CASE_SENSITIVITY_OS_DEFAULT && dir_access->is_case_sensitive(f));
 
 		if (filter->get_selected() == filter->get_item_count() - 1) {
 			valid = true; // match none
@@ -1307,9 +1307,9 @@ void FileDialog::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "access", PROPERTY_HINT_ENUM, "Resources,User Data,File System"), "set_access", "get_access");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "root_subfolder"), "set_root_subfolder", "get_root_subfolder");
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_STRING_ARRAY, "filters"), "set_filters", "get_filters");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "case_sensitive_filter", PROPERTY_HINT_ENUM, "Case Sensitive,Case Insensitive,OS Default"), "set_case_sensitive_filter", "get_case_sensitive_filter");
 	ADD_ARRAY_COUNT("Options", "option_count", "set_option_count", "get_option_count", "option_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_hidden_files"), "set_show_hidden_files", "is_showing_hidden_files");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "case_sensitive_filter", PROPERTY_HINT_ENUM, "True,False,OS Default"), "set_case_sensitive_filter", "get_case_sensitive_filter");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "use_native_dialog"), "set_use_native_dialog", "get_use_native_dialog");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "current_dir", PROPERTY_HINT_DIR, "", PROPERTY_USAGE_NONE), "set_current_dir", "get_current_dir");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "current_file", PROPERTY_HINT_FILE, "*", PROPERTY_USAGE_NONE), "set_current_file", "get_current_file");
@@ -1329,8 +1329,8 @@ void FileDialog::_bind_methods() {
 	BIND_ENUM_CONSTANT(ACCESS_USERDATA);
 	BIND_ENUM_CONSTANT(ACCESS_FILESYSTEM);
 
-	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_TRUE);
-	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_FALSE);
+	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_SENSITIVE);
+	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_INSENSITIVE);
 	BIND_ENUM_CONSTANT(CASE_SENSITIVITY_OS_DEFAULT);
 
 	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, FileDialog, parent_folder);

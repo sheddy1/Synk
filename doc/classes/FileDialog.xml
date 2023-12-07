@@ -199,11 +199,11 @@
 		<constant name="ACCESS_FILESYSTEM" value="2" enum="Access">
 			The dialog allows accessing files on the whole file system.
 		</constant>
-		<constant name="CASE_SENSITIVITY_TRUE" value="0" enum="CaseSensitivity">
+		<constant name="CASE_SENSITIVITY_SENSITIVE" value="0" enum="CaseSensitivity">
 			The dialog will use a case sensitive check against the filters when saving.
 		</constant>
-		<constant name="CASE_SENSITIVITY_FALSE" value="1" enum="CaseSensitivity">
-			The dialog will use not a case sensitive check against the filters when saving.
+		<constant name="CASE_SENSITIVITY_INSENSITIVE" value="1" enum="CaseSensitivity">
+			The dialog will use a case insensitive check against the filters when saving.
 		</constant>
 		<constant name="CASE_SENSITIVITY_OS_DEFAULT" value="2" enum="CaseSensitivity">
 			The dialog will use the current file system to determine whether to use a case sensitive check against the filters when saving.
