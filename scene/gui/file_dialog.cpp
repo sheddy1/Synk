@@ -1364,7 +1364,9 @@ bool FileDialog::is_showing_hidden_files() const {
 	return show_hidden_files;
 }
 
-void FileDialog::set_case_sensitive_filter(FileDialog::CaseSensitivity p_case_sensitive) {
+void FileDialog::set_case_sensitive_filter(CaseSensitivity p_case_sensitive) {
+	ERR_FAIL_INDEX(p_case_sensitive, 3);
+
 	if (case_sensitive_filter == p_case_sensitive) {
 		return;
 	}
