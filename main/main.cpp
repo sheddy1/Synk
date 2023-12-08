@@ -2494,6 +2494,45 @@ Error Main::setup2() {
 
 	register_core_singletons();
 
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		// Print hardware information for easier troubleshooting (other than GPU, as rendering drivers already handle this).
+		// Only evaluate functions if needed, as some of these may be relatively slow.
+		print_line(vformat("Device model: %s", OS::get_singleton()->get_model_name()));
+		print_line(vformat("CPU model: %s (%s threads)", OS::get_singleton()->get_processor_name(), OS::get_singleton()->get_processor_count()));
+		print_line(vformat("Audio mix rate: %d Hz", AudioServer::get_singleton()->get_mix_rate()));
+		print_line("Output audio devices:");
+		int output_device_id = 0;
+		for (String output_device : AudioServer::get_singleton()->get_output_device_list()) {
+			print_line(vformat("  #%d: %s%s", output_device_id, output_device, AudioServer::get_singleton()->get_output_device() == output_device ? " (selected)" : ""));
+			output_device_id += 1;
+		}
+		print_line("Input audio devices:");
+		int input_device_id = 0;
+		for (String input_device : AudioServer::get_singleton()->get_input_device_list()) {
+			print_line(vformat("  #%d: %s%s", input_device_id, input_device, AudioServer::get_singleton()->get_input_device() == input_device ? " (selected)" : ""));
+			input_device_id += 1;
+		}
+		print_line("Displays:");
+		for (int i = 0; i < DisplayServer::get_singleton()->get_screen_count(); i++) {
+			const Rect2i usable_rect = DisplayServer::get_singleton()->screen_get_usable_rect();
+			print_line(
+					vformat("  #%d: (%d, %d), %dx%d, %.2f Hz, %d dpi, scale factor: %.2f (maximum: %.2f), usable rect: (%d, %d), %dx%d",
+							i,
+							DisplayServer::get_singleton()->screen_get_position().x,
+							DisplayServer::get_singleton()->screen_get_position().y,
+							DisplayServer::get_singleton()->screen_get_size().x,
+							DisplayServer::get_singleton()->screen_get_size().y,
+							DisplayServer::get_singleton()->screen_get_refresh_rate(),
+							DisplayServer::get_singleton()->screen_get_dpi(),
+							DisplayServer::get_singleton()->screen_get_scale(),
+							DisplayServer::get_singleton()->screen_get_max_scale(),
+							usable_rect.position.x,
+							usable_rect.position.y,
+							usable_rect.size.x,
+							usable_rect.size.y));
+		}
+	}
+
 	MAIN_PRINT("Main: Setup Logo");
 
 #if !defined(TOOLS_ENABLED) && (defined(WEB_ENABLED) || defined(ANDROID_ENABLED))
