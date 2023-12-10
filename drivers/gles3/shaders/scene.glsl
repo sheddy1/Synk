@@ -553,6 +553,8 @@ void main() {
 
 #define SHADER_IS_SRGB true
 
+#define FLAGS_NON_UNIFORM_SCALE (1 << 4)
+
 /* Varyings */
 
 #if defined(COLOR_USED)
@@ -878,6 +880,7 @@ vec2 multiview_uv(vec2 uv) {
 
 uniform highp mat4 world_transform;
 uniform mediump float opaque_prepass_threshold;
+uniform highp uint model_flags;
 
 layout(location = 0) out vec4 frag_color;
 
@@ -1332,6 +1335,14 @@ void main() {
 	float alpha_antialiasing_edge = 0.0;
 	vec2 alpha_texture_coordinate = vec2(0.0, 0.0);
 #endif // ALPHA_ANTIALIASING_EDGE_USED
+
+	highp mat3 model_normal_matrix;
+	if (bool(model_flags & uint(FLAGS_NON_UNIFORM_SCALE))) {
+		model_normal_matrix = transpose(inverse(mat3(model_matrix)));
+	} else {
+		model_normal_matrix = mat3(model_matrix);
+	}
+
 	{
 #CODE : FRAGMENT
 	}
