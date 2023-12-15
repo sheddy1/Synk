@@ -2153,8 +2153,10 @@ void SceneTreeDock::_do_reparent(Node *p_new_parent, int p_position_in_parent, V
 			}
 		}
 
-		undo_redo->add_do_method(ed, "live_debug_reparent_node", edited_scene->get_path_to(node), edited_scene->get_path_to(new_parent), new_name, new_position_in_parent);
-		undo_redo->add_undo_method(ed, "live_debug_reparent_node", NodePath(String(edited_scene->get_path_to(new_parent)).path_join(new_name)), edited_scene->get_path_to(node->get_parent()), node->get_name(), node->get_index(false));
+		if (new_parent->is_inside_tree()) {
+			undo_redo->add_do_method(ed, "live_debug_reparent_node", edited_scene->get_path_to(node), edited_scene->get_path_to(new_parent), new_name, new_position_in_parent);
+			undo_redo->add_undo_method(ed, "live_debug_reparent_node", NodePath(String(edited_scene->get_path_to(new_parent)).path_join(new_name)), edited_scene->get_path_to(node->get_parent()), node->get_name(), node->get_index(false));
+		}
 
 		if (p_keep_global_xform) {
 			if (Object::cast_to<Node2D>(node)) {
@@ -2495,7 +2497,9 @@ Node *SceneTreeDock::_do_create(Node *p_parent) {
 	undo_redo->commit_action();
 	_push_item(c);
 	editor_selection->clear();
-	editor_selection->add_node(child);
+	if (child->is_inside_tree()) {
+		editor_selection->add_node(child);
+	}
 	if (Object::cast_to<Control>(c)) {
 		//make editor more comfortable, so some controls don't appear super shrunk
 		Control *ct = Object::cast_to<Control>(c);
