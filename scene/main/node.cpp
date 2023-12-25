@@ -2760,6 +2760,12 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 		}
 	}
 
+#ifdef TOOLS_ENABLED
+	if (p_flags & DUPLICATE_FROM_EDITOR) {
+		node->set_display_folded(is_displayed_folded());
+	}
+#endif
+
 	return node;
 }
 
