@@ -102,9 +102,6 @@ class NavMap : public NavRid {
 	/// Change the id each time the map is updated.
 	uint32_t map_update_id = 0;
 
-	/// Increase the id each time a path search is done.
-	mutable uint32_t path_search_id = 0;
-
 	bool use_threads = true;
 	bool avoidance_use_multiple_threads = true;
 	bool avoidance_use_high_priority_threads = true;

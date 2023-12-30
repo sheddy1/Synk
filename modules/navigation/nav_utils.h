@@ -98,6 +98,9 @@ struct Edge {
 };
 
 struct Polygon {
+	/// Id of the polygon in the map.
+	uint32_t id = UINT32_MAX;
+
 	/// Navigation region or link that contains this polygon.
 	const NavBase *owner = nullptr;
 
@@ -114,16 +117,11 @@ struct Polygon {
 	Vector3 center;
 
 	real_t surface_area = 0.0;
-
-	/// Variables used by path finding to remember the polygon has been checked.
-	uint32_t path_search_id = UINT32_MAX;
-	uint32_t nav_poly_id;
 };
 
 struct NavigationPoly {
-	uint32_t self_id = 0;
 	/// This poly.
-	const Polygon *poly;
+	const Polygon *poly = nullptr;
 
 	/// Index in the heap of traversable polygons.
 	uint32_t open_set_index = UINT32_MAX;
@@ -141,11 +139,6 @@ struct NavigationPoly {
 	/// The distance to the destination (h cost).
 	real_t distance_to_destination = 0.0;
 
-	NavigationPoly() { poly = nullptr; }
-
-	NavigationPoly(const Polygon *p_poly) :
-			poly(p_poly) {}
-
 	/// The total travel cost (f cost).
 	real_t total_travel_cost() const {
 		return traveled_distance + distance_to_destination;
@@ -160,11 +153,11 @@ struct NavigationPoly {
 	}
 };
 
-class NavPolyTravelCostLessThan {
+class NavPolyTravelCostGreaterThan {
 	const LocalVector<NavigationPoly> &_nav_polys;
 
 public:
-	NavPolyTravelCostLessThan(const LocalVector<NavigationPoly> &p_nav_polys) :
+	NavPolyTravelCostGreaterThan(const LocalVector<NavigationPoly> &p_nav_polys) :
 			_nav_polys(p_nav_polys) {}
 
 	// Returns `true` if the travel cost of `a` is higher than that of `b`.
