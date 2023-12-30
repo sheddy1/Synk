@@ -207,10 +207,8 @@ Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p
 	begin_navigation_poly.back_navigation_edge_pathway_end = begin_point;
 
 	// Heap of polygons to travel next.
-	gd::NavPolyTravelCostGreaterThan nav_poly_less_than(navigation_polys);
-	gd::NavPolyHeapIndexer nav_poly_heap_indexer(navigation_polys);
-	Heap<uint32_t, gd::NavPolyTravelCostGreaterThan, gd::NavPolyHeapIndexer>
-			traversable_polys(nav_poly_less_than, nav_poly_heap_indexer);
+	Heap<gd::NavigationPoly *, gd::NavPolyTravelCostGreaterThan, gd::NavPolyHeapIndexer>
+			traversable_polys;
 	traversable_polys.reserve(polygons.size() * 0.25);
 
 	// This is an implementation of the A* algorithm.
@@ -252,7 +250,7 @@ Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p
 				if (neighbor_poly.poly != nullptr) {
 					// If the neighbor polygon hasn't been traversed yet and the new path leading to
 					// it is shorter, update the polygon.
-					if (neighbor_poly.open_set_index < traversable_polys.size() &&
+					if (neighbor_poly.traversable_poly_index < traversable_polys.size() &&
 							new_traveled_distance < neighbor_poly.traveled_distance) {
 						neighbor_poly.back_navigation_poly_id = least_cost_id;
 						neighbor_poly.back_navigation_edge = connection.edge;
@@ -265,7 +263,7 @@ Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p
 						neighbor_poly.entry = new_entry;
 
 						// Update the priority of the polygon in the heap.
-						traversable_polys.shift(neighbor_poly.open_set_index);
+						traversable_polys.shift(neighbor_poly.traversable_poly_index);
 					}
 				} else {
 					// Initialize the matching navigation polygon.
@@ -281,7 +279,7 @@ Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p
 					neighbor_poly.entry = new_entry;
 
 					// Add the polygon to the heap of polygons to traverse next.
-					traversable_polys.push(neighbor_poly.poly->id);
+					traversable_polys.push(&neighbor_poly);
 				}
 			}
 		}
@@ -364,7 +362,7 @@ Vector<Vector3> NavMap::get_path(Vector3 p_origin, Vector3 p_destination, bool p
 		}
 
 		// Pop the polygon with the lowest travel cost from the heap of traversable polygons.
-		least_cost_id = traversable_polys.pop();
+		least_cost_id = traversable_polys.pop()->poly->id;
 
 		// Store the farthest reachable end polygon in case our goal is not reachable.
 		if (is_reachable) {

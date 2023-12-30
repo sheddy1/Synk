@@ -124,7 +124,7 @@ struct NavigationPoly {
 	const Polygon *poly = nullptr;
 
 	/// Index in the heap of traversable polygons.
-	uint32_t open_set_index = UINT32_MAX;
+	uint32_t traversable_poly_index = UINT32_MAX;
 
 	/// Those 4 variables are used to travel the path backwards.
 	int back_navigation_poly_id = -1;
@@ -153,19 +153,13 @@ struct NavigationPoly {
 	}
 };
 
-class NavPolyTravelCostGreaterThan {
-	const LocalVector<NavigationPoly> &_nav_polys;
-
-public:
-	NavPolyTravelCostGreaterThan(const LocalVector<NavigationPoly> &p_nav_polys) :
-			_nav_polys(p_nav_polys) {}
-
+struct NavPolyTravelCostGreaterThan {
 	// Returns `true` if the travel cost of `a` is higher than that of `b`.
-	bool operator()(uint32_t p_id_a, uint32_t p_id_b) const {
-		real_t f_cost_a = _nav_polys[p_id_a].total_travel_cost();
-		real_t h_cost_a = _nav_polys[p_id_a].distance_to_destination;
-		real_t f_cost_b = _nav_polys[p_id_b].total_travel_cost();
-		real_t h_cost_b = _nav_polys[p_id_b].distance_to_destination;
+	bool operator()(const NavigationPoly *p_poly_a, const NavigationPoly *p_poly_b) const {
+		real_t f_cost_a = p_poly_a->total_travel_cost();
+		real_t h_cost_a = p_poly_a->distance_to_destination;
+		real_t f_cost_b = p_poly_b->total_travel_cost();
+		real_t h_cost_b = p_poly_b->distance_to_destination;
 
 		if (f_cost_a != f_cost_b) {
 			return f_cost_a > f_cost_b;
@@ -175,15 +169,9 @@ public:
 	}
 };
 
-class NavPolyHeapIndexer {
-	LocalVector<NavigationPoly> &_nav_polys;
-
-public:
-	NavPolyHeapIndexer(LocalVector<NavigationPoly> &p_nav_polys) :
-			_nav_polys(p_nav_polys) {}
-
-	void operator()(uint32_t p_nav_poly_id, uint32_t p_heap_index) {
-		_nav_polys[p_nav_poly_id].open_set_index = p_heap_index;
+struct NavPolyHeapIndexer {
+	void operator()(NavigationPoly *p_poly, uint32_t p_heap_index) const {
+		p_poly->traversable_poly_index = p_heap_index;
 	}
 };
 
