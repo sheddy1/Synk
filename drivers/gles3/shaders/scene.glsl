@@ -344,37 +344,6 @@ void main() {
 
 	highp mat4 model_matrix = world_transform;
 
-#ifdef USE_VERTEX_LIGHTING
-	//lay out everything, whatever is unused is optimized away anyway
-	vec3 albedo = vec3(1.0);
-	vec3 backlight = vec3(0.0);
-	vec4 transmittance_color = vec4(0.0, 0.0, 0.0, 1.0);
-	float transmittance_depth = 0.0;
-	float transmittance_boost = 0.0;
-	float metallic = 0.0;
-	float specular = 0.5;
-	vec3 emission = vec3(0.0);
-	float rim = 0.0;
-	float rim_tint = 0.0;
-	float clearcoat = 0.0;
-	float clearcoat_roughness = 0.0;
-	float anisotropy = 0.0;
-	vec2 anisotropy_flow = vec2(1.0, 0.0);
-#ifndef FOG_DISABLED
-	vec4 fog = vec4(0.0);
-#endif // !FOG_DISABLED
-#if defined(CUSTOM_RADIANCE_USED)
-	vec4 custom_radiance = vec4(0.0);
-#endif
-#if defined(CUSTOM_IRRADIANCE_USED)
-	vec4 custom_irradiance = vec4(0.0);
-#endif
-
-	float ao = 1.0;
-	float ao_light_affect = 0.0;
-
-	float alpha = 1.0;
-#endif // USE_VERTEX_LIGHTING
 
 #ifdef USE_INSTANCING
 	highp mat4 m = mat4(instance_xform0, instance_xform1, instance_xform2, vec4(0.0, 0.0, 0.0, 1.0));
@@ -1635,9 +1604,6 @@ void main() {
 				diffuse_light, specular_light);
 	}
 #endif // !DISABLE_LIGHT_SPOT
-#else // Pass Vertex Lighting data to fragment colors
-	diffuse_light *= mix(vec3(1.0), vec3(1.0), diffuse_light_interp.a);
-	specular_light *= mix(vec3(1.0), vec3(1.0), specular_light_interp.a);
 #endif // !USE_VERTEX_LIGHTING
 #endif // BASE_PASS
 #endif // !MODE_UNSHADED

@@ -523,37 +523,6 @@ void vertex_shader(vec3 vertex_input,
 #ifdef MOTION_VECTORS
 	screen_pos = gl_Position;
 #endif
-#ifdef USE_VERTEX_LIGHTING
-	//lay out everything, whatever is unused is optimized away anyway
-	vec3 albedo = vec3(1.0);
-	vec3 backlight = vec3(0.0);
-	vec4 transmittance_color = vec4(0.0);
-	float transmittance_depth = 0.0;
-	float transmittance_boost = 0.0;
-	float metallic = 0.0;
-	float specular = 0.5;
-	vec3 emission = vec3(0.0);
-	float rim = 0.0;
-	float rim_tint = 0.0;
-	float clearcoat = 0.0;
-	float clearcoat_roughness = 0.0;
-	float anisotropy = 0.0;
-	vec2 anisotropy_flow = vec2(1.0, 0.0);
-#ifndef FOG_DISABLED
-	vec4 fog = vec4(0.0);
-#endif // !FOG_DISABLED
-#if defined(CUSTOM_RADIANCE_USED)
-	vec4 custom_radiance = vec4(0.0);
-#endif
-#if defined(CUSTOM_IRRADIANCE_USED)
-	vec4 custom_irradiance = vec4(0.0);
-#endif
-
-	float ao = 1.0;
-	float ao_light_affect = 0.0;
-
-	float alpha = 1.0;
-#endif // USE_VERTEX_LIGHTING
 // VERTEX LIGHTING
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING)
 	diffuse_light_interp = vec4(0.0);
@@ -577,26 +546,6 @@ void vertex_shader(vec3 vertex_input,
 	//this saves some VGPRs
 	vec3 f0 = F0(metallic, specular, albedo);
 
-	{
-#if defined(DIFFUSE_TOON)
-		//simplify for toon, as
-		specular_light_interp.rgb *= specular * metallic * albedo * 2.0;
-#else
-
-		// scales the specular reflections, needs to be computed before lighting happens,
-		// but after environment, GI, and reflection probes are added
-		// Environment brdf approximation (Lazarov 2013)
-		// see https://www.unrealengine.com/en-US/blog/physically-based-shading-on-mobile
-		const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
-		const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
-		vec4 r = roughness * c0 + c1;
-		float ndotv = clamp(dot(normal, view), 0.0, 1.0);
-		float a004 = min(r.x * r.x, exp2(-9.28 * ndotv)) * r.x + r.y;
-		vec2 env = vec2(-1.04, 1.04) * a004 + r.zw;
-
-		specular_light_interp.rgb *= env.x * f0 + env.y * clamp(50.0 * f0.g, metallic, 1.0);
-#endif
-	}
 
 #if !defined(MODE_RENDER_DEPTH)
 	//this saves some VGPRs
