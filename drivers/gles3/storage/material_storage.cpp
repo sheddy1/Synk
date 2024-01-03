@@ -2925,6 +2925,10 @@ void SceneShaderData::set_code(const String &p_code) {
 
 	actions.render_mode_flags["unshaded"] = &unshaded;
 	actions.render_mode_flags["vertex_lighting"] = &vertex_lighting;
+	bool force_vertex_lighting = GLOBAL_GET("rendering/shading/overrides/force_vertex_shading");
+	if (force_vertex_lighting) {
+		actions.render_mode_flags["vertex_lighting"] = true;
+	}
 	actions.render_mode_flags["wireframe"] = &wireframe;
 	actions.render_mode_flags["particle_trails"] = &uses_particle_trails;
 	actions.render_mode_flags["world_vertex_coords"] = &uses_world_coordinates;
