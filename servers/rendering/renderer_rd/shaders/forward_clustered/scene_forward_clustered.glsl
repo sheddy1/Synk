@@ -546,7 +546,6 @@ void vertex_shader(vec3 vertex_input,
 	//this saves some VGPRs
 	vec3 f0 = F0(metallic, specular, albedo);
 
-
 #if !defined(MODE_RENDER_DEPTH)
 	//this saves some VGPRs
 	uint orms = packUnorm4x8(vec4(ao, roughness, metallic, specular));

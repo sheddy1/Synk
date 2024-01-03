@@ -17,10 +17,10 @@ layout(std140) uniform DirectionalLights { // ubo:7
 	DirectionalLightData directional_lights[MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS];
 };
 
-#if defined(USE_ADDITIVE_LIGHTING) && (!defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT))
+#if defined(USE_ADDITIVE_LIGHTING) && !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 // Directional shadows can be in the base pass or in the additive passes
 uniform highp sampler2DShadow directional_shadow_atlas; // texunit:-3
-#endif // defined(USE_ADDITIVE_LIGHTING) && (!defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT))
+#endif // defined(USE_ADDITIVE_LIGHTING) && !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 
 #endif // !DISABLE_LIGHT_DIRECTIONAL
 
