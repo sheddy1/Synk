@@ -314,11 +314,13 @@ void Window::_destroy_window() {
 }
 
 void Window::set_embedded(bool p_enable) {
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint()))
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint())) {
 		_destroy_window();
+	}
 	embedded = p_enable;
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint()))
+	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint())) {
 		_init_window();
+	}
 }
 
 bool Window::is_embedded() const {
@@ -329,8 +331,9 @@ bool Window::should_be_embedded() const {
 	Viewport *_embedder = _get_embedder();
 
 	bool force_embedded = false;
-	if (_embedder != nullptr)
+	if (_embedder != nullptr) {
 		force_embedded = _embedder->is_embedding_subwindows();
+	}
 
 	return _embedder != nullptr && (is_embedded() || force_embedded);
 }

@@ -198,8 +198,9 @@ void Viewport::_sub_window_update(Window *p_window) {
 		}
 	}
 
-	if (index == -1)
+	if (index == -1) {
 		return; //ERR_FAIL_COND(index == -1);
+	}
 
 	const SubWindow &sw = gui.sub_windows[index];
 

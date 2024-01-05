@@ -183,8 +183,9 @@ void PopupMenu::_activate_submenu(int p_over, bool p_by_keyboard) {
 
 	Point2 this_pos = Point2(0, 0);
 
-	if (is_current_embedded())
+	if (is_current_embedded()) {
 		this_pos = get_position();
+	}
 
 	Rect2 this_rect(this_pos, get_size());
 
