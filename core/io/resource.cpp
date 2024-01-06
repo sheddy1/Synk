@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  resource.cpp                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  resource.cpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "resource.h"
 
@@ -90,18 +90,21 @@ String Resource::get_path() const {
 	return path_cache;
 }
 
+void Resource::set_path_cache(const String &p_path) {
+	path_cache = p_path;
+}
+
 String Resource::generate_scene_unique_id() {
 	// Generate a unique enough hash, but still user-readable.
 	// If it's not unique it does not matter because the saver will try again.
-	OS::Date date = OS::get_singleton()->get_date();
-	OS::Time time = OS::get_singleton()->get_time();
+	OS::DateTime dt = OS::get_singleton()->get_datetime();
 	uint32_t hash = hash_murmur3_one_32(OS::get_singleton()->get_ticks_usec());
-	hash = hash_murmur3_one_32(date.year, hash);
-	hash = hash_murmur3_one_32(date.month, hash);
-	hash = hash_murmur3_one_32(date.day, hash);
-	hash = hash_murmur3_one_32(time.hour, hash);
-	hash = hash_murmur3_one_32(time.minute, hash);
-	hash = hash_murmur3_one_32(time.second, hash);
+	hash = hash_murmur3_one_32(dt.year, hash);
+	hash = hash_murmur3_one_32(dt.month, hash);
+	hash = hash_murmur3_one_32(dt.day, hash);
+	hash = hash_murmur3_one_32(dt.hour, hash);
+	hash = hash_murmur3_one_32(dt.minute, hash);
+	hash = hash_murmur3_one_32(dt.second, hash);
 	hash = hash_murmur3_one_32(Math::rand(), hash);
 
 	static constexpr uint32_t characters = 5;
@@ -148,15 +151,28 @@ bool Resource::editor_can_reload_from_file() {
 	return true; //by default yes
 }
 
+void Resource::connect_changed(const Callable &p_callable, uint32_t p_flags) {
+	if (!is_connected(CoreStringNames::get_singleton()->changed, p_callable) || p_flags & CONNECT_REFERENCE_COUNTED) {
+		connect(CoreStringNames::get_singleton()->changed, p_callable, p_flags);
+	}
+}
+
+void Resource::disconnect_changed(const Callable &p_callable) {
+	if (is_connected(CoreStringNames::get_singleton()->changed, p_callable)) {
+		disconnect(CoreStringNames::get_singleton()->changed, p_callable);
+	}
+}
+
 void Resource::reset_state() {
 }
+
 Error Resource::copy_from(const Ref<Resource> &p_resource) {
 	ERR_FAIL_COND_V(p_resource.is_null(), ERR_INVALID_PARAMETER);
 	if (get_class() != p_resource->get_class()) {
 		return ERR_INVALID_PARAMETER;
 	}
 
-	reset_state(); //may want to reset state
+	reset_state(); // May want to reset state.
 
 	List<PropertyInfo> pi;
 	p_resource->get_property_list(&pi);
@@ -227,6 +243,7 @@ void Resource::configure_for_local_scene(Node *p_for_scene, HashMap<Ref<Resource
 	List<PropertyInfo> plist;
 	get_property_list(&plist);
 
+	reset_local_to_scene();
 	local_scene = p_for_scene;
 
 	for (const PropertyInfo &E : plist) {
@@ -261,15 +278,35 @@ Ref<Resource> Resource::duplicate(bool p_subresources) const {
 		}
 		Variant p = get(E.name);
 
-		if ((p.get_type() == Variant::DICTIONARY || p.get_type() == Variant::ARRAY)) {
-			r->set(E.name, p.duplicate(p_subresources));
-		} else if (p.get_type() == Variant::OBJECT && (p_subresources || (E.usage & PROPERTY_USAGE_DO_NOT_SHARE_ON_DUPLICATE))) {
-			Ref<Resource> sr = p;
-			if (sr.is_valid()) {
-				r->set(E.name, sr->duplicate(p_subresources));
+		switch (p.get_type()) {
+			case Variant::Type::DICTIONARY:
+			case Variant::Type::ARRAY:
+			case Variant::Type::PACKED_BYTE_ARRAY:
+			case Variant::Type::PACKED_COLOR_ARRAY:
+			case Variant::Type::PACKED_INT32_ARRAY:
+			case Variant::Type::PACKED_INT64_ARRAY:
+			case Variant::Type::PACKED_FLOAT32_ARRAY:
+			case Variant::Type::PACKED_FLOAT64_ARRAY:
+			case Variant::Type::PACKED_STRING_ARRAY:
+			case Variant::Type::PACKED_VECTOR2_ARRAY:
+			case Variant::Type::PACKED_VECTOR3_ARRAY: {
+				r->set(E.name, p.duplicate(p_subresources));
+			} break;
+
+			case Variant::Type::OBJECT: {
+				if (!(E.usage & PROPERTY_USAGE_NEVER_DUPLICATE) && (p_subresources || (E.usage & PROPERTY_USAGE_ALWAYS_DUPLICATE))) {
+					Ref<Resource> sr = p;
+					if (sr.is_valid()) {
+						r->set(E.name, sr->duplicate(p_subresources));
+					}
+				} else {
+					r->set(E.name, p);
+				}
+			} break;
+
+			default: {
+				r->set(E.name, p);
 			}
-		} else {
-			r->set(E.name, p);
 		}
 	}
 
@@ -301,23 +338,6 @@ RID Resource::get_rid() const {
 	}
 
 	return RID();
-}
-
-void Resource::register_owner(Object *p_owner) {
-	owners.insert(p_owner->get_instance_id());
-}
-
-void Resource::unregister_owner(Object *p_owner) {
-	owners.erase(p_owner->get_instance_id());
-}
-
-void Resource::notify_change_to_owners() {
-	for (const ObjectID &E : owners) {
-		Object *obj = ObjectDB::get_instance(E);
-		ERR_CONTINUE_MSG(!obj, "Object was deleted, while still owning a resource."); //wtf
-		//TODO store string
-		obj->call("resource_changed", Ref<Resource>(this));
-	}
 }
 
 #ifdef TOOLS_ENABLED
@@ -363,8 +383,12 @@ Node *Resource::get_local_scene() const {
 }
 
 void Resource::setup_local_to_scene() {
-	// Can't use GDVIRTUAL in Resource, so this will have to be done with a signal
 	emit_signal(SNAME("setup_local_to_scene_requested"));
+	GDVIRTUAL_CALL(_setup_local_to_scene);
+}
+
+void Resource::reset_local_to_scene() {
+	// Restores the state as if setup_local_to_scene() hadn't been called.
 }
 
 Node *(*Resource::_get_local_scene_func)() = nullptr;
@@ -384,10 +408,6 @@ void Resource::set_as_translation_remapped(bool p_remapped) {
 	}
 
 	ResourceCache::lock.unlock();
-}
-
-bool Resource::is_translation_remapped() const {
-	return remapped_list.in_list();
 }
 
 #ifdef TOOLS_ENABLED
@@ -428,6 +448,7 @@ void Resource::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_local_to_scene"), &Resource::is_local_to_scene);
 	ClassDB::bind_method(D_METHOD("get_local_scene"), &Resource::get_local_scene);
 	ClassDB::bind_method(D_METHOD("setup_local_to_scene"), &Resource::setup_local_to_scene);
+
 	ClassDB::bind_method(D_METHOD("emit_changed"), &Resource::emit_changed);
 
 	ClassDB::bind_method(D_METHOD("duplicate", "subresources"), &Resource::duplicate, DEFVAL(false));
@@ -437,12 +458,13 @@ void Resource::_bind_methods() {
 	ADD_GROUP("Resource", "resource_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "resource_local_to_scene"), "set_local_to_scene", "is_local_to_scene");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "resource_path", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_path", "get_path");
-	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "resource_name"), "set_name", "get_name");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "resource_name"), "set_name", "get_name");
 
 	MethodInfo get_rid_bind("_get_rid");
 	get_rid_bind.return_val.type = Variant::RID;
 
 	::ClassDB::add_virtual_method(get_class_static(), get_rid_bind, true, Vector<String>(), true);
+	GDVIRTUAL_BIND(_setup_local_to_scene);
 }
 
 Resource::Resource() :
@@ -453,9 +475,6 @@ Resource::~Resource() {
 		ResourceCache::lock.lock();
 		ResourceCache::resources.erase(path_cache);
 		ResourceCache::lock.unlock();
-	}
-	if (owners.size()) {
-		WARN_PRINT("Resource is still owned.");
 	}
 }
 
@@ -470,19 +489,18 @@ RWLock ResourceCache::path_cache_lock;
 #endif
 
 void ResourceCache::clear() {
-	if (resources.size()) {
-		ERR_PRINT("Resources still in use at exit (run with --verbose for details).");
+	if (!resources.is_empty()) {
 		if (OS::get_singleton()->is_stdout_verbose()) {
+			ERR_PRINT(vformat("%d resources still in use at exit.", resources.size()));
 			for (const KeyValue<String, Resource *> &E : resources) {
 				print_line(vformat("Resource still in use: %s (%s)", E.key, E.value->get_class()));
 			}
+		} else {
+			ERR_PRINT(vformat("%d resources still in use at exit (run with --verbose for details).", resources.size()));
 		}
 	}
 
 	resources.clear();
-}
-
-void ResourceCache::reload_externals() {
 }
 
 bool ResourceCache::has(const String &p_path) {
@@ -490,7 +508,7 @@ bool ResourceCache::has(const String &p_path) {
 
 	Resource **res = resources.getptr(p_path);
 
-	if (res && (*res)->reference_get_count() == 0) {
+	if (res && (*res)->get_reference_count() == 0) {
 		// This resource is in the process of being deleted, ignore its existence.
 		(*res)->path_cache = String();
 		resources.erase(p_path);
@@ -530,9 +548,26 @@ Ref<Resource> ResourceCache::get_ref(const String &p_path) {
 
 void ResourceCache::get_cached_resources(List<Ref<Resource>> *p_resources) {
 	lock.lock();
+
+	LocalVector<String> to_remove;
+
 	for (KeyValue<String, Resource *> &E : resources) {
-		p_resources->push_back(Ref<Resource>(E.value));
+		Ref<Resource> ref = Ref<Resource>(E.value);
+
+		if (!ref.is_valid()) {
+			// This resource is in the process of being deleted, ignore its existence
+			E.value->path_cache = String();
+			to_remove.push_back(E.key);
+			continue;
+		}
+
+		p_resources->push_back(ref);
 	}
+
+	for (const String &E : to_remove) {
+		resources.erase(E);
+	}
+
 	lock.unlock();
 }
 
@@ -542,44 +577,4 @@ int ResourceCache::get_cached_resource_count() {
 	lock.unlock();
 
 	return rc;
-}
-
-void ResourceCache::dump(const char *p_file, bool p_short) {
-#ifdef DEBUG_ENABLED
-	lock.lock();
-
-	HashMap<String, int> type_count;
-
-	Ref<FileAccess> f;
-	if (p_file) {
-		f = FileAccess::open(String::utf8(p_file), FileAccess::WRITE);
-		ERR_FAIL_COND_MSG(f.is_null(), "Cannot create file at path '" + String::utf8(p_file) + "'.");
-	}
-
-	for (KeyValue<String, Resource *> &E : resources) {
-		Resource *r = E.value;
-
-		if (!type_count.has(r->get_class())) {
-			type_count[r->get_class()] = 0;
-		}
-
-		type_count[r->get_class()]++;
-
-		if (!p_short) {
-			if (f.is_valid()) {
-				f->store_line(r->get_class() + ": " + r->get_path());
-			}
-		}
-	}
-
-	for (const KeyValue<String, int> &E : type_count) {
-		if (f.is_valid()) {
-			f->store_line(E.key + " count: " + itos(E.value));
-		}
-	}
-
-	lock.unlock();
-#else
-	WARN_PRINT("ResourceCache::dump only with in debug builds.");
-#endif
 }

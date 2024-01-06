@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  list.h                                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  list.h                                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef LIST_H
 #define LIST_H
@@ -132,6 +132,8 @@ public:
 			data->erase(this);
 		}
 
+		void transfer_to_back(List<T, A> *p_dst_list);
+
 		_FORCE_INLINE_ Element() {}
 	};
 
@@ -219,7 +221,7 @@ private:
 		int size_cache = 0;
 
 		bool erase(const Element *p_I) {
-			ERR_FAIL_COND_V(!p_I, false);
+			ERR_FAIL_NULL_V(p_I, false);
 			ERR_FAIL_COND_V(p_I->data != this, false);
 
 			if (first == p_I) {
@@ -761,5 +763,42 @@ public:
 		}
 	}
 };
+
+template <class T, class A>
+void List<T, A>::Element::transfer_to_back(List<T, A> *p_dst_list) {
+	// Detach from current.
+
+	if (data->first == this) {
+		data->first = data->first->next_ptr;
+	}
+	if (data->last == this) {
+		data->last = data->last->prev_ptr;
+	}
+	if (prev_ptr) {
+		prev_ptr->next_ptr = next_ptr;
+	}
+	if (next_ptr) {
+		next_ptr->prev_ptr = prev_ptr;
+	}
+	data->size_cache--;
+
+	// Attach to the back of the new one.
+
+	if (!p_dst_list->_data) {
+		p_dst_list->_data = memnew_allocator(_Data, A);
+		p_dst_list->_data->first = this;
+		p_dst_list->_data->last = nullptr;
+		p_dst_list->_data->size_cache = 0;
+		prev_ptr = nullptr;
+	} else {
+		p_dst_list->_data->last->next_ptr = this;
+		prev_ptr = p_dst_list->_data->last;
+	}
+	p_dst_list->_data->last = this;
+	next_ptr = nullptr;
+
+	data = p_dst_list->_data;
+	p_dst_list->_data->size_cache++;
+}
 
 #endif // LIST_H

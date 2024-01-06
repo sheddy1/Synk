@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="AudioStreamPlayer" inherits="Node" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="AudioStreamPlayer" inherits="Node" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 		Plays back audio non-positionally.
 	</brief_description>
@@ -28,16 +28,22 @@
 				Returns the [AudioStreamPlayback] object associated with this [AudioStreamPlayer].
 			</description>
 		</method>
+		<method name="has_stream_playback">
+			<return type="bool" />
+			<description>
+				Returns whether the [AudioStreamPlayer] can return the [AudioStreamPlayback] object or not.
+			</description>
+		</method>
 		<method name="play">
 			<return type="void" />
-			<argument index="0" name="from_position" type="float" default="0.0" />
+			<param index="0" name="from_position" type="float" default="0.0" />
 			<description>
-				Plays the audio from the given [code]from_position[/code], in seconds.
+				Plays the audio from the given [param from_position], in seconds.
 			</description>
 		</method>
 		<method name="seek">
 			<return type="void" />
-			<argument index="0" name="to_position" type="float" />
+			<param index="0" name="to_position" type="float" />
 			<description>
 				Sets the position from which audio will be played, in seconds.
 			</description>
@@ -73,7 +79,7 @@
 			The [AudioStream] object to be played.
 		</member>
 		<member name="stream_paused" type="bool" setter="set_stream_paused" getter="get_stream_paused" default="false">
-			If [code]true[/code], the playback is paused. You can resume it by setting [code]stream_paused[/code] to [code]false[/code].
+			If [code]true[/code], the playback is paused. You can resume it by setting [member stream_paused] to [code]false[/code].
 		</member>
 		<member name="volume_db" type="float" setter="set_volume_db" getter="get_volume_db" default="0.0">
 			Volume of sound, in dB.

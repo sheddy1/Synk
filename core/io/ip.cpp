@@ -1,40 +1,39 @@
-/*************************************************************************/
-/*  ip.cpp                                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  ip.cpp                                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "ip.h"
 
 #include "core/os/semaphore.h"
 #include "core/os/thread.h"
 #include "core/templates/hash_map.h"
-
-VARIANT_ENUM_CAST(IP::ResolverStatus);
+#include "core/variant/typed_array.h"
 
 /************* RESOLVER ******************/
 
@@ -74,7 +73,7 @@ struct _IP_ResolverPrivate {
 	Semaphore sem;
 
 	Thread thread;
-	bool thread_abort = false;
+	SafeFlag thread_abort;
 
 	void resolve_queues() {
 		for (int i = 0; i < IP::RESOLVER_MAX_QUERIES; i++) {
@@ -110,7 +109,7 @@ struct _IP_ResolverPrivate {
 	static void _thread_function(void *self) {
 		_IP_ResolverPrivate *ipr = static_cast<_IP_ResolverPrivate *>(self);
 
-		while (!ipr->thread_abort) {
+		while (!ipr->thread_abort.is_set()) {
 			ipr->sem.wait();
 			ipr->resolve_queues();
 		}
@@ -124,11 +123,11 @@ struct _IP_ResolverPrivate {
 };
 
 IPAddress IP::resolve_hostname(const String &p_hostname, IP::Type p_type) {
-	const Array addresses = resolve_hostname_addresses(p_hostname, p_type);
-	return addresses.size() ? addresses[0].operator IPAddress() : IPAddress();
+	const PackedStringArray addresses = resolve_hostname_addresses(p_hostname, p_type);
+	return addresses.size() ? (IPAddress)addresses[0] : IPAddress();
 }
 
-Array IP::resolve_hostname_addresses(const String &p_hostname, Type p_type) {
+PackedStringArray IP::resolve_hostname_addresses(const String &p_hostname, Type p_type) {
 	List<IPAddress> res;
 	String key = _IP_ResolverPrivate::get_cache_key(p_hostname, p_type);
 
@@ -148,7 +147,7 @@ Array IP::resolve_hostname_addresses(const String &p_hostname, Type p_type) {
 	}
 	resolver->mutex.unlock();
 
-	Array result;
+	PackedStringArray result;
 	for (int i = 0; i < res.size(); ++i) {
 		result.push_back(String(res[i]));
 	}
@@ -254,8 +253,8 @@ void IP::clear_cache(const String &p_hostname) {
 	}
 }
 
-Array IP::_get_local_addresses() const {
-	Array addresses;
+PackedStringArray IP::_get_local_addresses() const {
+	PackedStringArray addresses;
 	List<IPAddress> ip_addresses;
 	get_local_addresses(&ip_addresses);
 	for (const IPAddress &E : ip_addresses) {
@@ -265,8 +264,8 @@ Array IP::_get_local_addresses() const {
 	return addresses;
 }
 
-Array IP::_get_local_interfaces() const {
-	Array results;
+TypedArray<Dictionary> IP::_get_local_interfaces() const {
+	TypedArray<Dictionary> results;
 	HashMap<String, Interface_Info> interfaces;
 	get_local_interfaces(&interfaces);
 	for (KeyValue<String, Interface_Info> &E : interfaces) {
@@ -334,7 +333,7 @@ IP *(*IP::_create)() = nullptr;
 
 IP *IP::create() {
 	ERR_FAIL_COND_V_MSG(singleton, nullptr, "IP singleton already exist.");
-	ERR_FAIL_COND_V(!_create, nullptr);
+	ERR_FAIL_NULL_V(_create, nullptr);
 	return _create();
 }
 
@@ -342,12 +341,12 @@ IP::IP() {
 	singleton = this;
 	resolver = memnew(_IP_ResolverPrivate);
 
-	resolver->thread_abort = false;
+	resolver->thread_abort.clear();
 	resolver->thread.start(_IP_ResolverPrivate::_thread_function, resolver);
 }
 
 IP::~IP() {
-	resolver->thread_abort = true;
+	resolver->thread_abort.set();
 	resolver->sem.post();
 	resolver->thread.wait_to_finish();
 

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_profile.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_profile.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_profile.h"
 
@@ -121,26 +121,26 @@ bool SkeletonProfile::_get(const StringName &p_path, Variant &r_ret) const {
 	return true;
 }
 
-void SkeletonProfile::_validate_property(PropertyInfo &property) const {
+void SkeletonProfile::_validate_property(PropertyInfo &p_property) const {
 	if (is_read_only) {
-		if (property.name == ("group_size") || property.name == ("bone_size") || property.name == ("root_bone") || property.name == ("scale_base_bone")) {
-			property.usage = PROPERTY_USAGE_NO_EDITOR;
+		if (p_property.name == ("group_size") || p_property.name == ("bone_size") || p_property.name == ("root_bone") || p_property.name == ("scale_base_bone")) {
+			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 			return;
 		}
 	}
 
-	if (property.name == ("root_bone") || property.name == ("scale_base_bone")) {
+	if (p_property.name == ("root_bone") || p_property.name == ("scale_base_bone")) {
 		String hint = "";
 		for (int i = 0; i < bones.size(); i++) {
 			hint += i == 0 ? String(bones[i].bone_name) : "," + String(bones[i].bone_name);
 		}
-		property.hint_string = hint;
+		p_property.hint_string = hint;
 	}
 
-	PackedStringArray split = property.name.split("/");
+	PackedStringArray split = p_property.name.split("/");
 	if (split.size() == 3 && split[0] == "bones") {
 		if (split[2] == "bone_tail" && get_tail_direction(split[1].to_int()) != TAIL_DIRECTION_SPECIFIC_CHILD) {
-			property.usage = PROPERTY_USAGE_NONE;
+			p_property.usage = PROPERTY_USAGE_NONE;
 		}
 	}
 }
@@ -506,7 +506,7 @@ SkeletonProfileHumanoid::SkeletonProfileHumanoid() {
 	bones.write[5].reference_pose = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0);
 	bones.write[5].handle_offset = Vector2(0.5, 0.23);
 	bones.write[5].group = "Body";
-	bones.write[5].require = true;
+	bones.write[5].require = false;
 
 	bones.write[6].bone_name = "Head";
 	bones.write[6].bone_parent = "Neck";
@@ -566,7 +566,7 @@ SkeletonProfileHumanoid::SkeletonProfileHumanoid() {
 
 	bones.write[14].bone_name = "LeftThumbMetacarpal";
 	bones.write[14].bone_parent = "LeftHand";
-	bones.write[14].reference_pose = Transform3D(0, -0.577, 0.816, 0.707, 0.577, 0.408, -0.707, 0.577, 0.408, -0.025, 0, 0);
+	bones.write[14].reference_pose = Transform3D(0, -0.577, 0.816, 0, 0.816, 0.577, -1, 0, 0, -0.025, 0.025, 0);
 	bones.write[14].handle_offset = Vector2(0.4, 0.8);
 	bones.write[14].group = "LeftHand";
 
@@ -686,7 +686,7 @@ SkeletonProfileHumanoid::SkeletonProfileHumanoid() {
 
 	bones.write[33].bone_name = "RightThumbMetacarpal";
 	bones.write[33].bone_parent = "RightHand";
-	bones.write[33].reference_pose = Transform3D(0, 0.577, -0.816, -0.707, 0.577, 0.408, 0.707, 0.577, 0.408, 0.025, 0, 0);
+	bones.write[33].reference_pose = Transform3D(0, 0.577, -0.816, 0, 0.816, 0.577, 1, 0, 0, 0.025, 0.025, 0);
 	bones.write[33].handle_offset = Vector2(0.6, 0.8);
 	bones.write[33].group = "RightHand";
 

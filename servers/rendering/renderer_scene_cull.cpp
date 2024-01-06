@@ -1,41 +1,56 @@
-/*************************************************************************/
-/*  renderer_scene_cull.cpp                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  renderer_scene_cull.cpp                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "renderer_scene_cull.h"
 
 #include "core/config/project_settings.h"
+#include "core/object/worker_thread_pool.h"
 #include "core/os/os.h"
 #include "rendering_server_default.h"
-#include "rendering_server_globals.h"
 
 #include <new>
+
+/* HALTON SEQUENCE */
+
+#ifndef _3D_DISABLED
+static float get_halton_value(int p_index, int p_base) {
+	float f = 1;
+	float r = 0;
+	while (p_index > 0) {
+		f = f / static_cast<float>(p_base);
+		r = r + f * (p_index % p_base);
+		p_index = p_index / p_base;
+	}
+	return r * 2.0f - 1.0f;
+}
+#endif // _3D_DISABLED
 
 /* CAMERA API */
 
@@ -48,7 +63,7 @@ void RendererSceneCull::camera_initialize(RID p_rid) {
 
 void RendererSceneCull::camera_set_perspective(RID p_camera, float p_fovy_degrees, float p_z_near, float p_z_far) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->type = Camera::PERSPECTIVE;
 	camera->fov = p_fovy_degrees;
 	camera->znear = p_z_near;
@@ -57,7 +72,7 @@ void RendererSceneCull::camera_set_perspective(RID p_camera, float p_fovy_degree
 
 void RendererSceneCull::camera_set_orthogonal(RID p_camera, float p_size, float p_z_near, float p_z_far) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->type = Camera::ORTHOGONAL;
 	camera->size = p_size;
 	camera->znear = p_z_near;
@@ -66,7 +81,7 @@ void RendererSceneCull::camera_set_orthogonal(RID p_camera, float p_size, float 
 
 void RendererSceneCull::camera_set_frustum(RID p_camera, float p_size, Vector2 p_offset, float p_z_near, float p_z_far) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->type = Camera::FRUSTUM;
 	camera->size = p_size;
 	camera->offset = p_offset;
@@ -76,32 +91,32 @@ void RendererSceneCull::camera_set_frustum(RID p_camera, float p_size, Vector2 p
 
 void RendererSceneCull::camera_set_transform(RID p_camera, const Transform3D &p_transform) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->transform = p_transform.orthonormalized();
 }
 
 void RendererSceneCull::camera_set_cull_mask(RID p_camera, uint32_t p_layers) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 
 	camera->visible_layers = p_layers;
 }
 
 void RendererSceneCull::camera_set_environment(RID p_camera, RID p_env) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->env = p_env;
 }
 
-void RendererSceneCull::camera_set_camera_effects(RID p_camera, RID p_fx) {
+void RendererSceneCull::camera_set_camera_attributes(RID p_camera, RID p_attributes) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
-	camera->effects = p_fx;
+	ERR_FAIL_NULL(camera);
+	camera->attributes = p_attributes;
 }
 
 void RendererSceneCull::camera_set_use_vertical_aspect(RID p_camera, bool p_enable) {
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 	camera->vaspect = p_enable;
 }
 
@@ -196,8 +211,8 @@ void RendererSceneCull::_instance_pair(Instance *p_A, Instance *p_B) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(A->base_data);
 
 		if (A->dynamic_gi) {
-			geom->lightmap_captures.insert(A);
-			lightmap_data->geometries.insert(B);
+			geom->lightmap_captures.insert(B);
+			lightmap_data->geometries.insert(A);
 
 			if (A->scenario && A->array_index >= 0) {
 				InstanceData &idata = A->scenario->instance_data[A->array_index];
@@ -357,13 +372,14 @@ void RendererSceneCull::scenario_initialize(RID p_rid) {
 	Scenario *scenario = scenario_owner.get_or_null(p_rid);
 	scenario->self = p_rid;
 
-	scenario->reflection_probe_shadow_atlas = scene_render->shadow_atlas_create();
-	scene_render->shadow_atlas_set_size(scenario->reflection_probe_shadow_atlas, 1024); //make enough shadows for close distance, don't bother with rest
-	scene_render->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 0, 4);
-	scene_render->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 1, 4);
-	scene_render->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 2, 4);
-	scene_render->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 3, 8);
-	scenario->reflection_atlas = scene_render->reflection_atlas_create();
+	scenario->reflection_probe_shadow_atlas = RSG::light_storage->shadow_atlas_create();
+	RSG::light_storage->shadow_atlas_set_size(scenario->reflection_probe_shadow_atlas, 1024); //make enough shadows for close distance, don't bother with rest
+	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 0, 4);
+	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 1, 4);
+	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 2, 4);
+	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(scenario->reflection_probe_shadow_atlas, 3, 8);
+
+	scenario->reflection_atlas = RSG::light_storage->reflection_atlas_create();
 
 	scenario->instance_aabbs.set_page_pool(&instance_aabb_page_pool);
 	scenario->instance_data.set_page_pool(&instance_data_page_pool);
@@ -374,26 +390,26 @@ void RendererSceneCull::scenario_initialize(RID p_rid) {
 
 void RendererSceneCull::scenario_set_environment(RID p_scenario, RID p_environment) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
+	ERR_FAIL_NULL(scenario);
 	scenario->environment = p_environment;
 }
 
-void RendererSceneCull::scenario_set_camera_effects(RID p_scenario, RID p_camera_effects) {
+void RendererSceneCull::scenario_set_camera_attributes(RID p_scenario, RID p_camera_attributes) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
-	scenario->camera_effects = p_camera_effects;
+	ERR_FAIL_NULL(scenario);
+	scenario->camera_attributes = p_camera_attributes;
 }
 
 void RendererSceneCull::scenario_set_fallback_environment(RID p_scenario, RID p_environment) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
+	ERR_FAIL_NULL(scenario);
 	scenario->fallback_environment = p_environment;
 }
 
 void RendererSceneCull::scenario_set_reflection_atlas_size(RID p_scenario, int p_reflection_size, int p_reflection_count) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
-	scene_render->reflection_atlas_set_size(scenario->reflection_atlas, p_reflection_size, p_reflection_count);
+	ERR_FAIL_NULL(scenario);
+	RSG::light_storage->reflection_atlas_set_size(scenario->reflection_atlas, p_reflection_size, p_reflection_count);
 }
 
 bool RendererSceneCull::is_scenario(RID p_scenario) const {
@@ -402,13 +418,13 @@ bool RendererSceneCull::is_scenario(RID p_scenario) const {
 
 RID RendererSceneCull::scenario_get_environment(RID p_scenario) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND_V(!scenario, RID());
+	ERR_FAIL_NULL_V(scenario, RID());
 	return scenario->environment;
 }
 
 void RendererSceneCull::scenario_remove_viewport_visibility_mask(RID p_scenario, RID p_viewport) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
+	ERR_FAIL_NULL(scenario);
 	if (!scenario->viewport_visibility_masks.has(p_viewport)) {
 		return;
 	}
@@ -420,7 +436,7 @@ void RendererSceneCull::scenario_remove_viewport_visibility_mask(RID p_scenario,
 
 void RendererSceneCull::scenario_add_viewport_visibility_mask(RID p_scenario, RID p_viewport) {
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND(!scenario);
+	ERR_FAIL_NULL(scenario);
 	ERR_FAIL_COND(scenario->viewport_visibility_masks.has(p_viewport));
 
 	uint64_t new_mask = 1;
@@ -494,7 +510,7 @@ void RendererSceneCull::_instance_update_mesh_instance(Instance *p_instance) {
 
 void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	Scenario *scenario = instance->scenario;
 
@@ -506,7 +522,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 		}
 
 		if (instance->mesh_instance.is_valid()) {
-			RSG::mesh_storage->mesh_free(instance->mesh_instance);
+			RSG::mesh_storage->mesh_instance_free(instance->mesh_instance);
 			instance->mesh_instance = RID();
 			// no need to set instance data flag here, as it was freed above
 		}
@@ -534,7 +550,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 					scenario->directional_lights.erase(light->D);
 					light->D = nullptr;
 				}
-				scene_render->free(light->instance);
+				RSG::light_storage->light_instance_free(light->instance);
 			} break;
 			case RS::INSTANCE_PARTICLES_COLLISION: {
 				InstanceParticlesCollisionData *collision = static_cast<InstanceParticlesCollisionData *>(instance->base_data);
@@ -549,14 +565,14 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 			} break;
 			case RS::INSTANCE_REFLECTION_PROBE: {
 				InstanceReflectionProbeData *reflection_probe = static_cast<InstanceReflectionProbeData *>(instance->base_data);
-				scene_render->free(reflection_probe->instance);
+				RSG::light_storage->reflection_probe_instance_free(reflection_probe->instance);
 				if (reflection_probe->update_list.in_list()) {
 					reflection_probe_render_list.remove(&reflection_probe->update_list);
 				}
 			} break;
 			case RS::INSTANCE_DECAL: {
 				InstanceDecalData *decal = static_cast<InstanceDecalData *>(instance->base_data);
-				scene_render->free(decal->instance);
+				RSG::texture_storage->decal_instance_free(decal->instance);
 
 			} break;
 			case RS::INSTANCE_LIGHTMAP: {
@@ -565,7 +581,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 				while (lightmap_data->users.begin()) {
 					instance_geometry_set_lightmap((*lightmap_data->users.begin())->self, RID(), Rect2(), 0);
 				}
-				scene_render->free(lightmap_data->instance);
+				RSG::light_storage->lightmap_instance_free(lightmap_data->instance);
 			} break;
 			case RS::INSTANCE_VOXEL_GI: {
 				InstanceVoxelGIData *voxel_gi = static_cast<InstanceVoxelGIData *>(instance->base_data);
@@ -626,7 +642,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 					light->D = scenario->directional_lights.push_back(instance);
 				}
 
-				light->instance = scene_render->light_instance_create(p_base);
+				light->instance = RSG::light_storage->light_instance_create(p_base);
 
 				instance->base_data = light;
 			} break;
@@ -637,17 +653,21 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 				instance->base_data = geom;
 				geom->geometry_instance = scene_render->geometry_instance_create(p_base);
 
+				ERR_FAIL_NULL(geom->geometry_instance);
+
 				geom->geometry_instance->set_skeleton(instance->skeleton);
 				geom->geometry_instance->set_material_override(instance->material_override);
 				geom->geometry_instance->set_material_overlay(instance->material_overlay);
 				geom->geometry_instance->set_surface_materials(instance->materials);
 				geom->geometry_instance->set_transform(instance->transform, instance->aabb, instance->transformed_aabb);
 				geom->geometry_instance->set_layer_mask(instance->layer_mask);
+				geom->geometry_instance->set_pivot_data(instance->sorting_offset, instance->use_aabb_center);
 				geom->geometry_instance->set_lod_bias(instance->lod_bias);
 				geom->geometry_instance->set_transparency(instance->transparency);
 				geom->geometry_instance->set_use_baked_light(instance->baked_light);
 				geom->geometry_instance->set_use_dynamic_gi(instance->dynamic_gi);
 				geom->geometry_instance->set_use_lightmap(RID(), instance->lightmap_uv_scale, instance->lightmap_slice_index);
+				geom->geometry_instance->set_instance_shader_uniforms_offset(instance->instance_allocated_shader_uniforms_offset);
 				geom->geometry_instance->set_cast_double_sided_shadows(instance->cast_shadows == RS::SHADOW_CASTING_SETTING_DOUBLE_SIDED);
 				if (instance->lightmap_sh.size() == 9) {
 					geom->geometry_instance->set_lightmap_capture(instance->lightmap_sh.ptr());
@@ -682,19 +702,20 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 				reflection_probe->owner = instance;
 				instance->base_data = reflection_probe;
 
-				reflection_probe->instance = scene_render->reflection_probe_instance_create(p_base);
+				reflection_probe->instance = RSG::light_storage->reflection_probe_instance_create(p_base);
 			} break;
 			case RS::INSTANCE_DECAL: {
 				InstanceDecalData *decal = memnew(InstanceDecalData);
 				decal->owner = instance;
 				instance->base_data = decal;
 
-				decal->instance = scene_render->decal_instance_create(p_base);
+				decal->instance = RSG::texture_storage->decal_instance_create(p_base);
+				RSG::texture_storage->decal_instance_set_sorting_offset(decal->instance, instance->sorting_offset);
 			} break;
 			case RS::INSTANCE_LIGHTMAP: {
 				InstanceLightmapData *lightmap_data = memnew(InstanceLightmapData);
 				instance->base_data = lightmap_data;
-				lightmap_data->instance = scene_render->lightmap_instance_create(p_base);
+				lightmap_data->instance = RSG::light_storage->lightmap_instance_create(p_base);
 			} break;
 			case RS::INSTANCE_VOXEL_GI: {
 				InstanceVoxelGIData *voxel_gi = memnew(InstanceVoxelGIData);
@@ -732,7 +753,7 @@ void RendererSceneCull::instance_set_base(RID p_instance, RID p_base) {
 
 void RendererSceneCull::instance_set_scenario(RID p_instance, RID p_scenario) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->scenario) {
 		instance->scenario->instances.remove(&instance->scenario_item);
@@ -744,6 +765,10 @@ void RendererSceneCull::instance_set_scenario(RID p_instance, RID p_scenario) {
 		switch (instance->base_type) {
 			case RS::INSTANCE_LIGHT: {
 				InstanceLightData *light = static_cast<InstanceLightData *>(instance->base_data);
+				if (instance->visible && RSG::light_storage->light_get_type(instance->base) != RS::LIGHT_DIRECTIONAL && light->bake_mode == RS::LIGHT_BAKE_DYNAMIC) {
+					instance->scenario->dynamic_lights.erase(light->instance);
+				}
+
 #ifdef DEBUG_ENABLED
 				if (light->geometries.size()) {
 					ERR_PRINT("BUG, indexing did not unpair geometries from light.");
@@ -756,7 +781,7 @@ void RendererSceneCull::instance_set_scenario(RID p_instance, RID p_scenario) {
 			} break;
 			case RS::INSTANCE_REFLECTION_PROBE: {
 				InstanceReflectionProbeData *reflection_probe = static_cast<InstanceReflectionProbeData *>(instance->base_data);
-				scene_render->reflection_probe_release_atlas_index(reflection_probe->instance);
+				RSG::light_storage->reflection_probe_release_atlas_index(reflection_probe->instance);
 
 			} break;
 			case RS::INSTANCE_PARTICLES_COLLISION: {
@@ -794,7 +819,7 @@ void RendererSceneCull::instance_set_scenario(RID p_instance, RID p_scenario) {
 
 	if (p_scenario.is_valid()) {
 		Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-		ERR_FAIL_COND(!scenario);
+		ERR_FAIL_NULL(scenario);
 
 		instance->scenario = scenario;
 
@@ -827,7 +852,11 @@ void RendererSceneCull::instance_set_scenario(RID p_instance, RID p_scenario) {
 
 void RendererSceneCull::instance_set_layer_mask(RID p_instance, uint32_t p_mask) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
+
+	if (instance->layer_mask == p_mask) {
+		return;
+	}
 
 	instance->layer_mask = p_mask;
 	if (instance->scenario && instance->array_index >= 0) {
@@ -836,25 +865,51 @@ void RendererSceneCull::instance_set_layer_mask(RID p_instance, uint32_t p_mask)
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_layer_mask(p_mask);
+
+		if (geom->can_cast_shadows) {
+			for (HashSet<RendererSceneCull::Instance *>::Iterator I = geom->lights.begin(); I != geom->lights.end(); ++I) {
+				InstanceLightData *light = static_cast<InstanceLightData *>((*I)->base_data);
+				light->shadow_dirty = true;
+			}
+		}
+	}
+}
+
+void RendererSceneCull::instance_set_pivot_data(RID p_instance, float p_sorting_offset, bool p_use_aabb_center) {
+	Instance *instance = instance_owner.get_or_null(p_instance);
+	ERR_FAIL_NULL(instance);
+
+	instance->sorting_offset = p_sorting_offset;
+	instance->use_aabb_center = p_use_aabb_center;
+
+	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
+		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
+		geom->geometry_instance->set_pivot_data(p_sorting_offset, p_use_aabb_center);
+	} else if (instance->base_type == RS::INSTANCE_DECAL && instance->base_data) {
+		InstanceDecalData *decal = static_cast<InstanceDecalData *>(instance->base_data);
+		RSG::texture_storage->decal_instance_set_sorting_offset(decal->instance, instance->sorting_offset);
 	}
 }
 
 void RendererSceneCull::instance_geometry_set_transparency(RID p_instance, float p_transparency) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->transparency = p_transparency;
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_transparency(p_transparency);
 	}
 }
 
 void RendererSceneCull::instance_set_transform(RID p_instance, const Transform3D &p_transform) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->transform == p_transform) {
 		return; //must be checked to avoid worst evil
@@ -864,12 +919,7 @@ void RendererSceneCull::instance_set_transform(RID p_instance, const Transform3D
 
 	for (int i = 0; i < 4; i++) {
 		const Vector3 &v = i < 3 ? p_transform.basis.rows[i] : p_transform.origin;
-		ERR_FAIL_COND(Math::is_inf(v.x));
-		ERR_FAIL_COND(Math::is_nan(v.x));
-		ERR_FAIL_COND(Math::is_inf(v.y));
-		ERR_FAIL_COND(Math::is_nan(v.y));
-		ERR_FAIL_COND(Math::is_inf(v.z));
-		ERR_FAIL_COND(Math::is_nan(v.z));
+		ERR_FAIL_COND(!v.is_finite());
 	}
 
 #endif
@@ -879,14 +929,14 @@ void RendererSceneCull::instance_set_transform(RID p_instance, const Transform3D
 
 void RendererSceneCull::instance_attach_object_instance_id(RID p_instance, ObjectID p_id) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->object_id = p_id;
 }
 
 void RendererSceneCull::instance_set_blend_shape_weight(RID p_instance, int p_shape, float p_weight) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->update_item.in_list()) {
 		_update_dirty_instance(instance);
@@ -899,7 +949,7 @@ void RendererSceneCull::instance_set_blend_shape_weight(RID p_instance, int p_sh
 
 void RendererSceneCull::instance_set_surface_override_material(RID p_instance, int p_surface, RID p_material) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->base_type == RS::INSTANCE_MESH) {
 		//may not have been updated yet, may also have not been set yet. When updated will be correcte, worst case
@@ -915,7 +965,7 @@ void RendererSceneCull::instance_set_surface_override_material(RID p_instance, i
 
 void RendererSceneCull::instance_set_visible(RID p_instance, bool p_visible) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->visible == p_visible) {
 		return;
@@ -965,7 +1015,7 @@ inline bool is_geometry_instance(RenderingServer::InstanceType p_type) {
 
 void RendererSceneCull::instance_set_custom_aabb(RID p_instance, AABB p_aabb) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 	ERR_FAIL_COND(!is_geometry_instance(instance->base_type));
 
 	if (p_aabb != AABB()) {
@@ -990,7 +1040,7 @@ void RendererSceneCull::instance_set_custom_aabb(RID p_instance, AABB p_aabb) {
 
 void RendererSceneCull::instance_attach_skeleton(RID p_instance, RID p_skeleton) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->skeleton == p_skeleton) {
 		return;
@@ -1009,13 +1059,14 @@ void RendererSceneCull::instance_attach_skeleton(RID p_instance, RID p_skeleton)
 		_instance_update_mesh_instance(instance);
 
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_skeleton(p_skeleton);
 	}
 }
 
 void RendererSceneCull::instance_set_extra_visibility_margin(RID p_instance, real_t p_margin) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->extra_margin = p_margin;
 	_instance_queue_update(instance, true, false);
@@ -1023,7 +1074,7 @@ void RendererSceneCull::instance_set_extra_visibility_margin(RID p_instance, rea
 
 void RendererSceneCull::instance_set_ignore_culling(RID p_instance, bool p_enabled) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 	instance->ignore_all_culling = p_enabled;
 
 	if (instance->scenario && instance->array_index >= 0) {
@@ -1039,7 +1090,7 @@ void RendererSceneCull::instance_set_ignore_culling(RID p_instance, bool p_enabl
 Vector<ObjectID> RendererSceneCull::instances_cull_aabb(const AABB &p_aabb, RID p_scenario) const {
 	Vector<ObjectID> instances;
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND_V(!scenario, instances);
+	ERR_FAIL_NULL_V(scenario, instances);
 
 	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
 
@@ -1063,7 +1114,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_aabb(const AABB &p_aabb, RID 
 Vector<ObjectID> RendererSceneCull::instances_cull_ray(const Vector3 &p_from, const Vector3 &p_to, RID p_scenario) const {
 	Vector<ObjectID> instances;
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND_V(!scenario, instances);
+	ERR_FAIL_NULL_V(scenario, instances);
 	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
 
 	struct CullRay {
@@ -1086,7 +1137,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_ray(const Vector3 &p_from, co
 Vector<ObjectID> RendererSceneCull::instances_cull_convex(const Vector<Plane> &p_convex, RID p_scenario) const {
 	Vector<ObjectID> instances;
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
-	ERR_FAIL_COND_V(!scenario, instances);
+	ERR_FAIL_NULL_V(scenario, instances);
 	const_cast<RendererSceneCull *>(this)->update_dirty_instances(); // check dirty instances before culling
 
 	Vector<Vector3> points = Geometry3D::compute_convex_mesh_points(&p_convex[0], p_convex.size());
@@ -1110,7 +1161,7 @@ Vector<ObjectID> RendererSceneCull::instances_cull_convex(const Vector<Plane> &p
 
 void RendererSceneCull::instance_geometry_set_flag(RID p_instance, RS::InstanceFlags p_flags, bool p_enabled) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	//ERR_FAIL_COND(((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK));
 
@@ -1129,6 +1180,7 @@ void RendererSceneCull::instance_geometry_set_flag(RID p_instance, RS::InstanceF
 
 			if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 				InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+				ERR_FAIL_NULL(geom->geometry_instance);
 				geom->geometry_instance->set_use_baked_light(p_enabled);
 			}
 
@@ -1149,6 +1201,7 @@ void RendererSceneCull::instance_geometry_set_flag(RID p_instance, RS::InstanceF
 
 			if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 				InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+				ERR_FAIL_NULL(geom->geometry_instance);
 				geom->geometry_instance->set_use_dynamic_gi(p_enabled);
 			}
 
@@ -1185,7 +1238,7 @@ void RendererSceneCull::instance_geometry_set_flag(RID p_instance, RS::InstanceF
 
 void RendererSceneCull::instance_geometry_set_cast_shadows_setting(RID p_instance, RS::ShadowCastingSetting p_shadow_casting_setting) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->cast_shadows = p_shadow_casting_setting;
 
@@ -1207,6 +1260,8 @@ void RendererSceneCull::instance_geometry_set_cast_shadows_setting(RID p_instanc
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
+
 		geom->geometry_instance->set_cast_double_sided_shadows(instance->cast_shadows == RS::SHADOW_CASTING_SETTING_DOUBLE_SIDED);
 	}
 
@@ -1215,33 +1270,35 @@ void RendererSceneCull::instance_geometry_set_cast_shadows_setting(RID p_instanc
 
 void RendererSceneCull::instance_geometry_set_material_override(RID p_instance, RID p_material) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->material_override = p_material;
 	_instance_queue_update(instance, false, true);
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_material_override(p_material);
 	}
 }
 
 void RendererSceneCull::instance_geometry_set_material_overlay(RID p_instance, RID p_material) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->material_overlay = p_material;
 	_instance_queue_update(instance, false, true);
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_material_overlay(p_material);
 	}
 }
 
 void RendererSceneCull::instance_geometry_set_visibility_range(RID p_instance, float p_min, float p_max, float p_min_margin, float p_max_margin, RS::VisibilityRangeFadeMode p_fade_mode) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->visibility_range_begin = p_min;
 	instance->visibility_range_end = p_max;
@@ -1263,7 +1320,7 @@ void RendererSceneCull::instance_geometry_set_visibility_range(RID p_instance, f
 
 void RendererSceneCull::instance_set_visibility_parent(RID p_instance, RID p_parent_instance) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	Instance *old_parent = instance->visibility_parent;
 	if (old_parent) {
@@ -1383,7 +1440,7 @@ void RendererSceneCull::_update_instance_visibility_dependencies(Instance *p_ins
 
 void RendererSceneCull::instance_geometry_set_lightmap(RID p_instance, RID p_lightmap, const Rect2 &p_lightmap_uv_scale, int p_slice_index) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	if (instance->lightmap) {
 		InstanceLightmapData *lightmap_data = static_cast<InstanceLightmapData *>(((Instance *)instance->lightmap)->base_data);
@@ -1407,25 +1464,27 @@ void RendererSceneCull::instance_geometry_set_lightmap(RID p_instance, RID p_lig
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_use_lightmap(lightmap_instance_rid, p_lightmap_uv_scale, p_slice_index);
 	}
 }
 
 void RendererSceneCull::instance_geometry_set_lod_bias(RID p_instance, float p_lod_bias) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	instance->lod_bias = p_lod_bias;
 
 	if ((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK && instance->base_data) {
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_lod_bias(p_lod_bias);
 	}
 }
 
-void RendererSceneCull::instance_geometry_set_shader_uniform(RID p_instance, const StringName &p_parameter, const Variant &p_value) {
+void RendererSceneCull::instance_geometry_set_shader_parameter(RID p_instance, const StringName &p_parameter, const Variant &p_value) {
 	Instance *instance = instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	ERR_FAIL_COND(p_value.get_type() == Variant::OBJECT);
 
@@ -1440,15 +1499,30 @@ void RendererSceneCull::instance_geometry_set_shader_uniform(RID p_instance, con
 	} else {
 		E->value.value = p_value;
 		if (E->value.index >= 0 && instance->instance_allocated_shader_uniforms) {
+			int flags_count = 0;
+			if (E->value.info.hint == PROPERTY_HINT_FLAGS) {
+				// A small hack to detect boolean flags count and prevent overhead.
+				switch (E->value.info.hint_string.length()) {
+					case 3: // "x,y"
+						flags_count = 1;
+						break;
+					case 5: // "x,y,z"
+						flags_count = 2;
+						break;
+					case 7: // "x,y,z,w"
+						flags_count = 3;
+						break;
+				}
+			}
 			//update directly
-			RSG::material_storage->global_shader_uniforms_instance_update(p_instance, E->value.index, p_value);
+			RSG::material_storage->global_shader_parameters_instance_update(p_instance, E->value.index, p_value, flags_count);
 		}
 	}
 }
 
-Variant RendererSceneCull::instance_geometry_get_shader_uniform(RID p_instance, const StringName &p_parameter) const {
+Variant RendererSceneCull::instance_geometry_get_shader_parameter(RID p_instance, const StringName &p_parameter) const {
 	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND_V(!instance, Variant());
+	ERR_FAIL_NULL_V(instance, Variant());
 
 	if (instance->instance_shader_uniforms.has(p_parameter)) {
 		return instance->instance_shader_uniforms[p_parameter].value;
@@ -1456,9 +1530,9 @@ Variant RendererSceneCull::instance_geometry_get_shader_uniform(RID p_instance, 
 	return Variant();
 }
 
-Variant RendererSceneCull::instance_geometry_get_shader_uniform_default_value(RID p_instance, const StringName &p_parameter) const {
+Variant RendererSceneCull::instance_geometry_get_shader_parameter_default_value(RID p_instance, const StringName &p_parameter) const {
 	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND_V(!instance, Variant());
+	ERR_FAIL_NULL_V(instance, Variant());
 
 	if (instance->instance_shader_uniforms.has(p_parameter)) {
 		return instance->instance_shader_uniforms[p_parameter].default_value;
@@ -1466,9 +1540,9 @@ Variant RendererSceneCull::instance_geometry_get_shader_uniform_default_value(RI
 	return Variant();
 }
 
-void RendererSceneCull::instance_geometry_get_shader_uniform_list(RID p_instance, List<PropertyInfo> *p_parameters) const {
+void RendererSceneCull::instance_geometry_get_shader_parameter_list(RID p_instance, List<PropertyInfo> *p_parameters) const {
 	const Instance *instance = const_cast<RendererSceneCull *>(this)->instance_owner.get_or_null(p_instance);
-	ERR_FAIL_COND(!instance);
+	ERR_FAIL_NULL(instance);
 
 	const_cast<RendererSceneCull *>(this)->update_dirty_instances();
 
@@ -1489,8 +1563,8 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 	if (p_instance->base_type == RS::INSTANCE_LIGHT) {
 		InstanceLightData *light = static_cast<InstanceLightData *>(p_instance->base_data);
 
-		scene_render->light_instance_set_transform(light->instance, p_instance->transform);
-		scene_render->light_instance_set_aabb(light->instance, p_instance->transform.xform(p_instance->aabb));
+		RSG::light_storage->light_instance_set_transform(light->instance, p_instance->transform);
+		RSG::light_storage->light_instance_set_aabb(light->instance, p_instance->transform.xform(p_instance->aabb));
 		light->shadow_dirty = true;
 
 		RS::LightBakeMode bake_mode = RSG::light_storage->light_get_bake_mode(p_instance->base);
@@ -1513,7 +1587,7 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 	} else if (p_instance->base_type == RS::INSTANCE_REFLECTION_PROBE) {
 		InstanceReflectionProbeData *reflection_probe = static_cast<InstanceReflectionProbeData *>(p_instance->base_data);
 
-		scene_render->reflection_probe_instance_set_transform(reflection_probe->instance, p_instance->transform);
+		RSG::light_storage->reflection_probe_instance_set_transform(reflection_probe->instance, p_instance->transform);
 
 		if (p_instance->scenario && p_instance->array_index >= 0) {
 			InstanceData &idata = p_instance->scenario->instance_data[p_instance->array_index];
@@ -1522,11 +1596,11 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 	} else if (p_instance->base_type == RS::INSTANCE_DECAL) {
 		InstanceDecalData *decal = static_cast<InstanceDecalData *>(p_instance->base_data);
 
-		scene_render->decal_instance_set_transform(decal->instance, p_instance->transform);
+		RSG::texture_storage->decal_instance_set_transform(decal->instance, p_instance->transform);
 	} else if (p_instance->base_type == RS::INSTANCE_LIGHTMAP) {
 		InstanceLightmapData *lightmap = static_cast<InstanceLightmapData *>(p_instance->base_data);
 
-		scene_render->lightmap_instance_set_transform(lightmap->instance, p_instance->transform);
+		RSG::light_storage->lightmap_instance_set_transform(lightmap->instance, p_instance->transform);
 	} else if (p_instance->base_type == RS::INSTANCE_VOXEL_GI) {
 		InstanceVoxelGIData *voxel_gi = static_cast<InstanceVoxelGIData *>(p_instance->base_data);
 
@@ -1550,7 +1624,7 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 		}
 	}
 
-	if (p_instance->aabb.has_no_surface()) {
+	if (!p_instance->aabb.has_surface()) {
 		return;
 	}
 
@@ -1587,10 +1661,12 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 			if (!p_instance->lightmap_sh.is_empty()) {
 				p_instance->lightmap_sh.clear(); //don't need SH
 				p_instance->lightmap_target_sh.clear(); //don't need SH
+				ERR_FAIL_NULL(geom->geometry_instance);
 				geom->geometry_instance->set_lightmap_capture(nullptr);
 			}
 		}
 
+		ERR_FAIL_NULL(geom->geometry_instance);
 		geom->geometry_instance->set_transform(p_instance->transform, p_instance->aabb, p_instance->transformed_aabb);
 	}
 
@@ -1727,6 +1803,7 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 	pair.pair_allocator = &pair_allocator;
 	pair.pair_pass = pair_pass;
 	pair.pair_mask = 0;
+	pair.cull_mask = 0xFFFFFFFF;
 
 	if ((1 << p_instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) {
 		pair.pair_mask |= 1 << RS::INSTANCE_LIGHT;
@@ -1743,16 +1820,19 @@ void RendererSceneCull::_update_instance(Instance *p_instance) {
 		pair.pair_mask |= RS::INSTANCE_GEOMETRY_MASK;
 		pair.bvh = &p_instance->scenario->indexers[Scenario::INDEXER_GEOMETRY];
 
-		if (RSG::light_storage->light_get_bake_mode(p_instance->base) == RS::LIGHT_BAKE_DYNAMIC) {
+		RS::LightBakeMode bake_mode = RSG::light_storage->light_get_bake_mode(p_instance->base);
+		if (bake_mode == RS::LIGHT_BAKE_STATIC || bake_mode == RS::LIGHT_BAKE_DYNAMIC) {
 			pair.pair_mask |= (1 << RS::INSTANCE_VOXEL_GI);
 			pair.bvh2 = &p_instance->scenario->indexers[Scenario::INDEXER_VOLUMES];
 		}
+		pair.cull_mask = RSG::light_storage->light_get_cull_mask(p_instance->base);
 	} else if (geometry_instance_pair_mask & (1 << RS::INSTANCE_REFLECTION_PROBE) && (p_instance->base_type == RS::INSTANCE_REFLECTION_PROBE)) {
 		pair.pair_mask = RS::INSTANCE_GEOMETRY_MASK;
 		pair.bvh = &p_instance->scenario->indexers[Scenario::INDEXER_GEOMETRY];
 	} else if (geometry_instance_pair_mask & (1 << RS::INSTANCE_DECAL) && (p_instance->base_type == RS::INSTANCE_DECAL)) {
 		pair.pair_mask = RS::INSTANCE_GEOMETRY_MASK;
 		pair.bvh = &p_instance->scenario->indexers[Scenario::INDEXER_GEOMETRY];
+		pair.cull_mask = RSG::texture_storage->decal_get_cull_mask(p_instance->base);
 	} else if (p_instance->base_type == RS::INSTANCE_PARTICLES_COLLISION) {
 		pair.pair_mask = (1 << RS::INSTANCE_PARTICLES);
 		pair.bvh = &p_instance->scenario->indexers[Scenario::INDEXER_GEOMETRY];
@@ -1817,6 +1897,7 @@ void RendererSceneCull::_unpair_instance(Instance *p_instance) {
 	if ((1 << p_instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) {
 		// Clear these now because the InstanceData containing the dirty flags is gone
 		InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(p_instance->base_data);
+		ERR_FAIL_NULL(geom->geometry_instance);
 
 		geom->geometry_instance->pair_light_instances(nullptr, 0);
 		geom->geometry_instance->pair_reflection_probe_instances(nullptr, 0);
@@ -1905,7 +1986,6 @@ void RendererSceneCull::_update_instance_aabb(Instance *p_instance) {
 		}
 	}
 
-	// <Zylann> This is why I didn't re-use Instance::aabb to implement custom AABBs
 	if (p_instance->extra_margin) {
 		new_aabb.grow_by(p_instance->extra_margin);
 	}
@@ -1990,6 +2070,7 @@ void RendererSceneCull::_update_instance_lightmap_captures(Instance *p_instance)
 		}
 	}
 
+	ERR_FAIL_NULL(geom->geometry_instance);
 	geom->geometry_instance->set_lightmap_capture(p_instance->lightmap_sh.ptr());
 }
 
@@ -2033,7 +2114,7 @@ void RendererSceneCull::_light_instance_setup_directional_shadow(int p_shadow_in
 
 	distances[splits] = max_distance;
 
-	real_t texture_size = scene_render->get_directional_light_shadow_size(light->instance);
+	real_t texture_size = RSG::light_storage->get_directional_light_shadow_size(light->instance);
 
 	bool overlap = RSG::light_storage->light_directional_get_blend_splits(p_instance->base);
 
@@ -2146,7 +2227,7 @@ void RendererSceneCull::_light_instance_setup_directional_shadow(int p_shadow_in
 
 				if (soft_shadow_angle > 0.0) {
 					float z_range = (z_vec.dot(center) + radius + pancake_size) - z_min_cam;
-					soft_shadow_expand = Math::tan(Math::deg2rad(soft_shadow_angle)) * z_range;
+					soft_shadow_expand = Math::tan(Math::deg_to_rad(soft_shadow_angle)) * z_range;
 
 					x_max += soft_shadow_expand;
 					y_max += soft_shadow_expand;
@@ -2158,7 +2239,7 @@ void RendererSceneCull::_light_instance_setup_directional_shadow(int p_shadow_in
 
 			// This trick here is what stabilizes the shadow (make potential jaggies to not move)
 			// at the cost of some wasted resolution. Still, the quality increase is very well worth it.
-			const real_t unit = (radius + soft_shadow_expand) * 2.0 / texture_size;
+			const real_t unit = (radius + soft_shadow_expand) * 4.0 / texture_size;
 			x_max_cam = Math::snapped(x_vec.dot(center) + radius + soft_shadow_expand, unit);
 			x_min_cam = Math::snapped(x_vec.dot(center) - radius - soft_shadow_expand, unit);
 			y_max_cam = Math::snapped(y_vec.dot(center) + radius + soft_shadow_expand, unit);
@@ -2210,7 +2291,7 @@ void RendererSceneCull::_light_instance_setup_directional_shadow(int p_shadow_in
 	}
 }
 
-bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, const Transform3D p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, bool p_cam_vaspect, RID p_shadow_atlas, Scenario *p_scenario, float p_screen_mesh_lod_threshold) {
+bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, const Transform3D p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, bool p_cam_vaspect, RID p_shadow_atlas, Scenario *p_scenario, float p_screen_mesh_lod_threshold, uint32_t p_visible_layers) {
 	InstanceLightData *light = static_cast<InstanceLightData *>(p_instance->base_data);
 
 	Transform3D light_transform = p_instance->transform;
@@ -2224,7 +2305,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 		case RS::LIGHT_OMNI: {
 			RS::LightOmniShadowMode shadow_mode = RSG::light_storage->light_omni_get_shadow_mode(p_instance->base);
 
-			if (shadow_mode == RS::LIGHT_OMNI_SHADOW_DUAL_PARABOLOID || !scene_render->light_instances_can_render_shadow_cube()) {
+			if (shadow_mode == RS::LIGHT_OMNI_SHADOW_DUAL_PARABOLOID || !RSG::light_storage->light_instances_can_render_shadow_cube()) {
 				if (max_shadows_used + 2 > MAX_UPDATE_SHADOWS) {
 					return true;
 				}
@@ -2266,7 +2347,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 
 					for (int j = 0; j < (int)instance_shadow_cull_result.size(); j++) {
 						Instance *instance = instance_shadow_cull_result[j];
-						if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows) {
+						if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows || !(p_visible_layers & instance->layer_mask)) {
 							continue;
 						} else {
 							if (static_cast<InstanceGeometryData *>(instance->base_data)->material_is_animated) {
@@ -2283,7 +2364,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 
 					RSG::mesh_storage->update_mesh_instances();
 
-					scene_render->light_instance_set_shadow_transform(light->instance, Projection(), light_transform, radius, 0, i, 0);
+					RSG::light_storage->light_instance_set_shadow_transform(light->instance, Projection(), light_transform, radius, 0, i, 0);
 					shadow_data.light = light->instance;
 					shadow_data.pass = i;
 				}
@@ -2344,7 +2425,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 
 					for (int j = 0; j < (int)instance_shadow_cull_result.size(); j++) {
 						Instance *instance = instance_shadow_cull_result[j];
-						if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows) {
+						if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows || !(p_visible_layers & instance->layer_mask)) {
 							continue;
 						} else {
 							if (static_cast<InstanceGeometryData *>(instance->base_data)->material_is_animated) {
@@ -2359,14 +2440,14 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 					}
 
 					RSG::mesh_storage->update_mesh_instances();
-					scene_render->light_instance_set_shadow_transform(light->instance, cm, xform, radius, 0, i, 0);
+					RSG::light_storage->light_instance_set_shadow_transform(light->instance, cm, xform, radius, 0, i, 0);
 
 					shadow_data.light = light->instance;
 					shadow_data.pass = i;
 				}
 
 				//restore the regular DP matrix
-				//scene_render->light_instance_set_shadow_transform(light->instance, Projection(), light_transform, radius, 0, 0, 0);
+				//RSG::light_storage->light_instance_set_shadow_transform(light->instance, Projection(), light_transform, radius, 0, 0, 0);
 			}
 
 		} break;
@@ -2407,7 +2488,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 
 			for (int j = 0; j < (int)instance_shadow_cull_result.size(); j++) {
 				Instance *instance = instance_shadow_cull_result[j];
-				if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows) {
+				if (!instance->visible || !((1 << instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) || !static_cast<InstanceGeometryData *>(instance->base_data)->can_cast_shadows || !(p_visible_layers & instance->layer_mask)) {
 					continue;
 				} else {
 					if (static_cast<InstanceGeometryData *>(instance->base_data)->material_is_animated) {
@@ -2423,7 +2504,7 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 
 			RSG::mesh_storage->update_mesh_instances();
 
-			scene_render->light_instance_set_shadow_transform(light->instance, cm, light_transform, radius, 0, 0, 0);
+			RSG::light_storage->light_instance_set_shadow_transform(light->instance, cm, light_transform, radius, 0, 0, 0);
 			shadow_data.light = light->instance;
 			shadow_data.pass = 0;
 
@@ -2433,15 +2514,26 @@ bool RendererSceneCull::_light_instance_update_shadow(Instance *p_instance, cons
 	return animated_material_found;
 }
 
-void RendererSceneCull::render_camera(RID p_render_buffers, RID p_camera, RID p_scenario, RID p_viewport, Size2 p_viewport_size, bool p_use_taa, float p_screen_mesh_lod_threshold, RID p_shadow_atlas, Ref<XRInterface> &p_xr_interface, RenderInfo *r_render_info) {
+void RendererSceneCull::render_camera(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_camera, RID p_scenario, RID p_viewport, Size2 p_viewport_size, uint32_t p_jitter_phase_count, float p_screen_mesh_lod_threshold, RID p_shadow_atlas, Ref<XRInterface> &p_xr_interface, RenderInfo *r_render_info) {
 #ifndef _3D_DISABLED
 
 	Camera *camera = camera_owner.get_or_null(p_camera);
-	ERR_FAIL_COND(!camera);
+	ERR_FAIL_NULL(camera);
 
 	Vector2 jitter;
-	if (p_use_taa) {
-		jitter = taa_jitter_array[RSG::rasterizer->get_frame_number() % TAA_JITTER_COUNT] / p_viewport_size;
+	if (p_jitter_phase_count > 0) {
+		uint32_t current_jitter_count = camera_jitter_array.size();
+		if (p_jitter_phase_count != current_jitter_count) {
+			// Resize the jitter array and fill it with the pre-computed Halton sequence.
+			camera_jitter_array.resize(p_jitter_phase_count);
+
+			for (uint32_t i = current_jitter_count; i < p_jitter_phase_count; i++) {
+				camera_jitter_array[i].x = get_halton_value(i, 2);
+				camera_jitter_array[i].y = get_halton_value(i, 3);
+			}
+		}
+
+		jitter = camera_jitter_array[RSG::rasterizer->get_frame_number() % p_jitter_phase_count] / p_viewport_size;
 	}
 
 	RendererSceneRender::CameraData camera_data;
@@ -2484,7 +2576,7 @@ void RendererSceneCull::render_camera(RID p_render_buffers, RID p_camera, RID p_
 			} break;
 		}
 
-		camera_data.set_camera(transform, projection, is_orthogonal, vaspect, jitter);
+		camera_data.set_camera(transform, projection, is_orthogonal, vaspect, jitter, camera->visible_layers);
 	} else {
 		// Setup our camera for our XR interface.
 		// We can support multiple views here each with their own camera
@@ -2492,7 +2584,7 @@ void RendererSceneCull::render_camera(RID p_render_buffers, RID p_camera, RID p_
 		Projection projections[RendererSceneRender::MAX_RENDER_VIEWS];
 
 		uint32_t view_count = p_xr_interface->get_view_count();
-		ERR_FAIL_COND_MSG(view_count > RendererSceneRender::MAX_RENDER_VIEWS, "Requested view count is not supported");
+		ERR_FAIL_COND_MSG(view_count == 0 || view_count > RendererSceneRender::MAX_RENDER_VIEWS, "Requested view count is not supported");
 
 		float aspect = p_viewport_size.width / (float)p_viewport_size.height;
 
@@ -2506,7 +2598,7 @@ void RendererSceneCull::render_camera(RID p_render_buffers, RID p_camera, RID p_
 		}
 
 		if (view_count == 1) {
-			camera_data.set_camera(transforms[0], projections[0], false, camera->vaspect, jitter);
+			camera_data.set_camera(transforms[0], projections[0], false, camera->vaspect, jitter, camera->visible_layers);
 		} else if (view_count == 2) {
 			camera_data.set_multiview_camera(view_count, transforms, projections, false, camera->vaspect);
 		} else {
@@ -2520,7 +2612,7 @@ void RendererSceneCull::render_camera(RID p_render_buffers, RID p_camera, RID p_
 	// For now just cull on the first camera
 	RendererSceneOcclusionCull::get_singleton()->buffer_update(p_viewport, camera_data.main_transform, camera_data.main_projection, camera_data.is_orthogonal);
 
-	_render_scene(&camera_data, p_render_buffers, environment, camera->effects, camera->visible_layers, p_scenario, p_viewport, p_shadow_atlas, RID(), -1, p_screen_mesh_lod_threshold, true, r_render_info);
+	_render_scene(&camera_data, p_render_buffers, environment, camera->attributes, camera->visible_layers, p_scenario, p_viewport, p_shadow_atlas, RID(), -1, p_screen_mesh_lod_threshold, true, r_render_info);
 #endif
 }
 
@@ -2663,14 +2755,14 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 					cull_result.lights.push_back(idata.instance);
 					cull_result.light_instances.push_back(RID::from_uint64(idata.instance_data_rid));
 					if (cull_data.shadow_atlas.is_valid() && RSG::light_storage->light_has_shadow(idata.base_rid)) {
-						scene_render->light_instance_mark_visible(RID::from_uint64(idata.instance_data_rid)); //mark it visible for shadow allocation later
+						RSG::light_storage->light_instance_mark_visible(RID::from_uint64(idata.instance_data_rid)); //mark it visible for shadow allocation later
 					}
 
 				} else if (base_type == RS::INSTANCE_REFLECTION_PROBE) {
 					if (cull_data.render_reflection_probe != idata.instance) {
 						//avoid entering The Matrix
 
-						if ((idata.flags & InstanceData::FLAG_REFLECTION_PROBE_DIRTY) || scene_render->reflection_probe_instance_needs_redraw(RID::from_uint64(idata.instance_data_rid))) {
+						if ((idata.flags & InstanceData::FLAG_REFLECTION_PROBE_DIRTY) || RSG::light_storage->reflection_probe_instance_needs_redraw(RID::from_uint64(idata.instance_data_rid))) {
 							InstanceReflectionProbeData *reflection_probe = static_cast<InstanceReflectionProbeData *>(idata.instance->base_data);
 							cull_data.cull->lock.lock();
 							if (!reflection_probe->update_list.in_list()) {
@@ -2682,7 +2774,7 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 							idata.flags &= ~uint32_t(InstanceData::FLAG_REFLECTION_PROBE_DIRTY);
 						}
 
-						if (scene_render->reflection_probe_instance_has_reflection(RID::from_uint64(idata.instance_data_rid))) {
+						if (RSG::light_storage->reflection_probe_instance_has_reflection(RID::from_uint64(idata.instance_data_rid))) {
 							cull_result.reflections.push_back(RID::from_uint64(idata.instance_data_rid));
 						}
 					}
@@ -2757,6 +2849,7 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 							}
 						}
 
+						ERR_FAIL_NULL(geom->geometry_instance);
 						geom->geometry_instance->pair_light_instances(instance_pair_buffer, idx);
 						idata.flags &= ~uint32_t(InstanceData::FLAG_GEOM_LIGHTING_DIRTY);
 					}
@@ -2764,7 +2857,10 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 					if (idata.flags & InstanceData::FLAG_GEOM_PROJECTOR_SOFTSHADOW_DIRTY) {
 						InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(idata.instance->base_data);
 
+						ERR_FAIL_NULL(geom->geometry_instance);
+						cull_data.cull->lock.lock();
 						geom->geometry_instance->set_softshadow_projector_pairing(geom->softshadow_count > 0, geom->projector_count > 0);
+						cull_data.cull->lock.unlock();
 						idata.flags &= ~uint32_t(InstanceData::FLAG_GEOM_PROJECTOR_SOFTSHADOW_DIRTY);
 					}
 
@@ -2781,6 +2877,7 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 							}
 						}
 
+						ERR_FAIL_NULL(geom->geometry_instance);
 						geom->geometry_instance->pair_reflection_probe_instances(instance_pair_buffer, idx);
 						idata.flags &= ~uint32_t(InstanceData::FLAG_GEOM_REFLECTION_DIRTY);
 					}
@@ -2797,7 +2894,10 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 								break;
 							}
 						}
+
+						ERR_FAIL_NULL(geom->geometry_instance);
 						geom->geometry_instance->pair_decal_instances(instance_pair_buffer, idx);
+
 						idata.flags &= ~uint32_t(InstanceData::FLAG_GEOM_DECAL_DIRTY);
 					}
 
@@ -2813,7 +2913,9 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 							}
 						}
 
+						ERR_FAIL_NULL(geom->geometry_instance);
 						geom->geometry_instance->pair_voxel_gi_instances(instance_pair_buffer, idx);
+
 						idata.flags &= ~uint32_t(InstanceData::FLAG_GEOM_VOXEL_GI_DIRTY);
 					}
 
@@ -2824,7 +2926,10 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 						for (uint32_t j = 0; j < 9; j++) {
 							sh[j] = sh[j].lerp(target_sh[j], MIN(1.0, lightmap_probe_update_speed));
 						}
+						ERR_FAIL_NULL(geom->geometry_instance);
+						cull_data.cull->lock.lock();
 						geom->geometry_instance->set_lightmap_capture(sh);
+						cull_data.cull->lock.unlock();
 						idata.instance->last_frame_pass = frame_number;
 					}
 
@@ -2839,7 +2944,7 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 					if (IN_FRUSTUM(cull_data.cull->shadows[j].cascades[k].frustum) && VIS_CHECK) {
 						uint32_t base_type = idata.flags & InstanceData::FLAG_BASE_TYPE_MASK;
 
-						if (((1 << base_type) & RS::INSTANCE_GEOMETRY_MASK) && idata.flags & InstanceData::FLAG_CAST_SHADOWS) {
+						if (((1 << base_type) & RS::INSTANCE_GEOMETRY_MASK) && idata.flags & InstanceData::FLAG_CAST_SHADOWS && LAYER_CHECK) {
 							cull_result.directional_shadows[j].cascade_geometry_instances[k].push_back(idata.instance_geometry);
 							mesh_visible = true;
 						}
@@ -2884,16 +2989,18 @@ void RendererSceneCull::_scene_cull(CullData &cull_data, InstanceCullResult &cul
 	}
 }
 
-void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_camera_data, RID p_render_buffers, RID p_environment, RID p_force_camera_effects, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, bool p_using_shadows, RendererScene::RenderInfo *r_render_info) {
+void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_camera_data, const Ref<RenderSceneBuffers> &p_render_buffers, RID p_environment, RID p_force_camera_attributes, uint32_t p_visible_layers, RID p_scenario, RID p_viewport, RID p_shadow_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold, bool p_using_shadows, RenderingMethod::RenderInfo *r_render_info) {
 	Instance *render_reflection_probe = instance_owner.get_or_null(p_reflection_probe); //if null, not rendering to it
 
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
+
+	ERR_FAIL_COND(p_render_buffers.is_null());
 
 	render_pass++;
 
 	scene_render->set_scene_pass(render_pass);
 
-	if (p_render_buffers.is_valid()) {
+	if (p_reflection_probe.is_null()) {
 		//no rendering code here, this is only to set up what needs to be done, request regions, etc.
 		scene_render->sdfgi_update(p_render_buffers, p_environment, p_camera_data->main_transform.origin); //update conditions for SDFGI (whether its used or not)
 	}
@@ -2965,7 +3072,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 			}
 		}
 
-		scene_render->set_directional_shadow_count(lights_with_shadow.size());
+		RSG::light_storage->set_directional_shadow_count(lights_with_shadow.size());
 
 		for (int i = 0; i < lights_with_shadow.size(); i++) {
 			_light_instance_setup_directional_shadow(i, lights_with_shadow[i], p_camera_data->main_transform, p_camera_data->main_projection, p_camera_data->is_orthogonal, p_camera_data->vaspect);
@@ -2975,7 +3082,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	{ //sdfgi
 		cull.sdfgi.region_count = 0;
 
-		if (p_render_buffers.is_valid()) {
+		if (p_reflection_probe.is_null()) {
 			cull.sdfgi.cascade_light_count = 0;
 
 			uint32_t prev_cascade = 0xFFFFFFFF;
@@ -3021,15 +3128,15 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 #endif
 		if (cull_to > thread_cull_threshold) {
 			//multiple threads
-			for (uint32_t i = 0; i < scene_cull_result_threads.size(); i++) {
-				scene_cull_result_threads[i].clear();
+			for (InstanceCullResult &thread : scene_cull_result_threads) {
+				thread.clear();
 			}
 
 			WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &RendererSceneCull::_scene_cull_threaded, &cull_data, scene_cull_result_threads.size(), -1, true, SNAME("RenderCullInstances"));
 			WorkerThreadPool::get_singleton()->wait_for_group_task_completion(group_task);
 
-			for (uint32_t i = 0; i < scene_cull_result_threads.size(); i++) {
-				scene_cull_result.append_from(scene_cull_result_threads[i]);
+			for (InstanceCullResult &thread : scene_cull_result_threads) {
+				scene_cull_result.append_from(thread);
 			}
 
 		} else {
@@ -3065,7 +3172,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 			for (uint32_t j = 0; j < cull.shadows[i].cascade_count; j++) {
 				const Cull::Shadow::Cascade &c = cull.shadows[i].cascades[j];
 				//			print_line("shadow " + itos(i) + " cascade " + itos(j) + " elements: " + itos(c.cull_result.size()));
-				scene_render->light_instance_set_shadow_transform(cull.shadows[i].light_instance, c.projection, c.transform, c.zfar, c.split, j, c.shadow_texel_size, c.bias_scale, c.range_begin, c.uv_scale);
+				RSG::light_storage->light_instance_set_shadow_transform(cull.shadows[i].light_instance, c.projection, c.transform, c.zfar, c.split, j, c.shadow_texel_size, c.bias_scale, c.range_begin, c.uv_scale);
 				if (max_shadows_used == MAX_UPDATE_SHADOWS) {
 					continue;
 				}
@@ -3125,8 +3232,8 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 						float radius = RSG::light_storage->light_get_param(ins->base, RS::LIGHT_PARAM_RANGE);
 						float angle = RSG::light_storage->light_get_param(ins->base, RS::LIGHT_PARAM_SPOT_ANGLE);
 
-						float w = radius * Math::sin(Math::deg2rad(angle));
-						float d = radius * Math::cos(Math::deg2rad(angle));
+						float w = radius * Math::sin(Math::deg_to_rad(angle));
+						float d = radius * Math::cos(Math::deg_to_rad(angle));
 
 						Vector3 base = ins->transform.origin - ins->transform.basis.get_column(2).normalized() * d;
 
@@ -3161,12 +3268,12 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 				light->shadow_dirty = false;
 			}
 
-			bool redraw = scene_render->shadow_atlas_update_light(p_shadow_atlas, light->instance, coverage, light->last_version);
+			bool redraw = RSG::light_storage->shadow_atlas_update_light(p_shadow_atlas, light->instance, coverage, light->last_version);
 
 			if (redraw && max_shadows_used < MAX_UPDATE_SHADOWS) {
 				//must redraw!
 				RENDER_TIMESTAMP("> Render Light3D " + itos(i));
-				light->shadow_dirty = _light_instance_update_shadow(ins, p_camera_data->main_transform, p_camera_data->main_projection, p_camera_data->is_orthogonal, p_camera_data->vaspect, p_shadow_atlas, scenario, p_screen_mesh_lod_threshold);
+				light->shadow_dirty = _light_instance_update_shadow(ins, p_camera_data->main_transform, p_camera_data->main_projection, p_camera_data->is_orthogonal, p_camera_data->vaspect, p_shadow_atlas, scenario, p_screen_mesh_lod_threshold, p_visible_layers);
 				RENDER_TIMESTAMP("< Render Light3D " + itos(i));
 			} else {
 				light->shadow_dirty = redraw;
@@ -3177,6 +3284,8 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	//render SDFGI
 
 	{
+		// Q: Should this whole block be skipped if we're rendering our reflection probe?
+
 		sdfgi_update_data.update_static = false;
 
 		if (cull.sdfgi.region_count > 0) {
@@ -3202,7 +3311,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 			}
 		}
 
-		if (p_render_buffers.is_valid()) {
+		if (p_reflection_probe.is_null()) {
 			sdfgi_update_data.directional_lights = &directional_lights;
 			sdfgi_update_data.positional_light_instances = scenario->dynamic_lights.ptr();
 			sdfgi_update_data.positional_light_count = scenario->dynamic_lights.size();
@@ -3214,11 +3323,11 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 		scene_cull_result.light_instances.push_back(directional_lights[i]);
 	}
 
-	RID camera_effects;
-	if (p_force_camera_effects.is_valid()) {
-		camera_effects = p_force_camera_effects;
+	RID camera_attributes;
+	if (p_force_camera_attributes.is_valid()) {
+		camera_attributes = p_force_camera_attributes;
 	} else {
-		camera_effects = scenario->camera_effects;
+		camera_attributes = scenario->camera_attributes;
 	}
 	/* PROCESS GEOMETRY AND DRAW SCENE */
 
@@ -3230,7 +3339,7 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	}
 
 	RENDER_TIMESTAMP("Render 3D Scene");
-	scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_effects, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, &sdfgi_update_data, r_render_info);
+	scene_render->render_scene(p_render_buffers, p_camera_data, prev_camera_data, scene_cull_result.geometry_instances, scene_cull_result.light_instances, scene_cull_result.reflections, scene_cull_result.voxel_gi_instances, scene_cull_result.decals, scene_cull_result.lightmaps, scene_cull_result.fog_volumes, p_environment, camera_attributes, p_shadow_atlas, occluders_tex, p_reflection_probe.is_valid() ? RID() : scenario->reflection_atlas, p_reflection_probe, p_reflection_probe_pass, p_screen_mesh_lod_threshold, render_shadow_data, max_shadows_used, render_sdfgi_data, cull.sdfgi.region_count, &sdfgi_update_data, r_render_info);
 
 	if (p_viewport.is_valid()) {
 		RSG::viewport->viewport_set_prev_camera_data(p_viewport, p_camera_data);
@@ -3244,8 +3353,6 @@ void RendererSceneCull::_render_scene(const RendererSceneRender::CameraData *p_c
 	for (uint32_t i = 0; i < cull.sdfgi.region_count; i++) {
 		render_sdfgi_data[i].instances.clear();
 	}
-
-	//	virtual void render_scene(RID p_render_buffers, const Transform3D &p_cam_transform, const Projection &p_cam_projection, bool p_cam_orthogonal, const PagedArray<RenderGeometryInstance *> &p_instances, const PagedArray<RID> &p_lights, const PagedArray<RID> &p_reflection_probes, const PagedArray<RID> &p_voxel_gi_instances, const PagedArray<RID> &p_decals, const PagedArray<RID> &p_lightmaps, RID p_environment, RID p_camera_effects, RID p_shadow_atlas, RID p_reflection_atlas, RID p_reflection_probe, int p_reflection_probe_pass, float p_screen_mesh_lod_threshold,const RenderShadowData *p_render_shadows,int p_render_shadow_count,const RenderSDFGIData *p_render_sdfgi_regions,int p_render_sdfgi_region_count,const RenderSDFGIStaticLightData *p_render_sdfgi_static_lights=nullptr) = 0;
 }
 
 RID RendererSceneCull::_render_get_environment(RID p_camera, RID p_scenario) {
@@ -3269,7 +3376,7 @@ RID RendererSceneCull::_render_get_environment(RID p_camera, RID p_scenario) {
 	return RID();
 }
 
-void RendererSceneCull::render_empty_scene(RID p_render_buffers, RID p_scenario, RID p_shadow_atlas) {
+void RendererSceneCull::render_empty_scene(const Ref<RenderSceneBuffers> &p_render_buffers, RID p_scenario, RID p_shadow_atlas) {
 #ifndef _3D_DISABLED
 	Scenario *scenario = scenario_owner.get_or_null(p_scenario);
 
@@ -3284,19 +3391,19 @@ void RendererSceneCull::render_empty_scene(RID p_render_buffers, RID p_scenario,
 	RendererSceneRender::CameraData camera_data;
 	camera_data.set_camera(Transform3D(), Projection(), true, false);
 
-	scene_render->render_scene(p_render_buffers, &camera_data, &camera_data, PagedArray<RenderGeometryInstance *>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), RID(), RID(), p_shadow_atlas, RID(), scenario->reflection_atlas, RID(), 0, 0, nullptr, 0, nullptr, 0, nullptr);
+	scene_render->render_scene(p_render_buffers, &camera_data, &camera_data, PagedArray<RenderGeometryInstance *>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), PagedArray<RID>(), environment, RID(), p_shadow_atlas, RID(), scenario->reflection_atlas, RID(), 0, 0, nullptr, 0, nullptr, 0, nullptr);
 #endif
 }
 
 bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int p_step) {
 	InstanceReflectionProbeData *reflection_probe = static_cast<InstanceReflectionProbeData *>(p_instance->base_data);
 	Scenario *scenario = p_instance->scenario;
-	ERR_FAIL_COND_V(!scenario, true);
+	ERR_FAIL_NULL_V(scenario, true);
 
 	RenderingServerDefault::redraw_request(); //update, so it updates in editor
 
 	if (p_step == 0) {
-		if (!scene_render->reflection_probe_instance_begin_render(reflection_probe->instance, scenario->reflection_atlas)) {
+		if (!RSG::light_storage->reflection_probe_instance_begin_render(reflection_probe->instance, scenario->reflection_atlas)) {
 			return true; //all full
 		}
 	}
@@ -3319,13 +3426,13 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 			Vector3(0, -1, 0)
 		};
 
-		Vector3 extents = RSG::light_storage->reflection_probe_get_extents(p_instance->base);
+		Vector3 probe_size = RSG::light_storage->reflection_probe_get_size(p_instance->base);
 		Vector3 origin_offset = RSG::light_storage->reflection_probe_get_origin_offset(p_instance->base);
 		float max_distance = RSG::light_storage->reflection_probe_get_origin_max_distance(p_instance->base);
-		float size = scene_render->reflection_atlas_get_size(scenario->reflection_atlas);
-		float mesh_lod_threshold = RSG::light_storage->reflection_probe_get_mesh_lod_threshold(p_instance->base) / size;
+		float atlas_size = RSG::light_storage->reflection_atlas_get_size(scenario->reflection_atlas);
+		float mesh_lod_threshold = RSG::light_storage->reflection_probe_get_mesh_lod_threshold(p_instance->base) / atlas_size;
 
-		Vector3 edge = view_normals[p_step] * extents;
+		Vector3 edge = view_normals[p_step] * probe_size / 2;
 		float distance = ABS(view_normals[p_step].dot(edge) - view_normals[p_step].dot(origin_offset)); //distance from origin offset to actual view distance limit
 
 		max_distance = MAX(max_distance, distance);
@@ -3357,12 +3464,13 @@ bool RendererSceneCull::_render_reflection_probe_step(Instance *p_instance, int 
 		RendererSceneRender::CameraData camera_data;
 		camera_data.set_camera(xform, cm, false, false);
 
-		_render_scene(&camera_data, RID(), environment, RID(), RSG::light_storage->reflection_probe_get_cull_mask(p_instance->base), p_instance->scenario->self, RID(), shadow_atlas, reflection_probe->instance, p_step, mesh_lod_threshold, use_shadows);
+		Ref<RenderSceneBuffers> render_buffers = RSG::light_storage->reflection_probe_atlas_get_render_buffers(scenario->reflection_atlas);
+		_render_scene(&camera_data, render_buffers, environment, RID(), RSG::light_storage->reflection_probe_get_cull_mask(p_instance->base), p_instance->scenario->self, RID(), shadow_atlas, reflection_probe->instance, p_step, mesh_lod_threshold, use_shadows);
 
 	} else {
 		//do roughness postprocess step until it believes it's done
 		RENDER_TIMESTAMP("Post-Process ReflectionProbe, Step " + itos(p_step));
-		return scene_render->reflection_probe_instance_postprocess_step(reflection_probe->instance);
+		return RSG::light_storage->reflection_probe_instance_postprocess_step(reflection_probe->instance);
 	}
 
 	return false;
@@ -3453,6 +3561,7 @@ void RendererSceneCull::render_probes() {
 							cache->transform != instance->transform ||
 							cache->color != RSG::light_storage->light_get_color(instance->base) ||
 							cache->energy != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ENERGY) ||
+							cache->intensity != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INTENSITY) ||
 							cache->bake_energy != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INDIRECT_ENERGY) ||
 							cache->radius != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_RANGE) ||
 							cache->attenuation != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION) ||
@@ -3484,6 +3593,7 @@ void RendererSceneCull::render_probes() {
 							cache->transform != instance->transform ||
 							cache->color != RSG::light_storage->light_get_color(instance->base) ||
 							cache->energy != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ENERGY) ||
+							cache->intensity != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INTENSITY) ||
 							cache->bake_energy != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INDIRECT_ENERGY) ||
 							cache->radius != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_RANGE) ||
 							cache->attenuation != RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION) ||
@@ -3530,6 +3640,7 @@ void RendererSceneCull::render_probes() {
 					cache->transform = instance->transform;
 					cache->color = RSG::light_storage->light_get_color(instance->base);
 					cache->energy = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ENERGY);
+					cache->intensity = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INTENSITY);
 					cache->bake_energy = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INDIRECT_ENERGY);
 					cache->radius = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_RANGE);
 					cache->attenuation = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION);
@@ -3552,6 +3663,7 @@ void RendererSceneCull::render_probes() {
 					cache->transform = instance->transform;
 					cache->color = RSG::light_storage->light_get_color(instance->base);
 					cache->energy = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ENERGY);
+					cache->intensity = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INTENSITY);
 					cache->bake_energy = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_INDIRECT_ENERGY);
 					cache->radius = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_RANGE);
 					cache->attenuation = RSG::light_storage->light_get_param(instance->base, RS::LIGHT_PARAM_ATTENUATION);
@@ -3588,11 +3700,13 @@ void RendererSceneCull::render_probes() {
 					}
 				}
 
+				ERR_FAIL_NULL(geom->geometry_instance);
 				geom->geometry_instance->pair_voxel_gi_instances(instance_pair_buffer, idx);
 
 				ins->scenario->instance_data[ins->array_index].flags &= ~uint32_t(InstanceData::FLAG_GEOM_VOXEL_GI_DIRTY);
 			}
 
+			ERR_FAIL_NULL(geom->geometry_instance);
 			scene_cull_result.geometry_instances.push_back(geom->geometry_instance);
 		}
 
@@ -3633,6 +3747,7 @@ void RendererSceneCull::render_particle_colliders() {
 					continue;
 				}
 				InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(instance->base_data);
+				ERR_FAIL_NULL(geom->geometry_instance);
 				scene_cull_result.geometry_instances.push_back(geom->geometry_instance);
 			}
 
@@ -3644,7 +3759,7 @@ void RendererSceneCull::render_particle_colliders() {
 
 void RendererSceneCull::_update_instance_shader_uniforms_from_material(HashMap<StringName, Instance::InstanceShaderParameter> &isparams, const HashMap<StringName, Instance::InstanceShaderParameter> &existing_isparams, RID p_material) {
 	List<RendererMaterialStorage::InstanceShaderParam> plist;
-	RSG::material_storage->material_get_instance_shader_uniforms(p_material, &plist);
+	RSG::material_storage->material_get_instance_shader_parameters(p_material, &plist);
 	for (const RendererMaterialStorage::InstanceShaderParam &E : plist) {
 		StringName name = E.info.name;
 		if (isparams.has(name)) {
@@ -3829,7 +3944,7 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
 			}
 
 			if (p_instance->material_overlay.is_valid()) {
-				can_cast_shadows = can_cast_shadows || RSG::material_storage->material_casts_shadows(p_instance->material_overlay);
+				can_cast_shadows = can_cast_shadows && RSG::material_storage->material_casts_shadows(p_instance->material_overlay);
 				is_animated = is_animated || RSG::material_storage->material_is_animated(p_instance->material_overlay);
 				_update_instance_shader_uniforms_from_material(isparams, p_instance->instance_shader_uniforms, p_instance->material_overlay);
 			}
@@ -3850,17 +3965,34 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
 			if (p_instance->instance_allocated_shader_uniforms != (p_instance->instance_shader_uniforms.size() > 0)) {
 				p_instance->instance_allocated_shader_uniforms = (p_instance->instance_shader_uniforms.size() > 0);
 				if (p_instance->instance_allocated_shader_uniforms) {
-					p_instance->instance_allocated_shader_uniforms_offset = RSG::material_storage->global_shader_uniforms_instance_allocate(p_instance->self);
+					p_instance->instance_allocated_shader_uniforms_offset = RSG::material_storage->global_shader_parameters_instance_allocate(p_instance->self);
+					ERR_FAIL_NULL(geom->geometry_instance);
 					geom->geometry_instance->set_instance_shader_uniforms_offset(p_instance->instance_allocated_shader_uniforms_offset);
 
 					for (const KeyValue<StringName, Instance::InstanceShaderParameter> &E : p_instance->instance_shader_uniforms) {
 						if (E.value.value.get_type() != Variant::NIL) {
-							RSG::material_storage->global_shader_uniforms_instance_update(p_instance->self, E.value.index, E.value.value);
+							int flags_count = 0;
+							if (E.value.info.hint == PROPERTY_HINT_FLAGS) {
+								// A small hack to detect boolean flags count and prevent overhead.
+								switch (E.value.info.hint_string.length()) {
+									case 3: // "x,y"
+										flags_count = 1;
+										break;
+									case 5: // "x,y,z"
+										flags_count = 2;
+										break;
+									case 7: // "x,y,z,w"
+										flags_count = 3;
+										break;
+								}
+							}
+							RSG::material_storage->global_shader_parameters_instance_update(p_instance->self, E.value.index, E.value.value, flags_count);
 						}
 					}
 				} else {
-					RSG::material_storage->global_shader_uniforms_instance_free(p_instance->self);
+					RSG::material_storage->global_shader_parameters_instance_free(p_instance->self);
 					p_instance->instance_allocated_shader_uniforms_offset = -1;
+					ERR_FAIL_NULL(geom->geometry_instance);
 					geom->geometry_instance->set_instance_shader_uniforms_offset(-1);
 				}
 			}
@@ -3874,6 +4006,7 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
 
 		if ((1 << p_instance->base_type) & RS::INSTANCE_GEOMETRY_MASK) {
 			InstanceGeometryData *geom = static_cast<InstanceGeometryData *>(p_instance->base_data);
+			ERR_FAIL_NULL(geom->geometry_instance);
 			geom->geometry_instance->set_surface_materials(p_instance->materials);
 		}
 	}
@@ -3887,11 +4020,12 @@ void RendererSceneCull::_update_dirty_instance(Instance *p_instance) {
 }
 
 void RendererSceneCull::update_dirty_instances() {
-	RSG::utilities->update_dirty_resources();
-
 	while (_instance_update_list.first()) {
 		_update_dirty_instance(_instance_update_list.first()->self());
 	}
+
+	// Update dirty resources after dirty instances as instance updates may affect resources.
+	RSG::utilities->update_dirty_resources();
 }
 
 void RendererSceneCull::update() {
@@ -3932,8 +4066,8 @@ bool RendererSceneCull::free(RID p_rid) {
 		scenario->instance_data.reset();
 		scenario->instance_visibility.reset();
 
-		scene_render->free(scenario->reflection_probe_shadow_atlas);
-		scene_render->free(scenario->reflection_atlas);
+		RSG::light_storage->shadow_atlas_free(scenario->reflection_probe_shadow_atlas);
+		RSG::light_storage->reflection_atlas_free(scenario->reflection_atlas);
 		scenario_owner.free(p_rid);
 		RendererSceneOcclusionCull::get_singleton()->remove_scenario(p_rid);
 
@@ -3955,7 +4089,7 @@ bool RendererSceneCull::free(RID p_rid) {
 
 		if (instance->instance_allocated_shader_uniforms) {
 			//free the used shader parameters
-			RSG::material_storage->global_shader_uniforms_instance_free(instance->self);
+			RSG::material_storage->global_shader_parameters_instance_free(instance->self);
 		}
 		update_dirty_instances(); //in case something changed this
 
@@ -3967,7 +4101,7 @@ bool RendererSceneCull::free(RID p_rid) {
 	return true;
 }
 
-TypedArray<Image> RendererSceneCull::bake_render_uv2(RID p_base, const Vector<RID> &p_material_overrides, const Size2i &p_image_size) {
+TypedArray<Image> RendererSceneCull::bake_render_uv2(RID p_base, const TypedArray<RID> &p_material_overrides, const Size2i &p_image_size) {
 	return scene_render->bake_render_uv2(p_base, p_material_overrides, p_image_size);
 }
 
@@ -4006,17 +4140,6 @@ void RendererSceneCull::set_scene_render(RendererSceneRender *p_scene_render) {
 	geometry_instance_pair_mask = scene_render->geometry_instance_get_pair_mask();
 }
 
-float get_halton_value(int index, int base) {
-	float f = 1;
-	float r = 0;
-	while (index > 0) {
-		f = f / static_cast<float>(base);
-		r = r + f * (index % base);
-		index = index / base;
-	}
-	return r * 2.0f - 1.0f;
-};
-
 RendererSceneCull::RendererSceneCull() {
 	render_pass = 1;
 	singleton = this;
@@ -4033,19 +4156,13 @@ RendererSceneCull::RendererSceneCull() {
 
 	scene_cull_result.init(&rid_cull_page_pool, &geometry_instance_cull_page_pool, &instance_cull_page_pool);
 	scene_cull_result_threads.resize(WorkerThreadPool::get_singleton()->get_thread_count());
-	for (uint32_t i = 0; i < scene_cull_result_threads.size(); i++) {
-		scene_cull_result_threads[i].init(&rid_cull_page_pool, &geometry_instance_cull_page_pool, &instance_cull_page_pool);
+	for (InstanceCullResult &thread : scene_cull_result_threads) {
+		thread.init(&rid_cull_page_pool, &geometry_instance_cull_page_pool, &instance_cull_page_pool);
 	}
 
 	indexer_update_iterations = GLOBAL_GET("rendering/limits/spatial_indexer/update_iterations_per_frame");
 	thread_cull_threshold = GLOBAL_GET("rendering/limits/spatial_indexer/threaded_cull_minimum_instances");
 	thread_cull_threshold = MAX(thread_cull_threshold, (uint32_t)WorkerThreadPool::get_singleton()->get_thread_count()); //make sure there is at least one thread per CPU
-
-	taa_jitter_array.resize(TAA_JITTER_COUNT);
-	for (int i = 0; i < TAA_JITTER_COUNT; i++) {
-		taa_jitter_array[i].x = get_halton_value(i, 2);
-		taa_jitter_array[i].y = get_halton_value(i, 3);
-	}
 
 	dummy_occlusion_culling = memnew(RendererSceneOcclusionCull);
 }
@@ -4062,8 +4179,8 @@ RendererSceneCull::~RendererSceneCull() {
 	}
 
 	scene_cull_result.reset();
-	for (uint32_t i = 0; i < scene_cull_result_threads.size(); i++) {
-		scene_cull_result_threads[i].reset();
+	for (InstanceCullResult &thread : scene_cull_result_threads) {
+		thread.reset();
 	}
 	scene_cull_result_threads.clear();
 

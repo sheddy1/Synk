@@ -21,11 +21,14 @@ def get_doc_classes():
         "GLTFLight",
         "GLTFMesh",
         "GLTFNode",
+        "GLTFPhysicsBody",
+        "GLTFPhysicsShape",
         "GLTFSkeleton",
         "GLTFSkin",
         "GLTFSpecGloss",
         "GLTFState",
         "GLTFTexture",
+        "GLTFTextureSampler",
     ]
 
 

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  gdscript_tokenizer.h                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript_tokenizer.h                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef GDSCRIPT_TOKENIZER_H
 #define GDSCRIPT_TOKENIZER_H
@@ -36,6 +36,12 @@
 #include "core/templates/list.h"
 #include "core/templates/vector.h"
 #include "core/variant/variant.h"
+
+#ifdef MINGW_ENABLED
+#undef CONST
+#undef IN
+#undef VOID
+#endif
 
 class GDScriptTokenizer {
 public:
@@ -105,6 +111,7 @@ public:
 			PASS,
 			RETURN,
 			MATCH,
+			WHEN,
 			// Keywords
 			AS,
 			ASSERT,
@@ -171,6 +178,7 @@ public:
 		String source;
 
 		const char *get_name() const;
+		bool can_precede_bin_op() const;
 		bool is_identifier() const;
 		bool is_node_name() const;
 		StringName get_identifier() const { return source; }
@@ -186,6 +194,8 @@ public:
 #ifdef TOOLS_ENABLED
 	struct CommentData {
 		String comment;
+		// true: Comment starts at beginning of line or after indentation.
+		// false: Inline comment (starts after some code).
 		bool new_line = false;
 		CommentData() {}
 		CommentData(const String &p_comment, bool p_new_line) {
@@ -216,6 +226,7 @@ private:
 	bool multiline_mode = false;
 	List<Token> error_stack;
 	bool pending_newline = false;
+	Token last_token;
 	Token last_newline;
 	int pending_indents = 0;
 	List<int> indent_stack;
@@ -224,6 +235,9 @@ private:
 	char32_t indent_char = '\0';
 	int position = 0;
 	int length = 0;
+#ifdef DEBUG_ENABLED
+	Vector<String> keyword_list;
+#endif // DEBUG_ENABLED
 
 #ifdef TOOLS_ENABLED
 	HashMap<int, CommentData> comments;
@@ -238,6 +252,10 @@ private:
 	String _get_indent_char_name(char32_t ch);
 	void _skip_whitespace();
 	void check_indent();
+
+#ifdef DEBUG_ENABLED
+	void make_keyword_list();
+#endif // DEBUG_ENABLED
 
 	Token make_error(const String &p_message);
 	void push_error(const String &p_message);

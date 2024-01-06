@@ -1,58 +1,158 @@
-/*************************************************************************/
-/*  geometry_3d.cpp                                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  geometry_3d.cpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "geometry_3d.h"
 
-#include "core/string/print_string.h"
-
-#include "thirdparty/misc/clipper.hpp"
 #include "thirdparty/misc/polypartition.h"
+
+void Geometry3D::get_closest_points_between_segments(const Vector3 &p_p0, const Vector3 &p_p1, const Vector3 &p_q0, const Vector3 &p_q1, Vector3 &r_ps, Vector3 &r_qt) {
+	// Based on David Eberly's Computation of Distance Between Line Segments algorithm.
+
+	Vector3 p = p_p1 - p_p0;
+	Vector3 q = p_q1 - p_q0;
+	Vector3 r = p_p0 - p_q0;
+
+	real_t a = p.dot(p);
+	real_t b = p.dot(q);
+	real_t c = q.dot(q);
+	real_t d = p.dot(r);
+	real_t e = q.dot(r);
+
+	real_t s = 0.0f;
+	real_t t = 0.0f;
+
+	real_t det = a * c - b * b;
+	if (det > CMP_EPSILON) {
+		// Non-parallel segments
+		real_t bte = b * e;
+		real_t ctd = c * d;
+
+		if (bte <= ctd) {
+			// s <= 0.0f
+			if (e <= 0.0f) {
+				// t <= 0.0f
+				s = (-d >= a ? 1 : (-d > 0.0f ? -d / a : 0.0f));
+				t = 0.0f;
+			} else if (e < c) {
+				// 0.0f < t < 1
+				s = 0.0f;
+				t = e / c;
+			} else {
+				// t >= 1
+				s = (b - d >= a ? 1 : (b - d > 0.0f ? (b - d) / a : 0.0f));
+				t = 1;
+			}
+		} else {
+			// s > 0.0f
+			s = bte - ctd;
+			if (s >= det) {
+				// s >= 1
+				if (b + e <= 0.0f) {
+					// t <= 0.0f
+					s = (-d <= 0.0f ? 0.0f : (-d < a ? -d / a : 1));
+					t = 0.0f;
+				} else if (b + e < c) {
+					// 0.0f < t < 1
+					s = 1;
+					t = (b + e) / c;
+				} else {
+					// t >= 1
+					s = (b - d <= 0.0f ? 0.0f : (b - d < a ? (b - d) / a : 1));
+					t = 1;
+				}
+			} else {
+				// 0.0f < s < 1
+				real_t ate = a * e;
+				real_t btd = b * d;
+
+				if (ate <= btd) {
+					// t <= 0.0f
+					s = (-d <= 0.0f ? 0.0f : (-d >= a ? 1 : -d / a));
+					t = 0.0f;
+				} else {
+					// t > 0.0f
+					t = ate - btd;
+					if (t >= det) {
+						// t >= 1
+						s = (b - d <= 0.0f ? 0.0f : (b - d >= a ? 1 : (b - d) / a));
+						t = 1;
+					} else {
+						// 0.0f < t < 1
+						s /= det;
+						t /= det;
+					}
+				}
+			}
+		}
+	} else {
+		// Parallel segments
+		if (e <= 0.0f) {
+			s = (-d <= 0.0f ? 0.0f : (-d >= a ? 1 : -d / a));
+			t = 0.0f;
+		} else if (e >= c) {
+			s = (b - d <= 0.0f ? 0.0f : (b - d >= a ? 1 : (b - d) / a));
+			t = 1;
+		} else {
+			s = 0.0f;
+			t = e / c;
+		}
+	}
+
+	r_ps = (1 - s) * p_p0 + s * p_p1;
+	r_qt = (1 - t) * p_q0 + t * p_q1;
+}
+
+real_t Geometry3D::get_closest_distance_between_segments(const Vector3 &p_p0, const Vector3 &p_p1, const Vector3 &p_q0, const Vector3 &p_q1) {
+	Vector3 ps;
+	Vector3 qt;
+	get_closest_points_between_segments(p_p0, p_p1, p_q0, p_q1, ps, qt);
+	Vector3 st = qt - ps;
+	return st.length();
+}
 
 void Geometry3D::MeshData::optimize_vertices() {
 	HashMap<int, int> vtx_remap;
 
-	for (int i = 0; i < faces.size(); i++) {
-		for (int j = 0; j < faces[i].indices.size(); j++) {
-			int idx = faces[i].indices[j];
-			if (!vtx_remap.has(idx)) {
+	for (MeshData::Face &face : faces) {
+		for (int &index : face.indices) {
+			if (!vtx_remap.has(index)) {
 				int ni = vtx_remap.size();
-				vtx_remap[idx] = ni;
+				vtx_remap[index] = ni;
 			}
-
-			faces.write[i].indices.write[j] = vtx_remap[idx];
+			index = vtx_remap[index];
 		}
 	}
 
-	for (int i = 0; i < edges.size(); i++) {
-		int a = edges[i].a;
-		int b = edges[i].b;
+	for (MeshData::Edge &edge : edges) {
+		int a = edge.vertex_a;
+		int b = edge.vertex_b;
 
 		if (!vtx_remap.has(a)) {
 			int ni = vtx_remap.size();
@@ -63,16 +163,16 @@ void Geometry3D::MeshData::optimize_vertices() {
 			vtx_remap[b] = ni;
 		}
 
-		edges.write[i].a = vtx_remap[a];
-		edges.write[i].b = vtx_remap[b];
+		edge.vertex_a = vtx_remap[a];
+		edge.vertex_b = vtx_remap[b];
 	}
 
-	Vector<Vector3> new_vertices;
+	LocalVector<Vector3> new_vertices;
 	new_vertices.resize(vtx_remap.size());
 
-	for (int i = 0; i < vertices.size(); i++) {
+	for (uint32_t i = 0; i < vertices.size(); i++) {
 		if (vtx_remap.has(i)) {
-			new_vertices.write[vtx_remap[i]] = vertices[i];
+			new_vertices[vtx_remap[i]] = vertices[i];
 		}
 	}
 	vertices = new_vertices;
@@ -94,149 +194,6 @@ struct _FaceClassify {
 	Face3 face;
 	_FaceClassify() {}
 };
-
-static bool _connect_faces(_FaceClassify *p_faces, int len, int p_group) {
-	// Connect faces, error will occur if an edge is shared between more than 2 faces.
-	// Clear connections.
-
-	bool error = false;
-
-	for (int i = 0; i < len; i++) {
-		for (int j = 0; j < 3; j++) {
-			p_faces[i].links[j].clear();
-		}
-	}
-
-	for (int i = 0; i < len; i++) {
-		if (p_faces[i].group != p_group) {
-			continue;
-		}
-		for (int j = i + 1; j < len; j++) {
-			if (p_faces[j].group != p_group) {
-				continue;
-			}
-
-			for (int k = 0; k < 3; k++) {
-				Vector3 vi1 = p_faces[i].face.vertex[k];
-				Vector3 vi2 = p_faces[i].face.vertex[(k + 1) % 3];
-
-				for (int l = 0; l < 3; l++) {
-					Vector3 vj2 = p_faces[j].face.vertex[l];
-					Vector3 vj1 = p_faces[j].face.vertex[(l + 1) % 3];
-
-					if (vi1.distance_to(vj1) < 0.00001f &&
-							vi2.distance_to(vj2) < 0.00001f) {
-						if (p_faces[i].links[k].face != -1) {
-							ERR_PRINT("already linked\n");
-							error = true;
-							break;
-						}
-						if (p_faces[j].links[l].face != -1) {
-							ERR_PRINT("already linked\n");
-							error = true;
-							break;
-						}
-
-						p_faces[i].links[k].face = j;
-						p_faces[i].links[k].edge = l;
-						p_faces[j].links[l].face = i;
-						p_faces[j].links[l].edge = k;
-					}
-				}
-				if (error) {
-					break;
-				}
-			}
-			if (error) {
-				break;
-			}
-		}
-		if (error) {
-			break;
-		}
-	}
-
-	for (int i = 0; i < len; i++) {
-		p_faces[i].valid = true;
-		for (int j = 0; j < 3; j++) {
-			if (p_faces[i].links[j].face == -1) {
-				p_faces[i].valid = false;
-			}
-		}
-	}
-	return error;
-}
-
-static bool _group_face(_FaceClassify *p_faces, int len, int p_index, int p_group) {
-	if (p_faces[p_index].group >= 0) {
-		return false;
-	}
-
-	p_faces[p_index].group = p_group;
-
-	for (int i = 0; i < 3; i++) {
-		ERR_FAIL_INDEX_V(p_faces[p_index].links[i].face, len, true);
-		_group_face(p_faces, len, p_faces[p_index].links[i].face, p_group);
-	}
-
-	return true;
-}
-
-Vector<Vector<Face3>> Geometry3D::separate_objects(Vector<Face3> p_array) {
-	Vector<Vector<Face3>> objects;
-
-	int len = p_array.size();
-
-	const Face3 *arrayptr = p_array.ptr();
-
-	Vector<_FaceClassify> fc;
-
-	fc.resize(len);
-
-	_FaceClassify *_fcptr = fc.ptrw();
-
-	for (int i = 0; i < len; i++) {
-		_fcptr[i].face = arrayptr[i];
-	}
-
-	bool error = _connect_faces(_fcptr, len, -1);
-
-	ERR_FAIL_COND_V_MSG(error, Vector<Vector<Face3>>(), "Invalid geometry.");
-
-	// Group connected faces in separate objects.
-
-	int group = 0;
-	for (int i = 0; i < len; i++) {
-		if (!_fcptr[i].valid) {
-			continue;
-		}
-		if (_group_face(_fcptr, len, i, group)) {
-			group++;
-		}
-	}
-
-	// Group connected faces in separate objects.
-
-	for (int i = 0; i < len; i++) {
-		_fcptr[i].face = arrayptr[i];
-	}
-
-	if (group >= 0) {
-		objects.resize(group);
-		Vector<Face3> *group_faces = objects.ptrw();
-
-		for (int i = 0; i < len; i++) {
-			if (!_fcptr[i].valid) {
-				continue;
-			}
-			if (_fcptr[i].group >= 0 && _fcptr[i].group < group) {
-				group_faces[_fcptr[i].group].push_back(_fcptr[i].face);
-			}
-		}
-	}
-
-	return objects;
-}
 
 /*** GEOMETRY WRAPPER ***/
 
@@ -645,10 +602,10 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 		Vector3 right = p.normal.cross(ref).normalized();
 		Vector3 up = p.normal.cross(right).normalized();
 
-		Vector3 center = p.center();
+		Vector3 center = p.get_center();
 
 		// make a quad clockwise
-		Vector<Vector3> vertices = {
+		LocalVector<Vector3> vertices = {
 			center - up * subplane_size + right * subplane_size,
 			center - up * subplane_size - right * subplane_size,
 			center + up * subplane_size - right * subplane_size,
@@ -660,7 +617,7 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 				continue;
 			}
 
-			Vector<Vector3> new_vertices;
+			LocalVector<Vector3> new_vertices;
 			Plane clip = p_planes[j];
 
 			if (clip.normal.dot(p.normal) > 0.95f) {
@@ -671,7 +628,7 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 				break;
 			}
 
-			for (int k = 0; k < vertices.size(); k++) {
+			for (uint32_t k = 0; k < vertices.size(); k++) {
 				int k_n = (k + 1) % vertices.size();
 
 				Vector3 edge0_A = vertices[k];
@@ -713,10 +670,10 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 		MeshData::Face face;
 
 		// Add face indices.
-		for (int j = 0; j < vertices.size(); j++) {
+		for (const Vector3 &vertex : vertices) {
 			int idx = -1;
-			for (int k = 0; k < mesh.vertices.size(); k++) {
-				if (mesh.vertices[k].distance_to(vertices[j]) < 0.001f) {
+			for (uint32_t k = 0; k < mesh.vertices.size(); k++) {
+				if (mesh.vertices[k].distance_to(vertex) < 0.001f) {
 					idx = k;
 					break;
 				}
@@ -724,7 +681,7 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 
 			if (idx == -1) {
 				idx = mesh.vertices.size();
-				mesh.vertices.push_back(vertices[j]);
+				mesh.vertices.push_back(vertex);
 			}
 
 			face.indices.push_back(idx);
@@ -734,28 +691,34 @@ Geometry3D::MeshData Geometry3D::build_convex_mesh(const Vector<Plane> &p_planes
 
 		// Add edge.
 
-		for (int j = 0; j < face.indices.size(); j++) {
+		for (uint32_t j = 0; j < face.indices.size(); j++) {
 			int a = face.indices[j];
 			int b = face.indices[(j + 1) % face.indices.size()];
 
 			bool found = false;
-			for (int k = 0; k < mesh.edges.size(); k++) {
-				if (mesh.edges[k].a == a && mesh.edges[k].b == b) {
+			int found_idx = -1;
+			for (uint32_t k = 0; k < mesh.edges.size(); k++) {
+				if (mesh.edges[k].vertex_a == a && mesh.edges[k].vertex_b == b) {
 					found = true;
+					found_idx = k;
 					break;
 				}
-				if (mesh.edges[k].b == a && mesh.edges[k].a == b) {
+				if (mesh.edges[k].vertex_b == a && mesh.edges[k].vertex_a == b) {
 					found = true;
+					found_idx = k;
 					break;
 				}
 			}
 
 			if (found) {
+				mesh.edges[found_idx].face_b = j;
 				continue;
 			}
 			MeshData::Edge edge;
-			edge.a = a;
-			edge.b = b;
+			edge.vertex_a = a;
+			edge.vertex_b = b;
+			edge.face_a = j;
+			edge.face_b = -1;
 			mesh.edges.push_back(edge);
 		}
 	}

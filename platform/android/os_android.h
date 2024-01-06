@@ -1,37 +1,38 @@
-/*************************************************************************/
-/*  os_android.h                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  os_android.h                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef OS_ANDROID_H
 #define OS_ANDROID_H
 
 #include "audio_driver_opensl.h"
+
 #include "core/os/main_loop.h"
 #include "drivers/unix/os_unix.h"
 #include "servers/audio_server.h"
@@ -57,16 +58,38 @@ private:
 
 	mutable String data_dir_cache;
 	mutable String cache_dir_cache;
+	mutable String remote_fs_dir;
 
 	AudioDriverOpenSL audio_driver_android;
 
 	MainLoop *main_loop = nullptr;
 
+	struct FontInfo {
+		String font_name;
+		HashSet<String> lang;
+		HashSet<String> script;
+		int weight = 400;
+		int stretch = 100;
+		bool italic = false;
+		int priority = 0;
+		String filename;
+	};
+
+	HashMap<String, String> font_aliases;
+	List<FontInfo> fonts;
+	HashSet<String> font_names;
+	bool font_config_loaded = false;
+
 	GodotJavaWrapper *godot_java = nullptr;
 	GodotIOJavaWrapper *godot_io_java = nullptr;
 
+	void _load_system_font_config();
+	String get_system_property(const char *key) const;
+
 public:
 	static const char *ANDROID_EXEC_PATH;
+	static const int DEFAULT_WINDOW_WIDTH = 800;
+	static const int DEFAULT_WINDOW_HEIGHT = 600;
 
 	virtual void initialize_core() override;
 	virtual void initialize() override;
@@ -93,6 +116,8 @@ public:
 	virtual Error open_dynamic_library(const String p_path, void *&p_library_handle, bool p_also_set_library_path = false, String *r_resolved_path = nullptr) override;
 
 	virtual String get_name() const override;
+	virtual String get_distribution_name() const override;
+	virtual String get_version() const override;
 	virtual MainLoop *get_main_loop() const override;
 
 	void main_loop_begin();
@@ -110,6 +135,10 @@ public:
 	ANativeWindow *get_native_window() const;
 
 	virtual Error shell_open(String p_uri) override;
+
+	virtual Vector<String> get_system_fonts() const override;
+	virtual String get_system_font_path(const String &p_font_name, int p_weight = 400, int p_stretch = 100, bool p_italic = false) const override;
+	virtual Vector<String> get_system_font_path_for_text(const String &p_font_name, const String &p_text, const String &p_locale = String(), const String &p_script = String(), int p_weight = 400, int p_stretch = 100, bool p_italic = false) const override;
 	virtual String get_executable_path() const override;
 	virtual String get_user_data_dir() const override;
 	virtual String get_data_path() const override;
@@ -131,10 +160,24 @@ public:
 	virtual Error execute(const String &p_path, const List<String> &p_arguments, String *r_pipe = nullptr, int *r_exitcode = nullptr, bool read_stderr = false, Mutex *p_pipe_mutex = nullptr, bool p_open_console = false) override;
 	virtual Error create_process(const String &p_path, const List<String> &p_arguments, ProcessID *r_child_id = nullptr, bool p_open_console = false) override;
 	virtual Error create_instance(const List<String> &p_arguments, ProcessID *r_child_id = nullptr) override;
+	virtual Error kill(const ProcessID &p_pid) override;
+	virtual String get_system_ca_certificates() override;
+
+	virtual Error setup_remote_filesystem(const String &p_server_host, int p_port, const String &p_password, String &r_project_path) override;
+
+	virtual void benchmark_begin_measure(const String &p_context, const String &p_what) override;
+	virtual void benchmark_end_measure(const String &p_context, const String &p_what) override;
+	virtual void benchmark_dump() override;
+
+	virtual void load_platform_gdextensions() const override;
 
 	virtual bool _check_internal_feature_support(const String &p_feature) override;
 	OS_Android(GodotJavaWrapper *p_godot_java, GodotIOJavaWrapper *p_godot_io_java, bool p_use_apk_expansion);
 	~OS_Android();
+
+private:
+	// Location where we relocate external dynamic libraries to make them accessible.
+	String get_dynamic_libraries_path() const;
 };
 
 #endif // OS_ANDROID_H

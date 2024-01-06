@@ -1,47 +1,48 @@
-/*************************************************************************/
-/*  display_server_ios.mm                                                */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  display_server_ios.mm                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
-#include "display_server_ios.h"
+#import "display_server_ios.h"
 
 #import "app_delegate.h"
-#include "core/config/project_settings.h"
-#include "core/io/file_access_pack.h"
 #import "device_metrics.h"
 #import "godot_view.h"
-#include "ios.h"
+#import "ios.h"
+#import "key_mapping_ios.h"
 #import "keyboard_input_view.h"
-#include "os_ios.h"
-#include "tts_ios.h"
+#import "os_ios.h"
+#import "tts_ios.h"
 #import "view_controller.h"
 
-#import <Foundation/Foundation.h>
+#include "core/config/project_settings.h"
+#include "core/io/file_access_pack.h"
+
 #import <sys/utsname.h>
 
 static const float kDisplayServerIOSAcceleration = 1.f;
@@ -50,81 +51,71 @@ DisplayServerIOS *DisplayServerIOS::get_singleton() {
 	return (DisplayServerIOS *)DisplayServer::get_singleton();
 }
 
-DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error) {
+DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Error &r_error) {
+	KeyMappingIOS::initialize();
+
 	rendering_driver = p_rendering_driver;
 
 	// Init TTS
-	tts = [[TTS_IOS alloc] init];
+	bool tts_enabled = GLOBAL_GET("audio/general/text_to_speech");
+	if (tts_enabled) {
+		tts = [[TTS_IOS alloc] init];
+	}
 
-#if defined(GLES3_ENABLED)
-	// FIXME: Add support for both OpenGL and Vulkan when OpenGL is implemented
-	// again,
-	// Note that we should be checking "opengl3" as the driver, might never enable this seeing OpenGL is deprecated on iOS
-	// We are hardcoding the rendering_driver to "vulkan" down below
+#if defined(RD_ENABLED)
+	context_rd = nullptr;
+	rendering_device = nullptr;
 
-	if (rendering_driver == "opengl_es") {
-		bool gl_initialization_error = false;
+	CALayer *layer = nullptr;
 
-		// FIXME: Add Vulkan support via MoltenVK. Add fallback code back?
+	union {
+#ifdef VULKAN_ENABLED
+		VulkanContextIOS::WindowPlatformData vulkan;
+#endif
+	} wpd;
 
-		if (RasterizerGLES3::is_viable() == OK) {
-			RasterizerGLES3::register_config();
-			RasterizerGLES3::make_current();
-		} else {
-			gl_initialization_error = true;
+#if defined(VULKAN_ENABLED)
+	if (rendering_driver == "vulkan") {
+		layer = [AppDelegate.viewController.godotView initializeRenderingForDriver:@"vulkan"];
+		if (!layer) {
+			ERR_FAIL_MSG("Failed to create iOS Vulkan rendering layer.");
 		}
-
-		if (gl_initialization_error) {
-			OS::get_singleton()->alert("Your device does not support any of the supported OpenGL versions.", "Unable to initialize video driver");
-			//        return ERR_UNAVAILABLE;
-		}
-
-		//    rendering_server = memnew(RenderingServerDefault);
-		//    // FIXME: Reimplement threaded rendering
-		//    if (get_render_thread_mode() != RENDER_THREAD_UNSAFE) {
-		//        rendering_server = memnew(RenderingServerWrapMT(rendering_server,
-		//        false));
-		//    }
-		//    rendering_server->init();
-		// rendering_server->cursor_set_visible(false, 0);
-
-		// reset this to what it should be, it will have been set to 0 after
-		// rendering_server->init() is called
-		//    RasterizerStorageGLES3system_fbo = gl_view_base_fb;
+		wpd.vulkan.layer_ptr = &layer;
+		context_rd = memnew(VulkanContextIOS);
 	}
 #endif
 
-#if defined(VULKAN_ENABLED)
-	rendering_driver = "vulkan";
-
-	context_vulkan = nullptr;
-	rendering_device_vulkan = nullptr;
-
-	if (rendering_driver == "vulkan") {
-		context_vulkan = memnew(VulkanContextIOS);
-		if (context_vulkan->initialize() != OK) {
-			memdelete(context_vulkan);
-			context_vulkan = nullptr;
-			ERR_FAIL_MSG("Failed to initialize Vulkan context");
-		}
-
-		CALayer *layer = [AppDelegate.viewController.godotView initializeRenderingForDriver:@"vulkan"];
-
-		if (!layer) {
-			ERR_FAIL_MSG("Failed to create iOS rendering layer.");
+	if (context_rd) {
+		if (context_rd->initialize() != OK) {
+			memdelete(context_rd);
+			context_rd = nullptr;
+			ERR_FAIL_MSG(vformat("Failed to initialize %s context", context_rd->get_api_name()));
 		}
 
 		Size2i size = Size2i(layer.bounds.size.width, layer.bounds.size.height) * screen_get_max_scale();
-		if (context_vulkan->window_create(MAIN_WINDOW_ID, p_vsync_mode, layer, size.width, size.height) != OK) {
-			memdelete(context_vulkan);
-			context_vulkan = nullptr;
-			ERR_FAIL_MSG("Failed to create Vulkan window.");
+		if (context_rd->window_create(MAIN_WINDOW_ID, p_vsync_mode, size.width, size.height, &wpd) != OK) {
+			memdelete(context_rd);
+			context_rd = nullptr;
+			r_error = ERR_UNAVAILABLE;
+			ERR_FAIL_MSG(vformat("Failed to create %s window.", context_rd->get_api_name()));
 		}
 
-		rendering_device_vulkan = memnew(RenderingDeviceVulkan);
-		rendering_device_vulkan->initialize(context_vulkan);
+		rendering_device = memnew(RenderingDevice);
+		rendering_device->initialize(context_rd);
 
 		RendererCompositorRD::make_current();
+	}
+#endif
+
+#if defined(GLES3_ENABLED)
+	if (rendering_driver == "opengl3") {
+		CALayer *layer = [AppDelegate.viewController.godotView initializeRenderingForDriver:@"opengl3"];
+
+		if (!layer) {
+			ERR_FAIL_MSG("Failed to create iOS OpenGLES rendering layer.");
+		}
+
+		RasterizerGLES3::make_current(false);
 	}
 #endif
 
@@ -137,23 +128,23 @@ DisplayServerIOS::DisplayServerIOS(const String &p_rendering_driver, WindowMode 
 }
 
 DisplayServerIOS::~DisplayServerIOS() {
-#if defined(VULKAN_ENABLED)
-	if (rendering_device_vulkan) {
-		rendering_device_vulkan->finalize();
-		memdelete(rendering_device_vulkan);
-		rendering_device_vulkan = nullptr;
+#if defined(RD_ENABLED)
+	if (rendering_device) {
+		rendering_device->finalize();
+		memdelete(rendering_device);
+		rendering_device = nullptr;
 	}
 
-	if (context_vulkan) {
-		context_vulkan->window_destroy(MAIN_WINDOW_ID);
-		memdelete(context_vulkan);
-		context_vulkan = nullptr;
+	if (context_rd) {
+		context_rd->window_destroy(MAIN_WINDOW_ID);
+		memdelete(context_rd);
+		context_rd = nullptr;
 	}
 #endif
 }
 
-DisplayServer *DisplayServerIOS::create_func(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i &p_resolution, Error &r_error) {
-	return memnew(DisplayServerIOS(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_resolution, r_error));
+DisplayServer *DisplayServerIOS::create_func(const String &p_rendering_driver, WindowMode p_mode, DisplayServer::VSyncMode p_vsync_mode, uint32_t p_flags, const Vector2i *p_position, const Vector2i &p_resolution, int p_screen, Error &r_error) {
+	return memnew(DisplayServerIOS(p_rendering_driver, p_mode, p_vsync_mode, p_flags, p_position, p_resolution, p_screen, r_error));
 }
 
 Vector<String> DisplayServerIOS::get_rendering_drivers_func() {
@@ -163,7 +154,7 @@ Vector<String> DisplayServerIOS::get_rendering_drivers_func() {
 	drivers.push_back("vulkan");
 #endif
 #if defined(GLES3_ENABLED)
-	drivers.push_back("opengl_es");
+	drivers.push_back("opengl3");
 #endif
 
 	return drivers;
@@ -216,10 +207,7 @@ void DisplayServerIOS::send_window_event(DisplayServer::WindowEvent p_event) con
 
 void DisplayServerIOS::_window_callback(const Callable &p_callable, const Variant &p_arg) const {
 	if (!p_callable.is_null()) {
-		const Variant *argp = &p_arg;
-		Variant ret;
-		Callable::CallError ce;
-		p_callable.callp((const Variant **)&argp, 1, ret, ce);
+		p_callable.call(p_arg);
 	}
 }
 
@@ -228,46 +216,60 @@ void DisplayServerIOS::_window_callback(const Callable &p_callable, const Varian
 // MARK: Touches
 
 void DisplayServerIOS::touch_press(int p_idx, int p_x, int p_y, bool p_pressed, bool p_double_click) {
-	if (!GLOBAL_DEF("debug/disable_touch", false)) {
-		Ref<InputEventScreenTouch> ev;
-		ev.instantiate();
+	Ref<InputEventScreenTouch> ev;
+	ev.instantiate();
 
-		ev->set_index(p_idx);
-		ev->set_pressed(p_pressed);
-		ev->set_position(Vector2(p_x, p_y));
-		perform_event(ev);
-	}
+	ev->set_index(p_idx);
+	ev->set_pressed(p_pressed);
+	ev->set_position(Vector2(p_x, p_y));
+	ev->set_double_tap(p_double_click);
+	perform_event(ev);
 }
 
-void DisplayServerIOS::touch_drag(int p_idx, int p_prev_x, int p_prev_y, int p_x, int p_y) {
-	if (!GLOBAL_DEF("debug/disable_touch", false)) {
-		Ref<InputEventScreenDrag> ev;
-		ev.instantiate();
-		ev->set_index(p_idx);
-		ev->set_position(Vector2(p_x, p_y));
-		ev->set_relative(Vector2(p_x - p_prev_x, p_y - p_prev_y));
-		perform_event(ev);
-	}
+void DisplayServerIOS::touch_drag(int p_idx, int p_prev_x, int p_prev_y, int p_x, int p_y, float p_pressure, Vector2 p_tilt) {
+	Ref<InputEventScreenDrag> ev;
+	ev.instantiate();
+	ev->set_index(p_idx);
+	ev->set_pressure(p_pressure);
+	ev->set_tilt(p_tilt);
+	ev->set_position(Vector2(p_x, p_y));
+	ev->set_relative(Vector2(p_x - p_prev_x, p_y - p_prev_y));
+	perform_event(ev);
 }
 
 void DisplayServerIOS::perform_event(const Ref<InputEvent> &p_event) {
 	Input::get_singleton()->parse_input_event(p_event);
 }
 
-void DisplayServerIOS::touches_cancelled(int p_idx) {
+void DisplayServerIOS::touches_canceled(int p_idx) {
 	touch_press(p_idx, -1, -1, false, false);
 }
 
 // MARK: Keyboard
 
-void DisplayServerIOS::key(Key p_key, bool p_pressed) {
+void DisplayServerIOS::key(Key p_key, char32_t p_char, Key p_unshifted, Key p_physical, NSInteger p_modifier, bool p_pressed) {
 	Ref<InputEventKey> ev;
 	ev.instantiate();
 	ev->set_echo(false);
 	ev->set_pressed(p_pressed);
-	ev->set_keycode(p_key);
-	ev->set_physical_keycode(p_key);
-	ev->set_unicode((char32_t)p_key);
+	ev->set_keycode(fix_keycode(p_char, p_key));
+	if (@available(iOS 13.4, *)) {
+		if (p_key != Key::SHIFT) {
+			ev->set_shift_pressed(p_modifier & UIKeyModifierShift);
+		}
+		if (p_key != Key::CTRL) {
+			ev->set_ctrl_pressed(p_modifier & UIKeyModifierControl);
+		}
+		if (p_key != Key::ALT) {
+			ev->set_alt_pressed(p_modifier & UIKeyModifierAlternate);
+		}
+		if (p_key != Key::META) {
+			ev->set_meta_pressed(p_modifier & UIKeyModifierCommand);
+		}
+	}
+	ev->set_key_label(p_unshifted);
+	ev->set_physical_keycode(p_physical);
+	ev->set_unicode(fix_unicode(p_char));
 	perform_event(ev);
 }
 
@@ -327,58 +329,74 @@ String DisplayServerIOS::get_name() const {
 }
 
 bool DisplayServerIOS::tts_is_speaking() const {
-	ERR_FAIL_COND_V(!tts, false);
+	ERR_FAIL_NULL_V_MSG(tts, false, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	return [tts isSpeaking];
 }
 
 bool DisplayServerIOS::tts_is_paused() const {
-	ERR_FAIL_COND_V(!tts, false);
+	ERR_FAIL_NULL_V_MSG(tts, false, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	return [tts isPaused];
 }
 
-Array DisplayServerIOS::tts_get_voices() const {
-	ERR_FAIL_COND_V(!tts, Array());
+TypedArray<Dictionary> DisplayServerIOS::tts_get_voices() const {
+	ERR_FAIL_NULL_V_MSG(tts, TypedArray<Dictionary>(), "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	return [tts getVoices];
 }
 
 void DisplayServerIOS::tts_speak(const String &p_text, const String &p_voice, int p_volume, float p_pitch, float p_rate, int p_utterance_id, bool p_interrupt) {
-	ERR_FAIL_COND(!tts);
+	ERR_FAIL_NULL_MSG(tts, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	[tts speak:p_text voice:p_voice volume:p_volume pitch:p_pitch rate:p_rate utterance_id:p_utterance_id interrupt:p_interrupt];
 }
 
 void DisplayServerIOS::tts_pause() {
-	ERR_FAIL_COND(!tts);
+	ERR_FAIL_NULL_MSG(tts, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	[tts pauseSpeaking];
 }
 
 void DisplayServerIOS::tts_resume() {
-	ERR_FAIL_COND(!tts);
+	ERR_FAIL_NULL_MSG(tts, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	[tts resumeSpeaking];
 }
 
 void DisplayServerIOS::tts_stop() {
-	ERR_FAIL_COND(!tts);
+	ERR_FAIL_NULL_MSG(tts, "Enable the \"audio/general/text_to_speech\" project setting to use text-to-speech.");
 	[tts stopSpeaking];
 }
 
-Rect2i DisplayServerIOS::get_display_safe_area() const {
-	if (@available(iOS 11, *)) {
-		UIEdgeInsets insets = UIEdgeInsetsZero;
-		UIView *view = AppDelegate.viewController.godotView;
-		if ([view respondsToSelector:@selector(safeAreaInsets)]) {
-			insets = [view safeAreaInsets];
-		}
-		float scale = screen_get_scale();
-		Size2i insets_position = Size2i(insets.left, insets.top) * scale;
-		Size2i insets_size = Size2i(insets.left + insets.right, insets.top + insets.bottom) * scale;
-		return Rect2i(screen_get_position() + insets_position, screen_get_size() - insets_size);
+bool DisplayServerIOS::is_dark_mode_supported() const {
+	if (@available(iOS 13.0, *)) {
+		return true;
 	} else {
-		return Rect2i(screen_get_position(), screen_get_size());
+		return false;
 	}
+}
+
+bool DisplayServerIOS::is_dark_mode() const {
+	if (@available(iOS 13.0, *)) {
+		return [UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark;
+	} else {
+		return false;
+	}
+}
+
+Rect2i DisplayServerIOS::get_display_safe_area() const {
+	UIEdgeInsets insets = UIEdgeInsetsZero;
+	UIView *view = AppDelegate.viewController.godotView;
+	if ([view respondsToSelector:@selector(safeAreaInsets)]) {
+		insets = [view safeAreaInsets];
+	}
+	float scale = screen_get_scale();
+	Size2i insets_position = Size2i(insets.left, insets.top) * scale;
+	Size2i insets_size = Size2i(insets.left + insets.right, insets.top + insets.bottom) * scale;
+	return Rect2i(screen_get_position() + insets_position, screen_get_size() - insets_size);
 }
 
 int DisplayServerIOS::get_screen_count() const {
 	return 1;
+}
+
+int DisplayServerIOS::get_primary_screen() const {
+	return 0;
 }
 
 Point2i DisplayServerIOS::screen_get_position(int p_screen) const {
@@ -437,11 +455,15 @@ int DisplayServerIOS::screen_get_dpi(int p_screen) const {
 }
 
 float DisplayServerIOS::screen_get_refresh_rate(int p_screen) const {
-	return [UIScreen mainScreen].maximumFramesPerSecond;
+	float fps = [UIScreen mainScreen].maximumFramesPerSecond;
+	if ([NSProcessInfo processInfo].lowPowerModeEnabled) {
+		fps = 60;
+	}
+	return fps;
 }
 
 float DisplayServerIOS::screen_get_scale(int p_screen) const {
-	return [UIScreen mainScreen].nativeScale;
+	return [UIScreen mainScreen].scale;
 }
 
 Vector<DisplayServer::WindowID> DisplayServerIOS::get_window_list() const {
@@ -496,6 +518,10 @@ Point2i DisplayServerIOS::window_get_position(WindowID p_window) const {
 	return Point2i();
 }
 
+Point2i DisplayServerIOS::window_get_position_with_decorations(WindowID p_window) const {
+	return Point2i();
+}
+
 void DisplayServerIOS::window_set_position(const Point2i &p_position, WindowID p_window) {
 	// Probably not supported for single window iOS app
 }
@@ -529,7 +555,7 @@ Size2i DisplayServerIOS::window_get_size(WindowID p_window) const {
 	return Size2i(screenBounds.size.width, screenBounds.size.height) * screen_get_max_scale();
 }
 
-Size2i DisplayServerIOS::window_get_real_size(WindowID p_window) const {
+Size2i DisplayServerIOS::window_get_size_with_decorations(WindowID p_window) const {
 	return window_get_size(p_window);
 }
 
@@ -561,12 +587,21 @@ void DisplayServerIOS::window_move_to_foreground(WindowID p_window) {
 	// Probably not supported for iOS
 }
 
+bool DisplayServerIOS::window_is_focused(WindowID p_window) const {
+	return true;
+}
+
 float DisplayServerIOS::screen_get_max_scale() const {
 	return screen_get_scale(SCREEN_OF_MAIN_WINDOW);
 }
 
 void DisplayServerIOS::screen_set_orientation(DisplayServer::ScreenOrientation p_orientation, int p_screen) {
 	screen_orientation = p_orientation;
+	if (@available(iOS 16.0, *)) {
+		[AppDelegate.viewController setNeedsUpdateOfSupportedInterfaceOrientations];
+	} else {
+		[UIViewController attemptRotationToDeviceOrientation];
+	}
 }
 
 DisplayServer::ScreenOrientation DisplayServerIOS::screen_get_orientation(int p_screen) const {
@@ -581,8 +616,18 @@ bool DisplayServerIOS::can_any_window_draw() const {
 	return true;
 }
 
-bool DisplayServerIOS::screen_is_touchscreen(int p_screen) const {
+bool DisplayServerIOS::is_touchscreen_available() const {
 	return true;
+}
+
+_FORCE_INLINE_ int _convert_utf32_offset_to_utf16(const String &p_existing_text, int p_pos) {
+	int limit = p_pos;
+	for (int i = 0; i < MIN(p_existing_text.length(), p_pos); i++) {
+		if (p_existing_text[i] > 0xffff) {
+			limit++;
+		}
+	}
+	return limit;
 }
 
 void DisplayServerIOS::virtual_keyboard_show(const String &p_existing_text, const Rect2 &p_screen_rect, VirtualKeyboardType p_type, int p_max_length, int p_cursor_start, int p_cursor_end) {
@@ -623,8 +668,12 @@ void DisplayServerIOS::virtual_keyboard_show(const String &p_existing_text, cons
 
 	[AppDelegate.viewController.keyboardView
 			becomeFirstResponderWithString:existingString
-							   cursorStart:p_cursor_start
-								 cursorEnd:p_cursor_end];
+							   cursorStart:_convert_utf32_offset_to_utf16(p_existing_text, p_cursor_start)
+								 cursorEnd:_convert_utf32_offset_to_utf16(p_existing_text, p_cursor_end)];
+}
+
+bool DisplayServerIOS::is_keyboard_active() const {
+	return [AppDelegate.viewController.keyboardView isFirstResponder];
 }
 
 void DisplayServerIOS::virtual_keyboard_hide() {
@@ -660,9 +709,9 @@ bool DisplayServerIOS::screen_is_kept_on() const {
 void DisplayServerIOS::resize_window(CGSize viewSize) {
 	Size2i size = Size2i(viewSize.width, viewSize.height) * screen_get_max_scale();
 
-#if defined(VULKAN_ENABLED)
-	if (context_vulkan) {
-		context_vulkan->window_resize(MAIN_WINDOW_ID, size.x, size.y);
+#if defined(RD_ENABLED)
+	if (context_rd) {
+		context_rd->window_resize(MAIN_WINDOW_ID, size.x, size.y);
 	}
 #endif
 
@@ -672,16 +721,19 @@ void DisplayServerIOS::resize_window(CGSize viewSize) {
 
 void DisplayServerIOS::window_set_vsync_mode(DisplayServer::VSyncMode p_vsync_mode, WindowID p_window) {
 	_THREAD_SAFE_METHOD_
-#if defined(VULKAN_ENABLED)
-	context_vulkan->set_vsync_mode(p_window, p_vsync_mode);
+#if defined(RD_ENABLED)
+	if (context_rd) {
+		context_rd->set_vsync_mode(p_window, p_vsync_mode);
+	}
 #endif
 }
 
 DisplayServer::VSyncMode DisplayServerIOS::window_get_vsync_mode(WindowID p_window) const {
 	_THREAD_SAFE_METHOD_
-#if defined(VULKAN_ENABLED)
-	return context_vulkan->get_vsync_mode(p_window);
-#else
-	return DisplayServer::VSYNC_ENABLED;
+#if defined(RD_ENABLED)
+	if (context_rd) {
+		return context_rd->get_vsync_mode(p_window);
+	}
 #endif
+	return DisplayServer::VSYNC_ENABLED;
 }

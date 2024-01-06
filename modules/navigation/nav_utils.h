@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  nav_utils.h                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  nav_utils.h                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef NAV_UTILS_H
 #define NAV_UTILS_H
@@ -35,9 +35,8 @@
 #include "core/templates/hash_map.h"
 #include "core/templates/hashfuncs.h"
 #include "core/templates/local_vector.h"
-#include <vector>
 
-class NavRegion;
+class NavBase;
 
 namespace gd {
 struct Polygon;
@@ -79,26 +78,33 @@ struct Point {
 };
 
 struct Edge {
-	/// This edge ID
-	int this_edge = -1;
-
 	/// The gateway in the edge, as, in some case, the whole edge might not be navigable.
 	struct Connection {
+		/// Polygon that this connection leads to.
 		Polygon *polygon = nullptr;
+
+		/// Edge of the source polygon where this connection starts from.
 		int edge = -1;
+
+		/// Point on the edge where the gateway leading to the poly starts.
 		Vector3 pathway_start;
+
+		/// Point on the edge where the gateway leading to the poly ends.
 		Vector3 pathway_end;
 	};
+
+	/// Connections from this edge to other polygons.
 	Vector<Connection> connections;
 };
 
 struct Polygon {
-	NavRegion *owner = nullptr;
+	/// Navigation region or link that contains this polygon.
+	const NavBase *owner = nullptr;
 
 	/// The points of this `Polygon`
 	LocalVector<Point> points;
 
-	/// Are the points clockwise ?
+	/// Are the points clockwise?
 	bool clockwise;
 
 	/// The edges of this `Polygon`
@@ -106,6 +112,8 @@ struct Polygon {
 
 	/// The center of this `Polygon`
 	Vector3 center;
+
+	real_t surface_area = 0.0;
 };
 
 struct NavigationPoly {
@@ -115,14 +123,14 @@ struct NavigationPoly {
 
 	/// Those 4 variables are used to travel the path backwards.
 	int back_navigation_poly_id = -1;
-	uint32_t back_navigation_edge = UINT32_MAX;
+	int back_navigation_edge = -1;
 	Vector3 back_navigation_edge_pathway_start;
 	Vector3 back_navigation_edge_pathway_end;
 
-	/// The entry location of this poly.
+	/// The entry position of this poly.
 	Vector3 entry;
 	/// The distance to the destination.
-	float traveled_distance = 0.0;
+	real_t traveled_distance = 0.0;
 
 	NavigationPoly() { poly = nullptr; }
 

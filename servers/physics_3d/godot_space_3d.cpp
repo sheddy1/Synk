@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  godot_space_3d.cpp                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  godot_space_3d.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "godot_space_3d.h"
 
@@ -120,8 +120,9 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 
 	bool collided = false;
 	Vector3 res_point, res_normal;
-	int res_shape;
-	const GodotCollisionObject3D *res_obj;
+	int res_face_index = -1;
+	int res_shape = -1;
+	const GodotCollisionObject3D *res_obj = nullptr;
 	real_t min_d = 1e10;
 
 	for (int i = 0; i < amount; i++) {
@@ -148,6 +149,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 		const GodotShape3D *shape = col_obj->get_shape(shape_idx);
 
 		Vector3 shape_point, shape_normal;
+		int shape_face_index = -1;
 
 		if (shape->intersect_point(local_from)) {
 			if (p_parameters.hit_from_inside) {
@@ -165,7 +167,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 			}
 		}
 
-		if (shape->intersect_segment(local_from, local_to, shape_point, shape_normal, p_parameters.hit_back_faces)) {
+		if (shape->intersect_segment(local_from, local_to, shape_point, shape_normal, shape_face_index, p_parameters.hit_back_faces)) {
 			Transform3D xform = col_obj->get_transform() * col_obj->get_shape_transform(shape_idx);
 			shape_point = xform.xform(shape_point);
 
@@ -175,6 +177,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 				min_d = ld;
 				res_point = shape_point;
 				res_normal = inv_xform.basis.xform_inv(shape_normal).normalized();
+				res_face_index = shape_face_index;
 				res_shape = shape_idx;
 				res_obj = col_obj;
 				collided = true;
@@ -185,6 +188,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 	if (!collided) {
 		return false;
 	}
+	ERR_FAIL_NULL_V(res_obj, false); // Shouldn't happen but silences warning.
 
 	r_result.collider_id = res_obj->get_instance_id();
 	if (r_result.collider_id.is_valid()) {
@@ -193,6 +197,7 @@ bool GodotPhysicsDirectSpaceState3D::intersect_ray(const RayParameters &p_parame
 		r_result.collider = nullptr;
 	}
 	r_result.normal = res_normal;
+	r_result.face_index = res_face_index;
 	r_result.position = res_point;
 	r_result.rid = res_obj->get_self();
 	r_result.shape = res_shape;
@@ -206,7 +211,7 @@ int GodotPhysicsDirectSpaceState3D::intersect_shape(const ShapeParameters &p_par
 	}
 
 	GodotShape3D *shape = GodotPhysicsServer3D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	AABB aabb = p_parameters.transform.xform(shape->get_aabb());
 
@@ -257,7 +262,7 @@ int GodotPhysicsDirectSpaceState3D::intersect_shape(const ShapeParameters &p_par
 
 bool GodotPhysicsDirectSpaceState3D::cast_motion(const ShapeParameters &p_parameters, real_t &p_closest_safe, real_t &p_closest_unsafe, ShapeRestInfo *r_info) {
 	GodotShape3D *shape = GodotPhysicsServer3D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, false);
+	ERR_FAIL_NULL_V(shape, false);
 
 	AABB aabb = p_parameters.transform.xform(shape->get_aabb());
 	aabb = aabb.merge(AABB(aabb.position + p_parameters.motion, aabb.size)); //motion
@@ -380,7 +385,7 @@ bool GodotPhysicsDirectSpaceState3D::collide_shape(const ShapeParameters &p_para
 	}
 
 	GodotShape3D *shape = GodotPhysicsServer3D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	AABB aabb = p_parameters.transform.xform(shape->get_aabb());
 	aabb = aabb.grow(p_parameters.margin);
@@ -444,7 +449,7 @@ struct _RestCallbackData {
 	_RestResultData *other_results = nullptr;
 };
 
-static void _rest_cbk_result(const Vector3 &p_point_A, int p_index_A, const Vector3 &p_point_B, int p_index_B, void *p_userdata) {
+static void _rest_cbk_result(const Vector3 &p_point_A, int p_index_A, const Vector3 &p_point_B, int p_index_B, const Vector3 &normal, void *p_userdata) {
 	_RestCallbackData *rd = static_cast<_RestCallbackData *>(p_userdata);
 
 	Vector3 contact_rel = p_point_B - p_point_A;
@@ -479,7 +484,7 @@ static void _rest_cbk_result(const Vector3 &p_point_A, int p_index_A, const Vect
 				// Keep this result as separate result.
 				result.len = len;
 				result.contact = p_point_B;
-				result.normal = contact_rel / len;
+				result.normal = normal;
 				result.object = rd->object;
 				result.shape = rd->shape;
 				result.local_shape = rd->local_shape;
@@ -498,7 +503,7 @@ static void _rest_cbk_result(const Vector3 &p_point_A, int p_index_A, const Vect
 
 	rd->best_result.len = len;
 	rd->best_result.contact = p_point_B;
-	rd->best_result.normal = contact_rel / len;
+	rd->best_result.normal = normal;
 	rd->best_result.object = rd->object;
 	rd->best_result.shape = rd->shape;
 	rd->best_result.local_shape = rd->local_shape;
@@ -506,7 +511,7 @@ static void _rest_cbk_result(const Vector3 &p_point_A, int p_index_A, const Vect
 
 bool GodotPhysicsDirectSpaceState3D::rest_info(const ShapeParameters &p_parameters, ShapeRestInfo *r_info) {
 	GodotShape3D *shape = GodotPhysicsServer3D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	real_t margin = MAX(p_parameters.margin, TEST_MOTION_MARGIN_MIN_VALUE);
 
@@ -569,7 +574,7 @@ Vector3 GodotPhysicsDirectSpaceState3D::get_closest_point_to_object_volume(RID p
 	if (!obj) {
 		obj = GodotPhysicsServer3D::godot_singleton->body_owner.get_or_null(p_object);
 	}
-	ERR_FAIL_COND_V(!obj, Vector3());
+	ERR_FAIL_NULL_V(obj, Vector3());
 
 	ERR_FAIL_COND_V(obj->get_space() != space, Vector3());
 
@@ -701,6 +706,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 		const int max_results = 32;
 		int recover_attempts = 4;
 		Vector3 sr[max_results * 2];
+		real_t priorities[max_results];
 
 		do {
 			GodotPhysicsServer3D::CollCbkData cbk;
@@ -710,6 +716,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 
 			GodotPhysicsServer3D::CollCbkData *cbkptr = &cbk;
 			GodotCollisionSolver3D::CallbackResult cbkres = GodotPhysicsServer3D::_shape_col_cbk;
+			int priority_amount = 0;
 
 			bool collided = false;
 
@@ -737,12 +744,22 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 					if (GodotCollisionSolver3D::solve_static(body_shape, body_shape_xform, col_obj->get_shape(shape_idx), col_obj->get_transform() * col_obj->get_shape_transform(shape_idx), cbkres, cbkptr, nullptr, margin)) {
 						collided = cbk.amount > 0;
 					}
+					while (cbk.amount > priority_amount) {
+						priorities[priority_amount] = col_obj->get_collision_priority();
+						priority_amount++;
+					}
 				}
 			}
 
 			if (!collided) {
 				break;
 			}
+
+			real_t inv_total_weight = 0.0;
+			for (int i = 0; i < cbk.amount; i++) {
+				inv_total_weight += priorities[i];
+			}
+			inv_total_weight = Math::is_zero_approx(inv_total_weight) ? 1.0 : (real_t)cbk.amount / inv_total_weight;
 
 			recovered = true;
 
@@ -759,7 +776,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 				real_t depth = n.dot(a + recover_motion) - d;
 				if (depth > min_contact_depth + CMP_EPSILON) {
 					// Only recover if there is penetration.
-					recover_motion -= n * (depth - min_contact_depth) * 0.4;
+					recover_motion -= n * (depth - min_contact_depth) * 0.4 * priorities[i] * inv_total_weight;
 				}
 			}
 
@@ -979,6 +996,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 
 					Vector3 rel_vec = result.contact - (body->get_transform().origin + body->get_center_of_mass());
 					collision.collider_velocity = body->get_linear_velocity() + (body->get_angular_velocity()).cross(rel_vec);
+					collision.collider_angular_velocity = body->get_angular_velocity();
 				}
 
 				r_result->travel = safe * p_parameters.motion;
@@ -989,6 +1007,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 				r_result->collision_unsafe_fraction = unsafe;
 
 				r_result->collision_count = rcd.result_count;
+				r_result->collision_depth = rcd.best_result.len;
 			}
 
 			collided = true;
@@ -1002,6 +1021,7 @@ bool GodotSpace3D::test_body_motion(GodotBody3D *p_body, const PhysicsServer3D::
 
 		r_result->collision_safe_fraction = 1.0;
 		r_result->collision_unsafe_fraction = 1.0;
+		r_result->collision_depth = 0.0;
 	}
 
 	return collided;
@@ -1234,25 +1254,14 @@ GodotPhysicsDirectSpaceState3D *GodotSpace3D::get_direct_state() {
 }
 
 GodotSpace3D::GodotSpace3D() {
-	body_linear_velocity_sleep_threshold = GLOBAL_DEF("physics/3d/sleep_threshold_linear", 0.1);
-	body_angular_velocity_sleep_threshold = GLOBAL_DEF("physics/3d/sleep_threshold_angular", Math::deg2rad(8.0));
-	body_time_to_sleep = GLOBAL_DEF("physics/3d/time_before_sleep", 0.5);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/time_before_sleep", PropertyInfo(Variant::FLOAT, "physics/3d/time_before_sleep", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"));
-
-	solver_iterations = GLOBAL_DEF("physics/3d/solver/solver_iterations", 16);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/solver_iterations", PropertyInfo(Variant::INT, "physics/3d/solver/solver_iterations", PROPERTY_HINT_RANGE, "1,32,1,or_greater"));
-
-	contact_recycle_radius = GLOBAL_DEF("physics/3d/solver/contact_recycle_radius", 0.01);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_recycle_radius", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));
-
-	contact_max_separation = GLOBAL_DEF("physics/3d/solver/contact_max_separation", 0.05);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_max_separation", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));
-
-	contact_max_allowed_penetration = GLOBAL_DEF("physics/3d/solver/contact_max_allowed_penetration", 0.01);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/contact_max_allowed_penetration", PropertyInfo(Variant::FLOAT, "physics/3d/solver/contact_max_allowed_penetration", PROPERTY_HINT_RANGE, "0,0.1,0.01,or_greater"));
-
-	contact_bias = GLOBAL_DEF("physics/3d/solver/default_contact_bias", 0.8);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/3d/solver/default_contact_bias", PropertyInfo(Variant::FLOAT, "physics/3d/solver/default_contact_bias", PROPERTY_HINT_RANGE, "0,1,0.01"));
+	body_linear_velocity_sleep_threshold = GLOBAL_GET("physics/3d/sleep_threshold_linear");
+	body_angular_velocity_sleep_threshold = GLOBAL_GET("physics/3d/sleep_threshold_angular");
+	body_time_to_sleep = GLOBAL_GET("physics/3d/time_before_sleep");
+	solver_iterations = GLOBAL_GET("physics/3d/solver/solver_iterations");
+	contact_recycle_radius = GLOBAL_GET("physics/3d/solver/contact_recycle_radius");
+	contact_max_separation = GLOBAL_GET("physics/3d/solver/contact_max_separation");
+	contact_max_allowed_penetration = GLOBAL_GET("physics/3d/solver/contact_max_allowed_penetration");
+	contact_bias = GLOBAL_GET("physics/3d/solver/default_contact_bias");
 
 	broadphase = GodotBroadPhase3D::create_func();
 	broadphase->set_pair_callback(_broadphase_pair, this);

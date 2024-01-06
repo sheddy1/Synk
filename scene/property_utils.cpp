@@ -1,36 +1,37 @@
-/*************************************************************************/
-/*  property_utils.cpp                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  property_utils.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "property_utils.h"
 
 #include "core/config/engine.h"
+#include "core/object/script_language.h"
 #include "core/templates/local_vector.h"
 #include "scene/resources/packed_scene.h"
 
@@ -73,9 +74,30 @@ Variant PropertyUtils::get_property_default_value(const Object *p_object, const 
 			const SceneState::PackState &ia = states_stack[i];
 			bool found = false;
 			Variant value_in_ancestor = ia.state->get_property_value(ia.node, p_property, found);
+			const Vector<String> &deferred_properties = ia.state->get_node_deferred_nodepath_properties(ia.node);
 			if (found) {
 				if (r_is_valid) {
 					*r_is_valid = true;
+				}
+				// Replace properties stored as NodePaths with actual Nodes.
+				// Otherwise, the property value would be considered as overridden.
+				if (deferred_properties.has(p_property)) {
+					if (value_in_ancestor.get_type() == Variant::ARRAY) {
+						Array paths = value_in_ancestor;
+
+						bool valid = false;
+						Array array = node->get(p_property, &valid);
+						ERR_CONTINUE(!valid);
+						array = array.duplicate();
+
+						array.resize(paths.size());
+						for (int j = 0; j < array.size(); j++) {
+							array.set(j, node->get_node_or_null(paths[j]));
+						}
+						value_in_ancestor = array;
+					} else {
+						value_in_ancestor = node->get_node_or_null(value_in_ancestor);
+					}
 				}
 				return value_in_ancestor;
 			}
@@ -169,8 +191,10 @@ static bool _collect_inheritance_chain(const Ref<SceneState> &p_state, const Nod
 		state = state->get_base_scene_state();
 	}
 
-	for (int i = inheritance_states.size() - 1; i >= 0; --i) {
-		r_states_stack.push_back(inheritance_states[i]);
+	if (inheritance_states.size() > 0) {
+		for (int i = inheritance_states.size() - 1; i >= 0; --i) {
+			r_states_stack.push_back(inheritance_states[i]);
+		}
 	}
 
 	return found;
@@ -214,10 +238,12 @@ Vector<SceneState::PackState> PropertyUtils::get_node_states_stack(const Node *p
 	{
 		states_stack_ret.resize(states_stack.size());
 		_FastPackState *ps = states_stack.ptr();
-		for (int i = states_stack.size() - 1; i >= 0; --i) {
-			states_stack_ret.write[i].state.reference_ptr(ps->state);
-			states_stack_ret.write[i].node = ps->node;
-			++ps;
+		if (states_stack.size() > 0) {
+			for (int i = states_stack.size() - 1; i >= 0; --i) {
+				states_stack_ret.write[i].state.reference_ptr(ps->state);
+				states_stack_ret.write[i].node = ps->node;
+				++ps;
+			}
 		}
 	}
 	return states_stack_ret;

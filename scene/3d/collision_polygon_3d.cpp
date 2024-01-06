@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  collision_polygon_3d.cpp                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  collision_polygon_3d.cpp                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "collision_polygon_3d.h"
 
@@ -35,11 +35,11 @@
 #include "scene/resources/convex_polygon_shape_3d.h"
 
 void CollisionPolygon3D::_build_polygon() {
-	if (!parent) {
+	if (!collision_object) {
 		return;
 	}
 
-	parent->shape_owner_clear_shapes(owner_id);
+	collision_object->shape_owner_clear_shapes(owner_id);
 
 	if (polygon.size() == 0) {
 		return;
@@ -70,55 +70,56 @@ void CollisionPolygon3D::_build_polygon() {
 
 		convex->set_points(cp);
 		convex->set_margin(margin);
-		parent->shape_owner_add_shape(owner_id, convex);
-		parent->shape_owner_set_disabled(owner_id, disabled);
+		collision_object->shape_owner_add_shape(owner_id, convex);
+		collision_object->shape_owner_set_disabled(owner_id, disabled);
 	}
 }
 
 void CollisionPolygon3D::_update_in_shape_owner(bool p_xform_only) {
-	parent->shape_owner_set_transform(owner_id, get_transform());
+	collision_object->shape_owner_set_transform(owner_id, get_transform());
 	if (p_xform_only) {
 		return;
 	}
-	parent->shape_owner_set_disabled(owner_id, disabled);
+	collision_object->shape_owner_set_disabled(owner_id, disabled);
 }
 
 void CollisionPolygon3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_PARENTED: {
-			parent = Object::cast_to<CollisionObject3D>(get_parent());
-			if (parent) {
-				owner_id = parent->create_shape_owner(this);
+			collision_object = Object::cast_to<CollisionObject3D>(get_parent());
+			if (collision_object) {
+				owner_id = collision_object->create_shape_owner(this);
 				_build_polygon();
 				_update_in_shape_owner();
 			}
 		} break;
 
 		case NOTIFICATION_ENTER_TREE: {
-			if (parent) {
+			if (collision_object) {
 				_update_in_shape_owner();
 			}
 		} break;
 
 		case NOTIFICATION_LOCAL_TRANSFORM_CHANGED: {
-			if (parent) {
+			if (collision_object) {
 				_update_in_shape_owner(true);
 			}
+			update_configuration_warnings();
 		} break;
 
 		case NOTIFICATION_UNPARENTED: {
-			if (parent) {
-				parent->remove_shape_owner(owner_id);
+			if (collision_object) {
+				collision_object->remove_shape_owner(owner_id);
 			}
 			owner_id = 0;
-			parent = nullptr;
+			collision_object = nullptr;
 		} break;
 	}
 }
 
 void CollisionPolygon3D::set_polygon(const Vector<Point2> &p_polygon) {
 	polygon = p_polygon;
-	if (parent) {
+	if (collision_object) {
 		_build_polygon();
 	}
 	update_configuration_warnings();
@@ -147,8 +148,8 @@ void CollisionPolygon3D::set_disabled(bool p_disabled) {
 	disabled = p_disabled;
 	update_gizmos();
 
-	if (parent) {
-		parent->shape_owner_set_disabled(owner_id, p_disabled);
+	if (collision_object) {
+		collision_object->shape_owner_set_disabled(owner_id, p_disabled);
 	}
 }
 
@@ -162,20 +163,25 @@ real_t CollisionPolygon3D::get_margin() const {
 
 void CollisionPolygon3D::set_margin(real_t p_margin) {
 	margin = p_margin;
-	if (parent) {
+	if (collision_object) {
 		_build_polygon();
 	}
 }
 
-TypedArray<String> CollisionPolygon3D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray CollisionPolygon3D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (!Object::cast_to<CollisionObject3D>(get_parent())) {
-		warnings.push_back(RTR("CollisionPolygon3D only serves to provide a collision shape to a CollisionObject3D derived node. Please only use it as a child of Area3D, StaticBody3D, RigidDynamicBody3D, CharacterBody3D, etc. to give them a shape."));
+		warnings.push_back(RTR("CollisionPolygon3D only serves to provide a collision shape to a CollisionObject3D derived node.\nPlease only use it as a child of Area3D, StaticBody3D, RigidBody3D, CharacterBody3D, etc. to give them a shape."));
 	}
 
 	if (polygon.is_empty()) {
 		warnings.push_back(RTR("An empty CollisionPolygon3D has no effect on collision."));
+	}
+
+	Vector3 scale = get_transform().get_basis().get_scale();
+	if (!(Math::is_zero_approx(scale.x - scale.y) && Math::is_zero_approx(scale.y - scale.z))) {
+		warnings.push_back(RTR("A non-uniformly scaled CollisionPolygon3D node will probably not function as expected.\nPlease make its scale uniform (i.e. the same on all axes), and change its polygon's vertices instead."));
 	}
 
 	return warnings;

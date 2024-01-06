@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="AudioStreamPlaybackResampled" inherits="AudioStreamPlayback" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="AudioStreamPlaybackResampled" inherits="AudioStreamPlayback" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -14,8 +14,8 @@
 		</method>
 		<method name="_mix_resampled" qualifiers="virtual">
 			<return type="int" />
-			<argument index="0" name="dst_buffer" type="AudioFrame*" />
-			<argument index="1" name="frame_count" type="int" />
+			<param index="0" name="dst_buffer" type="AudioFrame*" />
+			<param index="1" name="frame_count" type="int" />
 			<description>
 			</description>
 		</method>

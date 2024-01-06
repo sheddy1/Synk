@@ -1,36 +1,37 @@
-/*************************************************************************/
-/*  font_config_plugin.cpp                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  font_config_plugin.cpp                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "font_config_plugin.h"
 
 #include "editor/editor_scale.h"
+#include "editor/editor_settings.h"
 #include "editor/import/dynamic_font_import_settings.h"
 
 /*************************************************************************/
@@ -100,11 +101,6 @@ bool EditorPropertyFontOTObject::_get(const StringName &p_name, Variant &r_ret) 
 	return false;
 }
 
-void EditorPropertyFontOTObject::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("property_can_revert", "name"), &EditorPropertyFontOTObject::property_can_revert);
-	ClassDB::bind_method(D_METHOD("property_get_revert", "name"), &EditorPropertyFontOTObject::property_get_revert);
-}
-
 void EditorPropertyFontOTObject::set_dict(const Dictionary &p_dict) {
 	dict = p_dict;
 }
@@ -121,7 +117,7 @@ Dictionary EditorPropertyFontOTObject::get_defaults() {
 	return defaults_dict;
 }
 
-bool EditorPropertyFontOTObject::property_can_revert(const String &p_name) {
+bool EditorPropertyFontOTObject::_property_can_revert(const StringName &p_name) const {
 	String name = p_name;
 
 	if (name.begins_with("keys")) {
@@ -136,18 +132,19 @@ bool EditorPropertyFontOTObject::property_can_revert(const String &p_name) {
 	return false;
 }
 
-Variant EditorPropertyFontOTObject::property_get_revert(const String &p_name) {
+bool EditorPropertyFontOTObject::_property_get_revert(const StringName &p_name, Variant &r_property) const {
 	String name = p_name;
 
 	if (name.begins_with("keys")) {
 		int key = name.get_slicec('/', 1).to_int();
 		if (defaults_dict.has(key)) {
 			Vector3i range = defaults_dict[key];
-			return range.z;
+			r_property = range.z;
+			return true;
 		}
 	}
 
-	return Variant();
+	return false;
 }
 
 /*************************************************************************/
@@ -158,8 +155,8 @@ void EditorPropertyFontMetaOverride::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			if (Object::cast_to<Button>(button_add)) {
-				button_add->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
+			if (button_add) {
+				button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
 			}
 		} break;
 	}
@@ -230,7 +227,7 @@ void EditorPropertyFontMetaOverride::_object_id_selected(const StringName &p_pro
 }
 
 void EditorPropertyFontMetaOverride::update_property() {
-	Variant updated_val = get_edited_object()->get(get_edited_property());
+	Variant updated_val = get_edited_property_value();
 
 	Dictionary dict = updated_val;
 
@@ -264,7 +261,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 			button_add = nullptr;
 		}
@@ -294,7 +291,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 			} else {
 				prop->set_label(TranslationServer::get_singleton()->get_locale_name(name));
 			}
-			prop->set_tooltip(name);
+			prop->set_tooltip_text(name);
 			prop->set_selectable(false);
 
 			prop->connect("property_changed", callable_mp(this, &EditorPropertyFontMetaOverride::_property_changed));
@@ -305,7 +302,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 			hbox->add_child(prop);
 			prop->set_h_size_flags(SIZE_EXPAND_FILL);
 			Button *remove = memnew(Button);
-			remove->set_icon(get_theme_icon(SNAME("Remove"), SNAME("EditorIcons")));
+			remove->set_icon(get_editor_theme_icon(SNAME("Remove")));
 			hbox->add_child(remove);
 			remove->connect("pressed", callable_mp(this, &EditorPropertyFontMetaOverride::_remove).bind(remove, name));
 
@@ -313,7 +310,8 @@ void EditorPropertyFontMetaOverride::update_property() {
 		}
 
 		if (script_editor) {
-			button_add = EditorInspector::create_inspector_action_button(TTR("Add Script"));
+			// TRANSLATORS: Script refers to a writing system.
+			button_add = EditorInspector::create_inspector_action_button(TTR("Add Script", "Locale"));
 		} else {
 			button_add = EditorInspector::create_inspector_action_button(TTR("Add Locale"));
 		}
@@ -332,7 +330,7 @@ void EditorPropertyFontMetaOverride::update_property() {
 }
 
 void EditorPropertyFontMetaOverride::_edit_pressed() {
-	Variant prop_val = get_edited_object()->get(get_edited_property());
+	Variant prop_val = get_edited_property_value();
 	if (prop_val.get_type() == Variant::NIL) {
 		Callable::CallError ce;
 		Variant::construct(Variant::DICTIONARY, prop_val, nullptr, 0, ce);
@@ -417,7 +415,7 @@ void EditorPropertyOTVariation::_object_id_selected(const StringName &p_property
 }
 
 void EditorPropertyOTVariation::update_property() {
-	Variant updated_val = get_edited_object()->get(get_edited_property());
+	Variant updated_val = get_edited_property_value();
 
 	Dictionary dict = updated_val;
 
@@ -461,7 +459,7 @@ void EditorPropertyOTVariation::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 		}
 
@@ -486,12 +484,12 @@ void EditorPropertyOTVariation::update_property() {
 			Vector3i range = supported.get_value_at_index(i);
 
 			EditorPropertyInteger *prop = memnew(EditorPropertyInteger);
-			prop->setup(range.x, range.y, 1, false, false);
+			prop->setup(range.x, range.y, false, 1, false, false);
 			prop->set_object_and_property(object.ptr(), "keys/" + itos(name_tag));
 
 			String name = TS->tag_to_name(name_tag);
 			prop->set_label(name.capitalize());
-			prop->set_tooltip(name);
+			prop->set_tooltip_text(name);
 			prop->set_selectable(false);
 
 			prop->connect("property_changed", callable_mp(this, &EditorPropertyOTVariation::_property_changed));
@@ -513,7 +511,7 @@ void EditorPropertyOTVariation::update_property() {
 }
 
 void EditorPropertyOTVariation::_edit_pressed() {
-	Variant prop_val = get_edited_object()->get(get_edited_property());
+	Variant prop_val = get_edited_property_value();
 	if (prop_val.get_type() == Variant::NIL) {
 		Callable::CallError ce;
 		Variant::construct(Variant::DICTIONARY, prop_val, nullptr, 0, ce);
@@ -553,8 +551,8 @@ void EditorPropertyOTFeatures::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE:
 		case NOTIFICATION_THEME_CHANGED: {
-			if (Object::cast_to<Button>(button_add)) {
-				button_add->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
+			if (button_add) {
+				button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
 			}
 		} break;
 	}
@@ -609,7 +607,7 @@ void EditorPropertyOTFeatures::_object_id_selected(const StringName &p_property,
 }
 
 void EditorPropertyOTFeatures::update_property() {
-	Variant updated_val = get_edited_object()->get(get_edited_property());
+	Variant updated_val = get_edited_property_value();
 
 	Dictionary dict = updated_val;
 
@@ -626,6 +624,16 @@ void EditorPropertyOTFeatures::update_property() {
 		supported = fd->get_supported_feature_list();
 	}
 
+	if (supported.is_empty()) {
+		edit->set_text(vformat(TTR("No supported features")));
+		if (container) {
+			set_bottom_editor(nullptr);
+			memdelete(container);
+			button_add = nullptr;
+			container = nullptr;
+		}
+		return;
+	}
 	edit->set_text(vformat(TTR("Features (%d of %d set)"), dict.size(), supported.size()));
 
 	bool unfolded = get_edited_object()->editor_is_section_unfolded(get_edited_property());
@@ -656,13 +664,13 @@ void EditorPropertyOTFeatures::update_property() {
 		} else {
 			// Queue children for deletion, deleting immediately might cause errors.
 			for (int i = property_vbox->get_child_count() - 1; i >= 0; i--) {
-				property_vbox->get_child(i)->queue_delete();
+				property_vbox->get_child(i)->queue_free();
 			}
 			button_add = nullptr;
 		}
 
 		// Update add menu items.
-		menu->clear();
+		menu->clear(false);
 		bool have_sub[FGRP_MAX];
 		for (int i = 0; i < FGRP_MAX; i++) {
 			menu_sub[i]->clear();
@@ -755,7 +763,7 @@ void EditorPropertyOTFeatures::update_property() {
 					} break;
 					case Variant::INT: {
 						EditorPropertyInteger *editor = memnew(EditorPropertyInteger);
-						editor->setup(0, 255, 1, false, false);
+						editor->setup(0, 255, 1, false, false, false);
 						prop = editor;
 					} break;
 					default: {
@@ -770,7 +778,7 @@ void EditorPropertyOTFeatures::update_property() {
 					disp_name = vformat("%s (%s)", disp_name, info["label"].operator String());
 				}
 				prop->set_label(disp_name);
-				prop->set_tooltip(name);
+				prop->set_tooltip_text(name);
 				prop->set_selectable(false);
 
 				prop->connect("property_changed", callable_mp(this, &EditorPropertyOTFeatures::_property_changed));
@@ -781,7 +789,7 @@ void EditorPropertyOTFeatures::update_property() {
 				hbox->add_child(prop);
 				prop->set_h_size_flags(SIZE_EXPAND_FILL);
 				Button *remove = memnew(Button);
-				remove->set_icon(get_theme_icon(SNAME("Remove"), SNAME("EditorIcons")));
+				remove->set_icon(get_editor_theme_icon(SNAME("Remove")));
 				hbox->add_child(remove);
 				remove->connect("pressed", callable_mp(this, &EditorPropertyOTFeatures::_remove).bind(remove, name_tag));
 
@@ -790,7 +798,7 @@ void EditorPropertyOTFeatures::update_property() {
 		}
 
 		button_add = EditorInspector::create_inspector_action_button(TTR("Add Feature"));
-		button_add->set_icon(get_theme_icon(SNAME("Add"), SNAME("EditorIcons")));
+		button_add->set_icon(get_editor_theme_icon(SNAME("Add")));
 		button_add->connect("pressed", callable_mp(this, &EditorPropertyOTFeatures::_add_menu));
 		property_vbox->add_child(button_add);
 
@@ -806,7 +814,7 @@ void EditorPropertyOTFeatures::update_property() {
 }
 
 void EditorPropertyOTFeatures::_edit_pressed() {
-	Variant prop_val = get_edited_object()->get(get_edited_property());
+	Variant prop_val = get_edited_property_value();
 	if (prop_val.get_type() == Variant::NIL) {
 		Callable::CallError ce;
 		Variant::construct(Variant::DICTIONARY, prop_val, nullptr, 0, ce);
@@ -867,7 +875,7 @@ bool EditorInspectorPluginFontVariation::can_handle(Object *p_object) {
 	return (Object::cast_to<FontVariation>(p_object) != nullptr) || (Object::cast_to<DynamicFontImportSettingsData>(p_object) != nullptr);
 }
 
-bool EditorInspectorPluginFontVariation::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide) {
+bool EditorInspectorPluginFontVariation::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide) {
 	if (p_path == "variation_opentype") {
 		add_property_editor(p_path, memnew(EditorPropertyOTVariation));
 		return true;
@@ -946,7 +954,7 @@ Size2 FontPreview::get_minimum_size() const {
 
 void FontPreview::set_data(const Ref<Font> &p_f) {
 	prev_font = p_f;
-	update();
+	queue_redraw();
 }
 
 FontPreview::FontPreview() {
@@ -962,14 +970,14 @@ bool EditorInspectorPluginFontPreview::can_handle(Object *p_object) {
 
 void EditorInspectorPluginFontPreview::parse_begin(Object *p_object) {
 	Font *fd = Object::cast_to<Font>(p_object);
-	ERR_FAIL_COND(!fd);
+	ERR_FAIL_NULL(fd);
 
 	FontPreview *editor = memnew(FontPreview);
 	editor->set_data(fd);
 	add_custom_control(editor);
 }
 
-bool EditorInspectorPluginFontPreview::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide) {
+bool EditorInspectorPluginFontPreview::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide) {
 	return false;
 }
 
@@ -1012,6 +1020,7 @@ EditorPropertyFontNamesArray::EditorPropertyFontNamesArray() {
 
 	if (OS::get_singleton()) {
 		Vector<String> fonts = OS::get_singleton()->get_system_fonts();
+		fonts.sort();
 		for (int i = 0; i < fonts.size(); i++) {
 			menu->add_item(fonts[i], i + 6);
 		}
@@ -1028,7 +1037,7 @@ bool EditorInspectorPluginSystemFont::can_handle(Object *p_object) {
 	return Object::cast_to<SystemFont>(p_object) != nullptr;
 }
 
-bool EditorInspectorPluginSystemFont::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide) {
+bool EditorInspectorPluginSystemFont::parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide) {
 	if (p_path == "font_names") {
 		EditorPropertyFontNamesArray *editor = memnew(EditorPropertyFontNamesArray);
 		editor->setup(p_type, p_hint_text);

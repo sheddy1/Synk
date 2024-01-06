@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  callable_bind.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  callable_bind.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "callable_bind.h"
 
@@ -75,6 +75,10 @@ CallableCustom::CompareLessFunc CallableCustomBind::get_compare_less_func() cons
 	return _less_func;
 }
 
+bool CallableCustomBind::is_valid() const {
+	return callable.is_valid();
+}
+
 StringName CallableCustomBind::get_method() const {
 	return callable.get_method();
 }
@@ -84,11 +88,52 @@ ObjectID CallableCustomBind::get_object() const {
 }
 
 const Callable *CallableCustomBind::get_base_comparator() const {
-	return &callable;
+	return callable.get_base_comparator();
+}
+
+int CallableCustomBind::get_bound_arguments_count() const {
+	return callable.get_bound_arguments_count() + binds.size();
+}
+
+void CallableCustomBind::get_bound_arguments(Vector<Variant> &r_arguments, int &r_argcount) const {
+	Vector<Variant> sub_args;
+	int sub_count;
+	callable.get_bound_arguments_ref(sub_args, sub_count);
+
+	if (sub_count == 0) {
+		r_arguments = binds;
+		r_argcount = binds.size();
+		return;
+	}
+
+	int new_count = sub_count + binds.size();
+	r_argcount = new_count;
+
+	if (new_count <= 0) {
+		// Removed more arguments than it adds.
+		r_arguments = Vector<Variant>();
+		return;
+	}
+
+	r_arguments.resize(new_count);
+
+	if (sub_count > 0) {
+		for (int i = 0; i < sub_count; i++) {
+			r_arguments.write[i] = sub_args[i];
+		}
+		for (int i = 0; i < binds.size(); i++) {
+			r_arguments.write[i + sub_count] = binds[i];
+		}
+		r_argcount = new_count;
+	} else {
+		for (int i = 0; i < binds.size() + sub_count; i++) {
+			r_arguments.write[i] = binds[i - sub_count];
+		}
+	}
 }
 
 void CallableCustomBind::call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
-	const Variant **args = (const Variant **)alloca(sizeof(const Variant **) * (binds.size() + p_argcount));
+	const Variant **args = (const Variant **)alloca(sizeof(Variant *) * (binds.size() + p_argcount));
 	for (int i = 0; i < p_argcount; i++) {
 		args[i] = (const Variant *)p_arguments[i];
 	}
@@ -97,6 +142,18 @@ void CallableCustomBind::call(const Variant **p_arguments, int p_argcount, Varia
 	}
 
 	callable.callp(args, p_argcount + binds.size(), r_return_value, r_call_error);
+}
+
+Error CallableCustomBind::rpc(int p_peer_id, const Variant **p_arguments, int p_argcount, Callable::CallError &r_call_error) const {
+	const Variant **args = (const Variant **)alloca(sizeof(Variant *) * (binds.size() + p_argcount));
+	for (int i = 0; i < p_argcount; i++) {
+		args[i] = (const Variant *)p_arguments[i];
+	}
+	for (int i = 0; i < binds.size(); i++) {
+		args[i + p_argcount] = (const Variant *)&binds[i];
+	}
+
+	return callable.rpcp(p_peer_id, args, p_argcount + binds.size(), r_call_error);
 }
 
 CallableCustomBind::CallableCustomBind(const Callable &p_callable, const Vector<Variant> &p_binds) {
@@ -152,6 +209,10 @@ CallableCustom::CompareLessFunc CallableCustomUnbind::get_compare_less_func() co
 	return _less_func;
 }
 
+bool CallableCustomUnbind::is_valid() const {
+	return callable.is_valid();
+}
+
 StringName CallableCustomUnbind::get_method() const {
 	return callable.get_method();
 }
@@ -161,17 +222,44 @@ ObjectID CallableCustomUnbind::get_object() const {
 }
 
 const Callable *CallableCustomUnbind::get_base_comparator() const {
-	return &callable;
+	return callable.get_base_comparator();
+}
+
+int CallableCustomUnbind::get_bound_arguments_count() const {
+	return callable.get_bound_arguments_count() - argcount;
+}
+
+void CallableCustomUnbind::get_bound_arguments(Vector<Variant> &r_arguments, int &r_argcount) const {
+	Vector<Variant> sub_args;
+	int sub_count;
+	callable.get_bound_arguments_ref(sub_args, sub_count);
+
+	r_argcount = sub_args.size() - argcount;
+
+	if (argcount >= sub_args.size()) {
+		r_arguments = Vector<Variant>();
+	} else {
+		sub_args.resize(sub_args.size() - argcount);
+		r_arguments = sub_args;
+	}
 }
 
 void CallableCustomUnbind::call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
-	if (argcount > p_argcount) {
+	if (p_argcount < argcount) {
 		r_call_error.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
-		r_call_error.argument = 0;
 		r_call_error.expected = argcount;
 		return;
 	}
 	callable.callp(p_arguments, p_argcount - argcount, r_return_value, r_call_error);
+}
+
+Error CallableCustomUnbind::rpc(int p_peer_id, const Variant **p_arguments, int p_argcount, Callable::CallError &r_call_error) const {
+	if (p_argcount < argcount) {
+		r_call_error.error = Callable::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS;
+		r_call_error.expected = argcount;
+		return ERR_UNCONFIGURED;
+	}
+	return callable.rpcp(p_peer_id, p_arguments, p_argcount - argcount, r_call_error);
 }
 
 CallableCustomUnbind::CallableCustomUnbind(const Callable &p_callable, int p_argcount) {

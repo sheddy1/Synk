@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  rasterizer_gles3.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rasterizer_gles3.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "rasterizer_gles3.h"
 #include "storage/utilities.h"
@@ -34,6 +34,7 @@
 #ifdef GLES3_ENABLED
 
 #include "core/config/project_settings.h"
+#include "core/io/dir_access.h"
 #include "core/os/os.h"
 #include "storage/texture_storage.h"
 
@@ -62,31 +63,26 @@
 #define _EXT_DEBUG_OUTPUT 0x92E0
 
 #ifndef GLAPIENTRY
-#if defined(WINDOWS_ENABLED) && !defined(UWP_ENABLED)
+#if defined(WINDOWS_ENABLED)
 #define GLAPIENTRY APIENTRY
 #else
 #define GLAPIENTRY
 #endif
 #endif
 
-#if !defined(IOS_ENABLED) && !defined(JAVASCRIPT_ENABLED)
+#if !defined(IOS_ENABLED) && !defined(WEB_ENABLED)
 // We include EGL below to get debug callback on GLES2 platforms,
 // but EGL is not available on iOS.
 #define CAN_DEBUG
 #endif
 
-#if !defined(GLES_OVER_GL) && defined(CAN_DEBUG)
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
-#include <GLES3/gl3platform.h>
-
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#endif
+#include "platform_gl.h"
 
 #if defined(MINGW_ENABLED) || defined(_MSC_VER)
 #define strcpy strcpy_s
 #endif
+
+bool RasterizerGLES3::gles_over_gl = true;
 
 void RasterizerGLES3::begin_frame(double frame_step) {
 	frame++;
@@ -100,32 +96,31 @@ void RasterizerGLES3::begin_frame(double frame_step) {
 	canvas->set_time(time_total);
 	scene->set_time(time_total, frame_step);
 
-	GLES3::Utilities *utilities = GLES3::Utilities::get_singleton();
-	utilities->info.render_final = utilities->info.render;
-	utilities->info.render.reset();
+	GLES3::Utilities *utils = GLES3::Utilities::get_singleton();
+	utils->_capture_timestamps_begin();
 
 	//scene->iteration();
 }
 
 void RasterizerGLES3::end_frame(bool p_swap_buffers) {
-	//	if (OS::get_singleton()->is_layered_allowed()) {
-	//		if (!OS::get_singleton()->get_window_per_pixel_transparency_enabled()) {
-	//clear alpha
-	//			glColorMask(false, false, false, true);
-	//			glClearColor(0.5, 0, 0, 1);
-	//			glClear(GL_COLOR_BUFFER_BIT);
-	//			glColorMask(true, true, true, true);
-	//		}
-	//	}
-
-	//	glClearColor(1, 0, 0, 1);
-	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_ACCUM_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
 	if (p_swap_buffers) {
 		DisplayServer::get_singleton()->swap_buffers();
 	} else {
 		glFinish();
 	}
+}
+
+void RasterizerGLES3::clear_depth(float p_depth) {
+#ifdef GL_API_ENABLED
+	if (is_gles_over_gl()) {
+		glClearDepth(p_depth);
+	}
+#endif // GL_API_ENABLED
+#ifdef GLES_API_ENABLED
+	if (!is_gles_over_gl()) {
+		glClearDepthf(p_depth);
+	}
+#endif // GLES_API_ENABLED
 }
 
 #ifdef CAN_DEBUG
@@ -182,7 +177,7 @@ static void GLAPIENTRY _gl_debug_print(GLenum source, GLenum type, GLuint id, GL
 }
 #endif
 
-typedef void (*DEBUGPROCARB)(GLenum source,
+typedef void(GLAPIENTRY *DEBUGPROCARB)(GLenum source,
 		GLenum type,
 		GLuint id,
 		GLenum severity,
@@ -190,10 +185,10 @@ typedef void (*DEBUGPROCARB)(GLenum source,
 		const char *message,
 		const void *userParam);
 
-typedef void (*DebugMessageCallbackARB)(DEBUGPROCARB callback, const void *userParam);
+typedef void(GLAPIENTRY *DebugMessageCallbackARB)(DEBUGPROCARB callback, const void *userParam);
 
 void RasterizerGLES3::initialize() {
-	print_line("OpenGL Renderer: " + RS::get_singleton()->get_video_adapter_name());
+	print_line(vformat("OpenGL API %s - Compatibility - Using Device: %s - %s", RS::get_singleton()->get_video_adapter_api_version(), RS::get_singleton()->get_video_adapter_vendor(), RS::get_singleton()->get_video_adapter_name()));
 }
 
 void RasterizerGLES3::finalize() {
@@ -211,60 +206,132 @@ void RasterizerGLES3::finalize() {
 	memdelete(config);
 }
 
-RasterizerGLES3::RasterizerGLES3() {
-#ifdef GLAD_ENABLED
-	if (!gladLoadGL()) {
-		ERR_PRINT("Error initializing GLAD");
-		// FIXME this is an early return from a constructor.  Any other code using this instance will crash or the finalizer will crash, because none of
-		// the members of this instance are initialized, so this just makes debugging harder.  It should either crash here intentionally,
-		// or we need to actually test for this situation before constructing this.
-		return;
-	}
+RasterizerGLES3 *RasterizerGLES3::singleton = nullptr;
+
+#ifdef EGL_ENABLED
+void *_egl_load_function_wrapper(const char *p_name) {
+	return (void *)eglGetProcAddress(p_name);
+}
 #endif
 
+RasterizerGLES3::RasterizerGLES3() {
+	singleton = this;
+
 #ifdef GLAD_ENABLED
-	if (OS::get_singleton()->is_stdout_verbose()) {
-		if (GLAD_GL_ARB_debug_output) {
-			glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-			glDebugMessageCallbackARB(_gl_debug_print, nullptr);
-			glEnable(_EXT_DEBUG_OUTPUT);
-		} else {
-			print_line("OpenGL debugging not supported!");
+	bool glad_loaded = false;
+
+#ifdef EGL_ENABLED
+	// There should be a more flexible system for getting the GL pointer, as
+	// different DisplayServers can have different ways. We can just use the GLAD
+	// version global to see if it loaded for now though, otherwise we fall back to
+	// the generic loader below.
+#if defined(EGL_STATIC)
+	bool has_egl = true;
+#else
+	bool has_egl = (eglGetProcAddress != nullptr);
+#endif
+
+	if (gles_over_gl) {
+		if (has_egl && !glad_loaded && gladLoadGL((GLADloadfunc)&_egl_load_function_wrapper)) {
+			glad_loaded = true;
+		}
+	} else {
+		if (has_egl && !glad_loaded && gladLoadGLES2((GLADloadfunc)&_egl_load_function_wrapper)) {
+			glad_loaded = true;
+		}
+	}
+#endif // EGL_ENABLED
+
+	if (gles_over_gl) {
+		if (!glad_loaded && gladLoaderLoadGL()) {
+			glad_loaded = true;
+		}
+	} else {
+		if (!glad_loaded && gladLoaderLoadGLES2()) {
+			glad_loaded = true;
+		}
+	}
+
+	// FIXME this is an early return from a constructor.  Any other code using this instance will crash or the finalizer will crash, because none of
+	// the members of this instance are initialized, so this just makes debugging harder.  It should either crash here intentionally,
+	// or we need to actually test for this situation before constructing this.
+	ERR_FAIL_COND_MSG(!glad_loaded, "Error initializing GLAD.");
+
+	if (gles_over_gl) {
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			if (GLAD_GL_ARB_debug_output) {
+				glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+				glDebugMessageCallbackARB((GLDEBUGPROCARB)_gl_debug_print, nullptr);
+				glEnable(_EXT_DEBUG_OUTPUT);
+			} else {
+				print_line("OpenGL debugging not supported!");
+			}
 		}
 	}
 #endif // GLAD_ENABLED
 
 	// For debugging
 #ifdef CAN_DEBUG
-#ifdef GLES_OVER_GL
-	if (OS::get_singleton()->is_stdout_verbose() && GLAD_GL_ARB_debug_output) {
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_ERROR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_PORTABILITY_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_PERFORMANCE_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_OTHER_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
-		//		 glDebugMessageInsertARB(
-		//			GL_DEBUG_SOURCE_API_ARB,
-		//			GL_DEBUG_TYPE_OTHER_ARB, 1,
-		//			GL_DEBUG_SEVERITY_HIGH_ARB, 5, "hello");
-	}
-#else
-	if (OS::get_singleton()->is_stdout_verbose()) {
-		DebugMessageCallbackARB callback = (DebugMessageCallbackARB)eglGetProcAddress("glDebugMessageCallback");
-		if (!callback) {
-			callback = (DebugMessageCallbackARB)eglGetProcAddress("glDebugMessageCallbackKHR");
+#ifdef GL_API_ENABLED
+	if (gles_over_gl) {
+		if (OS::get_singleton()->is_stdout_verbose() && GLAD_GL_ARB_debug_output) {
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_ERROR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_PORTABILITY_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_PERFORMANCE_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
+			glDebugMessageControlARB(_EXT_DEBUG_SOURCE_API_ARB, _EXT_DEBUG_TYPE_OTHER_ARB, _EXT_DEBUG_SEVERITY_HIGH_ARB, 0, nullptr, GL_TRUE);
 		}
+	}
+#endif // GL_API_ENABLED
+#ifdef GLES_API_ENABLED
+	if (!gles_over_gl) {
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			DebugMessageCallbackARB callback = (DebugMessageCallbackARB)eglGetProcAddress("glDebugMessageCallback");
+			if (!callback) {
+				callback = (DebugMessageCallbackARB)eglGetProcAddress("glDebugMessageCallbackKHR");
+			}
 
-		if (callback) {
-			print_line("godot: ENABLING GL DEBUG");
-			glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
-			callback(_gl_debug_print, NULL);
-			glEnable(_EXT_DEBUG_OUTPUT);
+			if (callback) {
+				print_line("godot: ENABLING GL DEBUG");
+				glEnable(_EXT_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+				callback((DEBUGPROCARB)_gl_debug_print, NULL);
+				glEnable(_EXT_DEBUG_OUTPUT);
+			}
 		}
 	}
-#endif // GLES_OVER_GL
+#endif // GLES_API_ENABLED
 #endif // CAN_DEBUG
+
+	{
+		String shader_cache_dir = Engine::get_singleton()->get_shader_cache_path();
+		if (shader_cache_dir.is_empty()) {
+			shader_cache_dir = "user://";
+		}
+		Ref<DirAccess> da = DirAccess::open(shader_cache_dir);
+		if (da.is_null()) {
+			ERR_PRINT("Can't create shader cache folder, no shader caching will happen: " + shader_cache_dir);
+		} else {
+			Error err = da->change_dir("shader_cache");
+			if (err != OK) {
+				err = da->make_dir("shader_cache");
+			}
+			if (err != OK) {
+				ERR_PRINT("Can't create shader cache folder, no shader caching will happen: " + shader_cache_dir);
+			} else {
+				shader_cache_dir = shader_cache_dir.path_join("shader_cache");
+
+				bool shader_cache_enabled = GLOBAL_GET("rendering/shader_compiler/shader_cache/enabled");
+				if (!Engine::get_singleton()->is_editor_hint() && !shader_cache_enabled) {
+					shader_cache_dir = String(); //disable only if not editor
+				}
+
+				if (!shader_cache_dir.is_empty()) {
+					ShaderGLES3::set_shader_cache_dir(shader_cache_dir);
+				}
+			}
+		}
+	}
 
 	// OpenGL needs to be initialized before initializing the Rasterizers
 	config = memnew(GLES3::Config);
@@ -285,42 +352,72 @@ RasterizerGLES3::~RasterizerGLES3() {
 }
 
 void RasterizerGLES3::prepare_for_blitting_render_targets() {
+	// This is a hack, but this function is called one time after all viewports have been updated.
+	// So it marks the end of the frame for all viewports
+	// In the OpenGL renderer we have to call end_frame for each viewport so we can swap the
+	// buffers for each window before proceeding to the next.
+	// This allows us to only increment the frame after all viewports are done.
+	GLES3::Utilities *utils = GLES3::Utilities::get_singleton();
+	utils->capture_timestamps_end();
 }
 
-void RasterizerGLES3::_blit_render_target_to_screen(RID p_render_target, DisplayServer::WindowID p_screen, const Rect2 &p_screen_rect) {
-	GLES3::TextureStorage *texture_storage = GLES3::TextureStorage::get_singleton();
+void RasterizerGLES3::_blit_render_target_to_screen(RID p_render_target, DisplayServer::WindowID p_screen, const Rect2 &p_screen_rect, uint32_t p_layer, bool p_first) {
+	GLES3::RenderTarget *rt = GLES3::TextureStorage::get_singleton()->get_render_target(p_render_target);
 
-	GLES3::RenderTarget *rt = texture_storage->get_render_target(p_render_target);
-	ERR_FAIL_COND(!rt);
+	ERR_FAIL_NULL(rt);
 
-	// TODO: do we need a keep 3d linear option?
-
-	// Make sure we are drawing to the right context.
-	DisplayServer::get_singleton()->gl_window_make_current(p_screen);
-
-	if (rt->external.fbo != 0) {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, rt->external.fbo);
-	} else {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, rt->fbo);
+	// We normally render to the render target upside down, so flip Y when blitting to the screen.
+	bool flip_y = true;
+	if (rt->overridden.color.is_valid()) {
+		// If we've overridden the render target's color texture, that means we
+		// didn't render upside down, so we don't need to flip it.
+		// We're probably rendering directly to an XR device.
+		flip_y = false;
 	}
+
+	GLuint read_fbo = 0;
+	glGenFramebuffers(1, &read_fbo);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
+
+	if (rt->view_count > 1) {
+		glFramebufferTextureLayer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, rt->color, 0, p_layer);
+	} else {
+		glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->color, 0);
+	}
+
 	glReadBuffer(GL_COLOR_ATTACHMENT0);
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
-	// Flip content upside down to correct for coordinates.
-	glBlitFramebuffer(0, 0, rt->size.x, rt->size.y, 0, p_screen_rect.size.y, p_screen_rect.size.x, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+	if (p_first) {
+		Size2i win_size = DisplayServer::get_singleton()->window_get_size();
+		if (p_screen_rect.position != Vector2() || p_screen_rect.size != rt->size) {
+			// Viewport doesn't cover entire window so clear window to black before blitting.
+			glViewport(0, 0, win_size.width, win_size.height);
+			glClearColor(0.0, 0.0, 0.0, 1.0);
+			glClear(GL_COLOR_BUFFER_BIT);
+		}
+	}
+
+	Vector2i screen_rect_end = p_screen_rect.get_end();
+	glBlitFramebuffer(0, 0, rt->size.x, rt->size.y,
+			p_screen_rect.position.x, flip_y ? screen_rect_end.y : p_screen_rect.position.y, screen_rect_end.x, flip_y ? p_screen_rect.position.y : screen_rect_end.y,
+			GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+	if (read_fbo != 0) {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		glDeleteFramebuffers(1, &read_fbo);
+	}
 }
 
 // is this p_screen useless in a multi window environment?
 void RasterizerGLES3::blit_render_targets_to_screen(DisplayServer::WindowID p_screen, const BlitToScreen *p_render_targets, int p_amount) {
-	// All blits are going to the system framebuffer, so just bind once.
-	glBindFramebuffer(GL_FRAMEBUFFER, GLES3::TextureStorage::system_fbo);
-
 	for (int i = 0; i < p_amount; i++) {
 		const BlitToScreen &blit = p_render_targets[i];
 
 		RID rid_rt = blit.render_target;
 
 		Rect2 dst_rect = blit.dst_rect;
-		_blit_render_target_to_screen(rid_rt, p_screen, dst_rect);
+		_blit_render_target_to_screen(rid_rt, p_screen, dst_rect, blit.multi_view.use_layer ? blit.multi_view.layer : 0, i == 0);
 	}
 }
 
@@ -329,18 +426,14 @@ void RasterizerGLES3::set_boot_image(const Ref<Image> &p_image, const Color &p_c
 		return;
 	}
 
-	Size2i win_size = DisplayServer::get_singleton()->screen_get_size();
+	Size2i win_size = DisplayServer::get_singleton()->window_get_size();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glViewport(0, 0, win_size.width, win_size.height);
-	glDisable(GL_BLEND);
+	glEnable(GL_BLEND);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
 	glDepthMask(GL_FALSE);
-	if (false) {
-		//	if (OS::get_singleton()->get_window_per_pixel_transparency_enabled()) {
-		glClearColor(0.0, 0.0, 0.0, 0.0);
-	} else {
-		glClearColor(p_color.r, p_color.g, p_color.b, 1.0);
-	}
+	glClearColor(p_color.r, p_color.g, p_color.b, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	RID texture = texture_storage->texture_allocate();
@@ -366,14 +459,24 @@ void RasterizerGLES3::set_boot_image(const Ref<Image> &p_image, const Color &p_c
 		screenrect.position += ((Size2(win_size.width, win_size.height) - screenrect.size) / 2.0).floor();
 	}
 
+	// Flip Y.
+	screenrect.position.y = win_size.y - screenrect.position.y;
+	screenrect.size.y = -screenrect.size.y;
+
+	// Normalize texture coordinates to window size.
+	screenrect.position /= win_size;
+	screenrect.size /= win_size;
+
 	GLES3::Texture *t = texture_storage->get_texture(texture);
-	glActiveTexture(GL_TEXTURE0 + config->max_texture_image_units - 1);
+	t->gl_set_filter(p_use_filter ? RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR : RS::CANVAS_ITEM_TEXTURE_FILTER_NEAREST);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, t->tex_id);
+	copy_effects->copy_to_rect(screenrect);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	texture_storage->texture_free(texture);
-
 	end_frame(true);
+
+	texture_storage->texture_free(texture);
 }
 
 #endif // GLES3_ENABLED

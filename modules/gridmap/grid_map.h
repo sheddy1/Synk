@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  grid_map.h                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  grid_map.h                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef GRID_MAP_H
 #define GRID_MAP_H
@@ -95,10 +95,11 @@ class GridMap : public Node3D {
 	 * A GridMap can have multiple Octants.
 	 */
 	struct Octant {
-		struct NavMesh {
+		struct NavigationCell {
 			RID region;
 			Transform3D xform;
-			RID navmesh_debug_instance;
+			RID navigation_mesh_debug_instance;
+			uint32_t navigation_layers = 1;
 		};
 
 		struct MultimeshInstance {
@@ -117,10 +118,14 @@ class GridMap : public Node3D {
 		HashSet<IndexKey> cells;
 		RID collision_debug;
 		RID collision_debug_instance;
+#ifdef DEBUG_ENABLED
+		RID navigation_debug_edge_connections_instance;
+		Ref<ArrayMesh> navigation_debug_edge_connections_mesh;
+#endif // DEBUG_ENABLED
 
 		bool dirty = false;
 		RID static_body;
-		HashMap<IndexKey, NavMesh> navmesh_ids;
+		HashMap<IndexKey, NavigationCell> navigation_cell_ids;
 	};
 
 	union OctantKey {
@@ -146,9 +151,10 @@ class GridMap : public Node3D {
 
 	uint32_t collision_layer = 1;
 	uint32_t collision_mask = 1;
+	real_t collision_priority = 1.0;
 	Ref<PhysicsMaterial> physics_material;
 	bool bake_navigation = false;
-	uint32_t navigation_layers = 1;
+	RID map_override;
 
 	Transform3D last_transform;
 
@@ -180,18 +186,25 @@ class GridMap : public Node3D {
 		return Vector3(p_key.x, p_key.y, p_key.z) * cell_size * octant_size;
 	}
 
-	void _reset_physic_bodies_collision_filters();
+	void _update_physics_bodies_collision_properties();
 	void _octant_enter_world(const OctantKey &p_key);
 	void _octant_exit_world(const OctantKey &p_key);
 	bool _octant_update(const OctantKey &p_key);
 	void _octant_clean_up(const OctantKey &p_key);
 	void _octant_transform(const OctantKey &p_key);
+#ifdef DEBUG_ENABLED
+	void _update_octant_navigation_debug_edge_connections_mesh(const OctantKey &p_key);
+	void _navigation_map_changed(RID p_map);
+	void _update_navigation_debug_edge_connections();
+#endif // DEBUG_ENABLED
 	bool awaiting_update = false;
 
 	void _queue_octants_dirty();
 	void _update_octants_callback();
 
+#ifndef DISABLE_DEPRECATED
 	void resource_changed(const Ref<Resource> &p_res);
+#endif
 
 	void _clear_internal();
 
@@ -230,6 +243,9 @@ public:
 	void set_collision_mask_value(int p_layer_number, bool p_value);
 	bool get_collision_mask_value(int p_layer_number) const;
 
+	void set_collision_priority(real_t p_priority);
+	real_t get_collision_priority() const;
+
 	void set_physics_material(Ref<PhysicsMaterial> p_material);
 	Ref<PhysicsMaterial> get_physics_material() const;
 
@@ -238,11 +254,8 @@ public:
 	void set_bake_navigation(bool p_bake_navigation);
 	bool is_baking_navigation();
 
-	void set_navigation_layers(uint32_t p_navigation_layers);
-	uint32_t get_navigation_layers() const;
-
-	void set_navigation_layer_value(int p_layer_number, bool p_value);
-	bool get_navigation_layer_value(int p_layer_number) const;
+	void set_navigation_map(RID p_navigation_map);
+	RID get_navigation_map() const;
 
 	void set_mesh_library(const Ref<MeshLibrary> &p_mesh_library);
 	Ref<MeshLibrary> get_mesh_library() const;
@@ -263,15 +276,18 @@ public:
 	void set_cell_item(const Vector3i &p_position, int p_item, int p_rot = 0);
 	int get_cell_item(const Vector3i &p_position) const;
 	int get_cell_item_orientation(const Vector3i &p_position) const;
+	Basis get_cell_item_basis(const Vector3i &p_position) const;
+	Basis get_basis_with_orthogonal_index(int p_index) const;
+	int get_orthogonal_index_from_basis(const Basis &p_basis) const;
 
-	Vector3i world_to_map(const Vector3 &p_world_position) const;
-	Vector3 map_to_world(const Vector3i &p_map_position) const;
+	Vector3i local_to_map(const Vector3 &p_local_position) const;
+	Vector3 map_to_local(const Vector3i &p_map_position) const;
 
 	void set_cell_scale(float p_scale);
 	float get_cell_scale() const;
 
-	Array get_used_cells() const;
-	Array get_used_cells_by_item(int p_item) const;
+	TypedArray<Vector3i> get_used_cells() const;
+	TypedArray<Vector3i> get_used_cells_by_item(int p_item) const;
 
 	Array get_meshes() const;
 

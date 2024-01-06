@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_modification_2d_lookat.cpp                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_modification_2d_lookat.cpp                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_modification_2d_lookat.h"
 #include "scene/2d/skeleton_2d.h"
@@ -41,22 +41,24 @@ bool SkeletonModification2DLookAt::_set(const StringName &p_path, const Variant 
 	if (path.begins_with("enable_constraint")) {
 		set_enable_constraint(p_value);
 	} else if (path.begins_with("constraint_angle_min")) {
-		set_constraint_angle_min(Math::deg2rad(float(p_value)));
+		set_constraint_angle_min(Math::deg_to_rad(float(p_value)));
 	} else if (path.begins_with("constraint_angle_max")) {
-		set_constraint_angle_max(Math::deg2rad(float(p_value)));
+		set_constraint_angle_max(Math::deg_to_rad(float(p_value)));
 	} else if (path.begins_with("constraint_angle_invert")) {
 		set_constraint_angle_invert(p_value);
 	} else if (path.begins_with("constraint_in_localspace")) {
 		set_constraint_in_localspace(p_value);
 	} else if (path.begins_with("additional_rotation")) {
-		set_additional_rotation(Math::deg2rad(float(p_value)));
+		set_additional_rotation(Math::deg_to_rad(float(p_value)));
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor/draw_gizmo")) {
+	else if (path.begins_with("editor/draw_gizmo")) {
 		set_editor_draw_gizmo(p_value);
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }
@@ -67,22 +69,24 @@ bool SkeletonModification2DLookAt::_get(const StringName &p_path, Variant &r_ret
 	if (path.begins_with("enable_constraint")) {
 		r_ret = get_enable_constraint();
 	} else if (path.begins_with("constraint_angle_min")) {
-		r_ret = Math::rad2deg(get_constraint_angle_min());
+		r_ret = Math::rad_to_deg(get_constraint_angle_min());
 	} else if (path.begins_with("constraint_angle_max")) {
-		r_ret = Math::rad2deg(get_constraint_angle_max());
+		r_ret = Math::rad_to_deg(get_constraint_angle_max());
 	} else if (path.begins_with("constraint_angle_invert")) {
 		r_ret = get_constraint_angle_invert();
 	} else if (path.begins_with("constraint_in_localspace")) {
 		r_ret = get_constraint_in_localspace();
 	} else if (path.begins_with("additional_rotation")) {
-		r_ret = Math::rad2deg(get_additional_rotation());
+		r_ret = Math::rad_to_deg(get_additional_rotation());
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor/draw_gizmo")) {
+	else if (path.begins_with("editor/draw_gizmo")) {
 		r_ret = get_editor_draw_gizmo();
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }

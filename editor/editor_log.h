@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_log.h                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_log.h                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef EDITOR_LOG_H
 #define EDITOR_LOG_H
@@ -40,6 +40,8 @@
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/texture_button.h"
 #include "scene/gui/texture_rect.h"
+
+class UndoRedo;
 
 class EditorLog : public HBoxContainer {
 	GDCLASS(EditorLog, HBoxContainer);
@@ -58,14 +60,26 @@ private:
 		String text;
 		MessageType type;
 		int count = 1;
+		bool clear = true;
 
 		LogMessage() {}
 
-		LogMessage(const String p_text, MessageType p_type) :
+		LogMessage(const String p_text, MessageType p_type, bool p_clear) :
 				text(p_text),
-				type(p_type) {
+				type(p_type),
+				clear(p_clear) {
 		}
 	};
+
+	struct {
+		Color error_color;
+		Ref<Texture2D> error_icon;
+
+		Color warning_color;
+		Ref<Texture2D> warning_icon;
+
+		Color message_color;
+	} theme_cache;
 
 	// Encapsulates all data and functionality regarding filters.
 	struct LogFilter {
@@ -83,7 +97,7 @@ private:
 			toggle_button->set_toggle_mode(true);
 			toggle_button->set_pressed(true);
 			toggle_button->set_text(itos(message_count));
-			toggle_button->set_tooltip(TTR(p_tooltip));
+			toggle_button->set_tooltip_text(TTR(p_tooltip));
 			// Don't tint the icon even when in "pressed" state.
 			toggle_button->add_theme_color_override("icon_color_pressed", Color(1, 1, 1, 1));
 			toggle_button->set_focus_mode(FOCUS_NONE);
@@ -154,7 +168,7 @@ private:
 	void _set_search_visible(bool p_visible);
 	void _search_changed(const String &p_text);
 
-	void _process_message(const String &p_msg, MessageType p_type);
+	void _process_message(const String &p_msg, MessageType p_type, bool p_clear);
 	void _reset_message_counts();
 
 	void _set_collapse(bool p_collapse);
@@ -166,12 +180,12 @@ private:
 	void _update_theme();
 
 protected:
-	static void _bind_methods();
 	void _notification(int p_what);
 
 public:
 	void add_message(const String &p_msg, MessageType p_type = MSG_TYPE_STD);
 	void set_tool_button(Button *p_tool_button);
+	void register_undo_redo(UndoRedo *p_undo_redo);
 	void deinit();
 
 	void clear();

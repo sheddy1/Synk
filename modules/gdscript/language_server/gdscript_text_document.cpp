@@ -1,53 +1,57 @@
-/*************************************************************************/
-/*  gdscript_text_document.cpp                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript_text_document.cpp                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "gdscript_text_document.h"
 
 #include "../gdscript.h"
+#include "gdscript_extend_parser.h"
+#include "gdscript_language_protocol.h"
+
 #include "core/os/os.h"
 #include "editor/editor_settings.h"
 #include "editor/plugins/script_text_editor.h"
-#include "gdscript_extend_parser.h"
-#include "gdscript_language_protocol.h"
 #include "servers/display_server.h"
 
 void GDScriptTextDocument::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("didOpen"), &GDScriptTextDocument::didOpen);
 	ClassDB::bind_method(D_METHOD("didClose"), &GDScriptTextDocument::didClose);
 	ClassDB::bind_method(D_METHOD("didChange"), &GDScriptTextDocument::didChange);
+	ClassDB::bind_method(D_METHOD("willSaveWaitUntil"), &GDScriptTextDocument::willSaveWaitUntil);
 	ClassDB::bind_method(D_METHOD("didSave"), &GDScriptTextDocument::didSave);
 	ClassDB::bind_method(D_METHOD("nativeSymbol"), &GDScriptTextDocument::nativeSymbol);
 	ClassDB::bind_method(D_METHOD("documentSymbol"), &GDScriptTextDocument::documentSymbol);
 	ClassDB::bind_method(D_METHOD("completion"), &GDScriptTextDocument::completion);
 	ClassDB::bind_method(D_METHOD("resolve"), &GDScriptTextDocument::resolve);
 	ClassDB::bind_method(D_METHOD("rename"), &GDScriptTextDocument::rename);
+	ClassDB::bind_method(D_METHOD("prepareRename"), &GDScriptTextDocument::prepareRename);
+	ClassDB::bind_method(D_METHOD("references"), &GDScriptTextDocument::references);
 	ClassDB::bind_method(D_METHOD("foldingRange"), &GDScriptTextDocument::foldingRange);
 	ClassDB::bind_method(D_METHOD("codeLens"), &GDScriptTextDocument::codeLens);
 	ClassDB::bind_method(D_METHOD("documentLink"), &GDScriptTextDocument::documentLink);
@@ -81,6 +85,16 @@ void GDScriptTextDocument::didChange(const Variant &p_param) {
 	sync_script_content(doc.uri, doc.text);
 }
 
+void GDScriptTextDocument::willSaveWaitUntil(const Variant &p_param) {
+	lsp::TextDocumentItem doc = load_document_item(p_param);
+
+	String path = GDScriptLanguageProtocol::get_singleton()->get_workspace()->get_file_path(doc.uri);
+	Ref<Script> scr = ResourceLoader::load(path);
+	if (scr.is_valid()) {
+		ScriptEditor::get_singleton()->clear_docs_from_script(scr);
+	}
+}
+
 void GDScriptTextDocument::didSave(const Variant &p_param) {
 	lsp::TextDocumentItem doc = load_document_item(p_param);
 	Dictionary dict = p_param;
@@ -88,11 +102,20 @@ void GDScriptTextDocument::didSave(const Variant &p_param) {
 
 	sync_script_content(doc.uri, text);
 
-	/*String path = GDScriptLanguageProtocol::get_singleton()->get_workspace()->get_file_path(doc.uri);
+	String path = GDScriptLanguageProtocol::get_singleton()->get_workspace()->get_file_path(doc.uri);
+	Ref<GDScript> scr = ResourceLoader::load(path);
+	if (scr.is_valid() && (scr->load_source_code(path) == OK)) {
+		if (scr->is_tool()) {
+			scr->get_language()->reload_tool_script(scr, true);
+		} else {
+			scr->reload(true);
+		}
 
-	Ref<GDScript> script = ResourceLoader::load(path);
-	script->load_source_code(path);
-	script->reload(true);*/
+		scr->update_exports();
+		ScriptEditor::get_singleton()->reload_scripts(true);
+		ScriptEditor::get_singleton()->update_docs_from_script(scr);
+		ScriptEditor::get_singleton()->trigger_live_script_reload();
+	}
 }
 
 lsp::TextDocumentItem GDScriptTextDocument::load_document_item(const Variant &p_param) {
@@ -142,11 +165,8 @@ Array GDScriptTextDocument::documentSymbol(const Dictionary &p_params) {
 	String path = GDScriptLanguageProtocol::get_singleton()->get_workspace()->get_file_path(uri);
 	Array arr;
 	if (HashMap<String, ExtendGDScriptParser *>::ConstIterator parser = GDScriptLanguageProtocol::get_singleton()->get_workspace()->scripts.find(path)) {
-		Vector<lsp::DocumentedSymbolInformation> list;
-		parser->value->get_symbols().symbol_tree_as_list(uri, list);
-		for (int i = 0; i < list.size(); i++) {
-			arr.push_back(list[i].to_json());
-		}
+		lsp::DocumentSymbol symbol = parser->value->get_symbols();
+		arr.push_back(symbol.to_json(true));
 	}
 	return arr;
 }
@@ -213,8 +233,8 @@ Array GDScriptTextDocument::completion(const Dictionary &p_params) {
 		arr = native_member_completions.duplicate();
 
 		for (KeyValue<String, ExtendGDScriptParser *> &E : GDScriptLanguageProtocol::get_singleton()->get_workspace()->scripts) {
-			ExtendGDScriptParser *script = E.value;
-			const Array &items = script->get_member_completions();
+			ExtendGDScriptParser *scr = E.value;
+			const Array &items = scr->get_member_completions();
 
 			const int start_size = arr.size();
 			arr.resize(start_size + items.size());
@@ -232,6 +252,48 @@ Dictionary GDScriptTextDocument::rename(const Dictionary &p_params) {
 	String new_name = p_params["newName"];
 
 	return GDScriptLanguageProtocol::get_singleton()->get_workspace()->rename(params, new_name);
+}
+
+Variant GDScriptTextDocument::prepareRename(const Dictionary &p_params) {
+	lsp::TextDocumentPositionParams params;
+	params.load(p_params);
+
+	lsp::DocumentSymbol symbol;
+	lsp::Range range;
+	if (GDScriptLanguageProtocol::get_singleton()->get_workspace()->can_rename(params, symbol, range)) {
+		return Variant(range.to_json());
+	}
+
+	// `null` -> rename not valid at current location.
+	return Variant();
+}
+
+Array GDScriptTextDocument::references(const Dictionary &p_params) {
+	Array res;
+
+	lsp::ReferenceParams params;
+	params.load(p_params);
+
+	const lsp::DocumentSymbol *symbol = GDScriptLanguageProtocol::get_singleton()->get_workspace()->resolve_symbol(params);
+	if (symbol) {
+		Vector<lsp::Location> usages = GDScriptLanguageProtocol::get_singleton()->get_workspace()->find_all_usages(*symbol);
+		res.resize(usages.size());
+		int declaration_adjustment = 0;
+		for (int i = 0; i < usages.size(); i++) {
+			lsp::Location usage = usages[i];
+			if (!params.context.includeDeclaration && usage.range == symbol->range) {
+				declaration_adjustment++;
+				continue;
+			}
+			res[i - declaration_adjustment] = usages[i].to_json();
+		}
+
+		if (declaration_adjustment > 0) {
+			res.resize(res.size() - declaration_adjustment);
+		}
+	}
+
+	return res;
 }
 
 Dictionary GDScriptTextDocument::resolve(const Dictionary &p_params) {
@@ -253,9 +315,8 @@ Dictionary GDScriptTextDocument::resolve(const Dictionary &p_params) {
 		Vector<String> param_symbols = query.split(SYMBOL_SEPERATOR, false);
 
 		if (param_symbols.size() >= 2) {
-			String class_ = param_symbols[0];
-			StringName class_name = class_;
-			String member_name = param_symbols[param_symbols.size() - 1];
+			StringName class_name = param_symbols[0];
+			const String &member_name = param_symbols[param_symbols.size() - 1];
 			String inner_class_name;
 			if (param_symbols.size() >= 3) {
 				inner_class_name = param_symbols[1];
@@ -283,6 +344,15 @@ Dictionary GDScriptTextDocument::resolve(const Dictionary &p_params) {
 		if (params.context.triggerKind == lsp::CompletionTriggerKind::TriggerCharacter && (params.context.triggerCharacter == "(")) {
 			const String quote_style = EDITOR_GET("text_editor/completion/use_single_quotes") ? "'" : "\"";
 			item.insertText = item.label.quote(quote_style);
+		}
+	}
+
+	if (item.kind == lsp::CompletionItemKind::Method) {
+		bool is_trigger_character = params.context.triggerKind == lsp::CompletionTriggerKind::TriggerCharacter;
+		bool is_quote_character = params.context.triggerCharacter == "\"" || params.context.triggerCharacter == "'";
+
+		if (is_trigger_character && is_quote_character && item.insertText.is_quoted()) {
+			item.insertText = item.insertText.unquote();
 		}
 	}
 
@@ -417,13 +487,6 @@ void GDScriptTextDocument::sync_script_content(const String &p_path, const Strin
 	GDScriptLanguageProtocol::get_singleton()->get_workspace()->parse_script(path, p_content);
 
 	EditorFileSystem::get_singleton()->update_file(path);
-	Error error;
-	Ref<GDScript> script = ResourceLoader::load(path, "", ResourceFormatLoader::CACHE_MODE_REUSE, &error);
-	if (error == OK) {
-		if (script->load_source_code(path) == OK) {
-			script->reload(true);
-		}
-	}
 }
 
 void GDScriptTextDocument::show_native_symbol_in_editor(const String &p_symbol_id) {
@@ -438,7 +501,7 @@ Array GDScriptTextDocument::find_symbols(const lsp::TextDocumentPositionParams &
 	if (symbol) {
 		lsp::Location location;
 		location.uri = symbol->uri;
-		location.range = symbol->range;
+		location.range = symbol->selectionRange;
 		const String &path = GDScriptLanguageProtocol::get_singleton()->get_workspace()->get_file_path(symbol->uri);
 		if (file_checker->file_exists(path)) {
 			arr.push_back(location.to_json());
@@ -452,7 +515,7 @@ Array GDScriptTextDocument::find_symbols(const lsp::TextDocumentPositionParams &
 				if (!s->uri.is_empty()) {
 					lsp::Location location;
 					location.uri = s->uri;
-					location.range = s->range;
+					location.range = s->selectionRange;
 					arr.push_back(location.to_json());
 					r_list.push_back(s);
 				}

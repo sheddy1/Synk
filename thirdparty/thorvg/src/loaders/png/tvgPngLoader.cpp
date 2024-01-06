@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2021 - 2023 the ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,6 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #include <memory.h>
 #include "tvgLoader.h"
 #include "tvgPngLoader.h"
@@ -27,26 +28,6 @@
 /************************************************************************/
 /* Internal Class Implementation                                        */
 /************************************************************************/
-
-
-static inline uint32_t PREMULTIPLY(uint32_t c)
-{
-    auto a = (c >> 24);
-    return (c & 0xff000000) + ((((c >> 8) & 0xff) * a) & 0xff00) + ((((c & 0x00ff00ff) * a) >> 8) & 0x00ff00ff);
-}
-
-
-static void _premultiply(uint32_t* data, uint32_t w, uint32_t h)
-{
-    auto buffer = data;
-    for (uint32_t y = 0; y < h; ++y, buffer += w) {
-        auto src = buffer;
-        for (uint32_t x = 0; x < w; ++x, ++src) {
-            *src = PREMULTIPLY(*src);
-        }
-    }
-}
-
 
 void PngLoader::clear()
 {
@@ -104,6 +85,10 @@ bool PngLoader::open(const string& path)
 
     w = static_cast<float>(width);
     h = static_cast<float>(height);
+
+    if (state.info_png.color.colortype == LCT_RGBA) cs = ColorSpace::ABGR8888;
+    else cs = ColorSpace::ARGB8888;
+
     ret = true;
 
     goto finalize;
@@ -140,6 +125,8 @@ bool PngLoader::open(const char* data, uint32_t size, bool copy)
     h = static_cast<float>(height);
     this->size = size;
 
+    cs = ColorSpace::ABGR8888;
+
     return true;
 }
 
@@ -168,12 +155,16 @@ unique_ptr<Surface> PngLoader::bitmap()
 
     if (!image) return nullptr;
 
-    auto surface = static_cast<Surface*>(malloc(sizeof(Surface)));
-    surface->buffer = (uint32_t*)(image);
-    surface->stride = w;
-    surface->w = w;
-    surface->h = h;
-    surface->cs = SwCanvas::ARGB8888;
+    //TODO: It's better to keep this surface instance in the loader side
+    auto surface = new Surface;
+    surface->buf8 = image;
+    surface->stride = static_cast<uint32_t>(w);
+    surface->w = static_cast<uint32_t>(w);
+    surface->h = static_cast<uint32_t>(h);
+    surface->cs = cs;
+    surface->channelSize = sizeof(uint32_t);
+    surface->premultiplied = false;
+    surface->owner = true;
 
     return unique_ptr<Surface>(surface);
 }
@@ -188,7 +179,7 @@ void PngLoader::run(unsigned tid)
     auto width = static_cast<unsigned>(w);
     auto height = static_cast<unsigned>(h);
 
-    lodepng_decode(&image, &width, &height, &state, data, size);
-
-    _premultiply((uint32_t*)(image), width, height);
+    if (lodepng_decode(&image, &width, &height, &state, data, size)) {
+        TVGERR("PNG", "Failed to decode image");
+    }
 }

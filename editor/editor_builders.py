@@ -9,11 +9,11 @@ import shutil
 import subprocess
 import tempfile
 import uuid
+import zlib
 from platform_methods import subprocess_main
 
 
 def make_doc_header(target, source, env):
-
     dst = target[0]
     g = open(dst, "w", encoding="utf-8")
     buf = ""
@@ -28,7 +28,6 @@ def make_doc_header(target, source, env):
 
     buf = (docbegin + buf + docend).encode("utf-8")
     decomp_size = len(buf)
-    import zlib
 
     # Use maximum zlib compression level to further reduce file size
     # (at the cost of initial build times).
@@ -37,6 +36,7 @@ def make_doc_header(target, source, env):
     g.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
     g.write("#ifndef _DOC_DATA_RAW_H\n")
     g.write("#define _DOC_DATA_RAW_H\n")
+    g.write('static const char *_doc_data_hash = "' + str(hash(buf)) + '";\n')
     g.write("static const int _doc_data_compressed_size = " + str(len(buf)) + ";\n")
     g.write("static const int _doc_data_uncompressed_size = " + str(decomp_size) + ";\n")
     g.write("static const unsigned char _doc_data_compressed[] = {\n")
@@ -50,7 +50,6 @@ def make_doc_header(target, source, env):
 
 
 def make_fonts_header(target, source, env):
-
     dst = target[0]
 
     g = open(dst, "w", encoding="utf-8")
@@ -79,7 +78,6 @@ def make_fonts_header(target, source, env):
 
 
 def make_translations_header(target, source, env, category):
-
     dst = target[0]
 
     g = open(dst, "w", encoding="utf-8")
@@ -87,9 +85,6 @@ def make_translations_header(target, source, env, category):
     g.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
     g.write("#ifndef _{}_TRANSLATIONS_H\n".format(category.upper()))
     g.write("#define _{}_TRANSLATIONS_H\n".format(category.upper()))
-
-    import zlib
-    import os.path
 
     sorted_paths = sorted(source, key=lambda path: os.path.splitext(os.path.basename(path))[0])
 
@@ -162,6 +157,10 @@ def make_translations_header(target, source, env, category):
 
 def make_editor_translations_header(target, source, env):
     make_translations_header(target, source, env, "editor")
+
+
+def make_property_translations_header(target, source, env):
+    make_translations_header(target, source, env, "property")
 
 
 def make_doc_translations_header(target, source, env):

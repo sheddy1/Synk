@@ -1,29 +1,35 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Label" inherits="Control" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="Label" inherits="Control" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		Displays plain text in a line or wrapped inside a rectangle. For formatted text, use [RichTextLabel].
+		A control for displaying plain text.
 	</brief_description>
 	<description>
-		Label displays plain text on the screen. It gives you control over the horizontal and vertical alignment and can wrap the text inside the node's bounding rectangle. It doesn't support bold, italics, or other formatting. For that, use [RichTextLabel] instead.
-		[b]Note:[/b] Contrarily to most other [Control]s, Label's [member Control.mouse_filter] defaults to [constant Control.MOUSE_FILTER_IGNORE] (i.e. it doesn't react to mouse input events). This implies that a label won't display any configured [member Control.hint_tooltip], unless you change its mouse filter.
+		A control for displaying plain text. It gives you control over the horizontal and vertical alignment and can wrap the text inside the node's bounding rectangle. It doesn't support bold, italics, or other rich text formatting. For that, use [RichTextLabel] instead.
 	</description>
 	<tutorials>
 		<link title="2D Dodge The Creeps Demo">https://godotengine.org/asset-library/asset/515</link>
 	</tutorials>
 	<methods>
+		<method name="get_character_bounds" qualifiers="const">
+			<return type="Rect2" />
+			<param index="0" name="pos" type="int" />
+			<description>
+				Returns the bounding rectangle of the character at position [param pos]. If the character is a non-visual character or [param pos] is outside the valid range, an empty [Rect2] is returned. If the character is a part of a composite grapheme, the bounding rectangle of the whole grapheme is returned.
+			</description>
+		</method>
 		<method name="get_line_count" qualifiers="const">
 			<return type="int" />
 			<description>
-				Returns the amount of lines of text the Label has.
+				Returns the number of lines of text the Label has.
 			</description>
 		</method>
 		<method name="get_line_height" qualifiers="const">
 			<return type="int" />
-			<argument index="0" name="line" type="int" default="-1" />
+			<param index="0" name="line" type="int" default="-1" />
 			<description>
-				Returns the height of the line [code]line[/code].
-				If [code]line[/code] is set to [code]-1[/code], returns the biggest line height.
-				If there're no lines returns font size in pixels.
+				Returns the height of the line [param line].
+				If [param line] is set to [code]-1[/code], returns the biggest line height.
+				If there are no lines, returns font size in pixels.
 			</description>
 		</method>
 		<method name="get_total_character_count" qualifiers="const">
@@ -46,31 +52,37 @@
 		<member name="clip_text" type="bool" setter="set_clip_text" getter="is_clipping_text" default="false">
 			If [code]true[/code], the Label only shows the text that fits inside its bounding rectangle and will clip text horizontally.
 		</member>
+		<member name="ellipsis_char" type="String" setter="set_ellipsis_char" getter="get_ellipsis_char" default="&quot;…&quot;">
+			Ellipsis character used for text clipping.
+		</member>
 		<member name="horizontal_alignment" type="int" setter="set_horizontal_alignment" getter="get_horizontal_alignment" enum="HorizontalAlignment" default="0">
 			Controls the text's horizontal alignment. Supports left, center, right, and fill, or justify. Set it to one of the [enum HorizontalAlignment] constants.
 		</member>
+		<member name="justification_flags" type="int" setter="set_justification_flags" getter="get_justification_flags" enum="TextServer.JustificationFlag" is_bitfield="true" default="163">
+			Line fill alignment rules. For more info see [enum TextServer.JustificationFlag].
+		</member>
 		<member name="label_settings" type="LabelSettings" setter="set_label_settings" getter="get_label_settings">
+			A [LabelSettings] resource that can be shared between multiple [Label] nodes. Takes priority over theme properties.
 		</member>
 		<member name="language" type="String" setter="set_language" getter="get_language" default="&quot;&quot;">
 			Language code used for line-breaking and text shaping algorithms, if left empty current locale is used instead.
 		</member>
 		<member name="lines_skipped" type="int" setter="set_lines_skipped" getter="get_lines_skipped" default="0">
-			The node ignores the first [code]lines_skipped[/code] lines before it starts to display text.
+			The number of the lines ignored and not displayed from the start of the [member text] value.
 		</member>
 		<member name="max_lines_visible" type="int" setter="set_max_lines_visible" getter="get_max_lines_visible" default="-1">
 			Limits the lines of text the node shows on screen.
 		</member>
 		<member name="mouse_filter" type="int" setter="set_mouse_filter" getter="get_mouse_filter" overrides="Control" enum="Control.MouseFilter" default="2" />
-		<member name="percent_visible" type="float" setter="set_percent_visible" getter="get_percent_visible" default="1.0">
-			Limits the amount of visible characters. If you set [code]percent_visible[/code] to 0.5, only up to half of the text's characters will display on screen. Useful to animate the text in a dialog box.
-			[b]Note:[/b] Setting this property updates [member visible_characters] based on current [method get_total_character_count].
-		</member>
-		<member name="size_flags_vertical" type="int" setter="set_v_size_flags" getter="get_v_size_flags" overrides="Control" default="4" />
+		<member name="size_flags_vertical" type="int" setter="set_v_size_flags" getter="get_v_size_flags" overrides="Control" enum="Control.SizeFlags" is_bitfield="true" default="4" />
 		<member name="structured_text_bidi_override" type="int" setter="set_structured_text_bidi_override" getter="get_structured_text_bidi_override" enum="TextServer.StructuredTextParser" default="0">
 			Set BiDi algorithm override for the structured text.
 		</member>
 		<member name="structured_text_bidi_override_options" type="Array" setter="set_structured_text_bidi_override_options" getter="get_structured_text_bidi_override_options" default="[]">
 			Set additional options for BiDi override.
+		</member>
+		<member name="tab_stops" type="PackedFloat32Array" setter="set_tab_stops" getter="get_tab_stops" default="PackedFloat32Array()">
+			Aligns text to the given tab-stops.
 		</member>
 		<member name="text" type="String" setter="set_text" getter="get_text" default="&quot;&quot;">
 			The text to display on screen.
@@ -88,11 +100,15 @@
 			Controls the text's vertical alignment. Supports top, center, bottom, and fill. Set it to one of the [enum VerticalAlignment] constants.
 		</member>
 		<member name="visible_characters" type="int" setter="set_visible_characters" getter="get_visible_characters" default="-1">
-			Restricts the number of characters to display. Set to -1 to disable.
-			[b]Note:[/b] Setting this property updates [member percent_visible] based on current [method get_total_character_count].
+			The number of characters to display. If set to [code]-1[/code], all characters are displayed. This can be useful when animating the text appearing in a dialog box.
+			[b]Note:[/b] Setting this property updates [member visible_ratio] accordingly.
 		</member>
 		<member name="visible_characters_behavior" type="int" setter="set_visible_characters_behavior" getter="get_visible_characters_behavior" enum="TextServer.VisibleCharactersBehavior" default="0">
-			Sets the clipping behavior when [member visible_characters] or [member percent_visible] is set. See [enum TextServer.VisibleCharactersBehavior] for more info.
+			Sets the clipping behavior when [member visible_characters] or [member visible_ratio] is set. See [enum TextServer.VisibleCharactersBehavior] for more info.
+		</member>
+		<member name="visible_ratio" type="float" setter="set_visible_ratio" getter="get_visible_ratio" default="1.0">
+			The fraction of characters to display, relative to the total number of characters (see [method get_total_character_count]). If set to [code]1.0[/code], all characters are displayed. If set to [code]0.5[/code], only half of the characters will be displayed. This can be useful when animating the text appearing in a dialog box.
+			[b]Note:[/b] Setting this property updates [member visible_characters] accordingly.
 		</member>
 	</members>
 	<theme_items>
@@ -100,7 +116,7 @@
 			Default text [Color] of the [Label].
 		</theme_item>
 		<theme_item name="font_outline_color" data_type="color" type="Color" default="Color(1, 1, 1, 1)">
-			The tint of text outline.
+			The color of text outline.
 		</theme_item>
 		<theme_item name="font_shadow_color" data_type="color" type="Color" default="Color(0, 0, 0, 0)">
 			[Color] of the text's shadow effect.
@@ -110,6 +126,8 @@
 		</theme_item>
 		<theme_item name="outline_size" data_type="constant" type="int" default="0">
 			Text outline size.
+			[b]Note:[/b] If using a font with [member FontFile.multichannel_signed_distance_field] enabled, its [member FontFile.msdf_pixel_range] must be set to at least [i]twice[/i] the value of [theme_item outline_size] for outline rendering to look correct. Otherwise, the outline may appear to be cut off earlier than intended.
+			[b]Note:[/b] Using a value that is larger than half the font size is not recommended, as the font outline may fail to be fully closed in this case.
 		</theme_item>
 		<theme_item name="shadow_offset_x" data_type="constant" type="int" default="1">
 			The horizontal offset of the text's shadow.

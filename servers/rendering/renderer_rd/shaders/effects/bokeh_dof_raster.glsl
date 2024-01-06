@@ -11,10 +11,9 @@ layout(location = 0) out vec2 uv_interp;
 /* clang-format on */
 
 void main() {
-	vec2 base_arr[4] = vec2[](vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0));
-	uv_interp = base_arr[gl_VertexIndex];
-
-	gl_Position = vec4(uv_interp * 2.0 - 1.0, 0.0, 1.0);
+	vec2 base_arr[3] = vec2[](vec2(-1.0, -1.0), vec2(-1.0, 3.0), vec2(3.0, -1.0));
+	gl_Position = vec4(base_arr[gl_VertexIndex], 0.0, 1.0);
+	uv_interp = clamp(gl_Position.xy, vec2(0.0, 0.0), vec2(1.0, 1.0)) * 2.0; // saturate(x) * 2.0
 }
 
 /* clang-format off */
@@ -52,7 +51,7 @@ layout(set = 2, binding = 0) uniform sampler2D original_weight;
 #ifdef MODE_GEN_BLUR_SIZE
 
 float get_depth_at_pos(vec2 uv) {
-	float depth = textureLod(source_depth, uv, 0.0).x;
+	float depth = textureLod(source_depth, uv, 0.0).x * 2.0 - 1.0;
 	if (params.orthogonal) {
 		depth = ((depth + (params.z_far + params.z_near) / (params.z_far - params.z_near)) * (params.z_far - params.z_near)) / 2.0;
 	} else {
@@ -63,11 +62,25 @@ float get_depth_at_pos(vec2 uv) {
 
 float get_blur_size(float depth) {
 	if (params.blur_near_active && depth < params.blur_near_begin) {
-		return -(1.0 - smoothstep(params.blur_near_end, params.blur_near_begin, depth)) * params.blur_size - DEPTH_GAP; //near blur is negative
+		if (params.use_physical_near) {
+			// Physically-based.
+			float d = abs(params.blur_near_begin - depth);
+			return -(d / (params.blur_near_begin - d)) * params.blur_size_near - DEPTH_GAP; // Near blur is negative.
+		} else {
+			// Non-physically-based.
+			return -(1.0 - smoothstep(params.blur_near_end, params.blur_near_begin, depth)) * params.blur_size - DEPTH_GAP; // Near blur is negative.
+		}
 	}
 
 	if (params.blur_far_active && depth > params.blur_far_begin) {
-		return smoothstep(params.blur_far_begin, params.blur_far_end, depth) * params.blur_size + DEPTH_GAP;
+		if (params.use_physical_far) {
+			// Physically-based.
+			float d = abs(params.blur_far_begin - depth);
+			return (d / (params.blur_far_begin + d)) * params.blur_size_far + DEPTH_GAP;
+		} else {
+			// Non-physically-based.
+			return smoothstep(params.blur_far_begin, params.blur_far_end, depth) * params.blur_size + DEPTH_GAP;
+		}
 	}
 
 	return 0.0;
@@ -207,12 +220,9 @@ void main() {
 		vec4 sample_color = texture(source_color, uv_adj);
 		sample_color.a = texture(source_weight, uv_adj).r;
 
-		float limit;
-
-		if (sample_color.a < color.a) {
-			limit = abs(sample_color.a);
-		} else {
-			limit = abs(color.a);
+		float limit = abs(sample_color.a);
+		if (sample_color.a > color.a) {
+			limit = clamp(limit, 0.0, abs(color.a) * 2.0);
 		}
 
 		limit -= DEPTH_GAP;

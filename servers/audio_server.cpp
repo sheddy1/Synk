@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  audio_server.cpp                                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  audio_server.cpp                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "audio_server.h"
 
@@ -40,6 +40,7 @@
 #include "core/string/string_name.h"
 #include "core/templates/pair.h"
 #include "scene/resources/audio_stream_wav.h"
+#include "scene/scene_string_names.h"
 #include "servers/audio/audio_driver_dummy.h"
 #include "servers/audio/effects/audio_effect_compressor.h"
 
@@ -115,6 +116,22 @@ void AudioDriver::input_buffer_write(int32_t sample) {
 	}
 }
 
+int AudioDriver::_get_configured_mix_rate() {
+	StringName audio_driver_setting = "audio/driver/mix_rate";
+	int mix_rate = GLOBAL_GET(audio_driver_setting);
+
+	// In the case of invalid mix rate, let's default to a sensible value..
+	if (mix_rate <= 0) {
+#ifndef WEB_ENABLED
+		WARN_PRINT(vformat("Invalid mix rate of %d, consider reassigning setting \'%s\'. \nDefaulting mix rate to value %d.",
+				mix_rate, audio_driver_setting, AudioDriverManager::DEFAULT_MIX_RATE));
+#endif
+		mix_rate = AudioDriverManager::DEFAULT_MIX_RATE;
+	}
+
+	return mix_rate;
+}
+
 AudioDriver::SpeakerMode AudioDriver::get_speaker_mode_by_total_channels(int p_channels) const {
 	switch (p_channels) {
 		case 4:
@@ -144,20 +161,20 @@ int AudioDriver::get_total_channels_by_speaker_mode(AudioDriver::SpeakerMode p_m
 	ERR_FAIL_V(2);
 }
 
-Array AudioDriver::get_device_list() {
-	Array list;
+PackedStringArray AudioDriver::get_output_device_list() {
+	PackedStringArray list;
 
 	list.push_back("Default");
 
 	return list;
 }
 
-String AudioDriver::get_device() {
+String AudioDriver::get_output_device() {
 	return "Default";
 }
 
-Array AudioDriver::capture_get_device_list() {
-	Array list;
+PackedStringArray AudioDriver::get_input_device_list() {
+	PackedStringArray list;
 
 	list.push_back("Default");
 
@@ -184,10 +201,8 @@ int AudioDriverManager::get_driver_count() {
 
 void AudioDriverManager::initialize(int p_driver) {
 	GLOBAL_DEF_RST("audio/driver/enable_input", false);
-	GLOBAL_DEF_RST("audio/driver/mix_rate", DEFAULT_MIX_RATE);
-	GLOBAL_DEF_RST("audio/driver/mix_rate.web", 0); // Safer default output_latency for web (use browser default).
-	GLOBAL_DEF_RST("audio/driver/output_latency", DEFAULT_OUTPUT_LATENCY);
-	GLOBAL_DEF_RST("audio/driver/output_latency.web", 50); // Safer default output_latency for web.
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "audio/driver/mix_rate", PROPERTY_HINT_RANGE, "11025,192000,1,or_greater,suffix:Hz"), DEFAULT_MIX_RATE);
+	GLOBAL_DEF_RST(PropertyInfo(Variant::INT, "audio/driver/mix_rate.web", PROPERTY_HINT_RANGE, "0,192000,1,or_greater,suffix:Hz"), 0); // Safer default output_latency for web (use browser default).
 
 	int failed_driver = -1;
 
@@ -238,7 +253,7 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 #endif
 
 	if (channel_count != get_channel_count()) {
-		// Amount of channels changed due to a device change
+		// Amount of channels changed due to a output_device change
 		// reinitialize the buses channels and buffers
 		init_channels_and_buffers();
 	}
@@ -376,7 +391,7 @@ void AudioServer::_mix_step() {
 		}
 
 		AudioStreamPlaybackBusDetails *ptr = playback->bus_details.load();
-		ERR_FAIL_COND(ptr == nullptr);
+		ERR_FAIL_NULL(ptr);
 		// By putting null into the bus details pointers, we're taking ownership of their memory for the duration of this mix.
 		AudioStreamPlaybackBusDetails bus_details = *ptr;
 
@@ -449,12 +464,8 @@ void AudioServer::_mix_step() {
 			case AudioStreamPlaybackListNode::AWAITING_DELETION:
 			case AudioStreamPlaybackListNode::FADE_OUT_TO_DELETION:
 				playback_list.erase(playback, [](AudioStreamPlaybackListNode *p) {
-					if (p->prev_bus_details) {
-						delete p->prev_bus_details;
-					}
-					if (p->bus_details) {
-						delete p->bus_details;
-					}
+					delete p->prev_bus_details;
+					delete p->bus_details;
 					p->stream_playback.unref();
 					delete p;
 				});
@@ -547,7 +558,7 @@ void AudioServer::_mix_step() {
 
 			AudioFrame peak = AudioFrame(0, 0);
 
-			float volume = Math::db2linear(bus->volume_db);
+			float volume = Math::db_to_linear(bus->volume_db);
 
 			if (solo_mode) {
 				if (!bus->soloed) {
@@ -573,12 +584,12 @@ void AudioServer::_mix_step() {
 				}
 			}
 
-			bus->channels.write[k].peak_volume = AudioFrame(Math::linear2db(peak.l + AUDIO_PEAK_OFFSET), Math::linear2db(peak.r + AUDIO_PEAK_OFFSET));
+			bus->channels.write[k].peak_volume = AudioFrame(Math::linear_to_db(peak.l + AUDIO_PEAK_OFFSET), Math::linear_to_db(peak.r + AUDIO_PEAK_OFFSET));
 
 			if (!bus->channels[k].used) {
 				//see if any audio is contained, because channel was not used
 
-				if (MAX(peak.r, peak.l) > Math::db2linear(channel_disable_threshold_db)) {
+				if (MAX(peak.r, peak.l) > Math::db_to_linear(channel_disable_threshold_db)) {
 					bus->channels.write[k].last_mix_with_audio = mix_frames;
 				} else if (mix_frames - bus->channels[k].last_mix_with_audio > channel_disable_frames) {
 					bus->channels.write[k].active = false;
@@ -611,8 +622,8 @@ void AudioServer::_mix_step_for_channel(AudioFrame *p_out_buf, AudioFrame *p_sou
 		filter.set_stages(1);
 		filter.set_gain(p_highshelf_gain);
 
-		ERR_FAIL_COND(p_processor_l == nullptr);
-		ERR_FAIL_COND(p_processor_r == nullptr);
+		ERR_FAIL_NULL(p_processor_l);
+		ERR_FAIL_NULL(p_processor_r);
 
 		bool is_just_started = p_vol_start.l == 0 && p_vol_start.r == 0;
 		p_processor_l->set_filter(&filter, /* clear_history= */ is_just_started);
@@ -737,7 +748,7 @@ void AudioServer::set_bus_count(int p_count) {
 		buses[i]->bypass = false;
 		buses[i]->volume_db = 0;
 		if (i > 0) {
-			buses[i]->send = "Master";
+			buses[i]->send = SceneStringNames::get_singleton()->Master;
 		}
 
 		bus_map[attempt] = buses[i];
@@ -848,14 +859,16 @@ int AudioServer::get_bus_count() const {
 void AudioServer::set_bus_name(int p_bus, const String &p_name) {
 	ERR_FAIL_INDEX(p_bus, buses.size());
 	if (p_bus == 0 && p_name != "Master") {
-		return; //bus 0 is always master
+		return; // Bus 0 is always "Master".
 	}
 
 	MARK_EDITED
 
 	lock();
 
-	if (buses[p_bus]->name == p_name) {
+	StringName old_name = buses[p_bus]->name;
+
+	if (old_name == p_name) {
 		unlock();
 		return;
 	}
@@ -879,12 +892,12 @@ void AudioServer::set_bus_name(int p_bus, const String &p_name) {
 		attempts++;
 		attempt = p_name + " " + itos(attempts);
 	}
-	bus_map.erase(buses[p_bus]->name);
+	bus_map.erase(old_name);
 	buses[p_bus]->name = attempt;
 	bus_map[attempt] = buses[p_bus];
 	unlock();
 
-	emit_signal(SNAME("bus_layout_changed"));
+	emit_signal(SNAME("bus_renamed"), p_bus, old_name, attempt);
 }
 
 String AudioServer::get_bus_name(int p_bus) const {
@@ -1136,6 +1149,7 @@ void AudioServer::start_playback_stream(Ref<AudioStreamPlayback> p_playback, Has
 		for (int channel_idx = 0; channel_idx < MAX_CHANNELS_PER_BUS; channel_idx++) {
 			new_bus_details->volume[idx][channel_idx] = pair.value[channel_idx];
 		}
+		idx++;
 	}
 	playback_node->bus_details = new_bus_details;
 	playback_node->prev_bus_details = new AudioStreamPlaybackBusDetails();
@@ -1346,8 +1360,7 @@ void AudioServer::init_channels_and_buffers() {
 
 void AudioServer::init() {
 	channel_disable_threshold_db = GLOBAL_DEF_RST("audio/buses/channel_disable_threshold_db", -60.0);
-	channel_disable_frames = float(GLOBAL_DEF_RST("audio/buses/channel_disable_time", 2.0)) * get_mix_rate();
-	ProjectSettings::get_singleton()->set_custom_property_info("audio/buses/channel_disable_time", PropertyInfo(Variant::FLOAT, "audio/buses/channel_disable_time", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"));
+	channel_disable_frames = float(GLOBAL_DEF_RST(PropertyInfo(Variant::FLOAT, "audio/buses/channel_disable_time", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"), 2.0)) * get_mix_rate();
 	buffer_size = 512; //hardcoded for now
 
 	init_channels_and_buffers();
@@ -1454,7 +1467,7 @@ void AudioServer::update() {
 }
 
 void AudioServer::load_default_bus_layout() {
-	String layout_path = ProjectSettings::get_singleton()->get("audio/buses/default_bus_layout");
+	String layout_path = GLOBAL_GET("audio/buses/default_bus_layout");
 
 	if (ResourceLoader::exists(layout_path)) {
 		Ref<AudioBusLayout> default_layout = ResourceLoader::load(layout_path);
@@ -1573,7 +1586,7 @@ void AudioServer::set_bus_layout(const Ref<AudioBusLayout> &p_bus_layout) {
 	for (int i = 0; i < p_bus_layout->buses.size(); i++) {
 		Bus *bus = memnew(Bus);
 		if (i == 0) {
-			bus->name = "Master";
+			bus->name = SceneStringNames::get_singleton()->Master;
 		} else {
 			bus->name = p_bus_layout->buses[i].name;
 			bus->send = p_bus_layout->buses[i].send;
@@ -1637,28 +1650,28 @@ Ref<AudioBusLayout> AudioServer::generate_bus_layout() const {
 	return state;
 }
 
-Array AudioServer::get_device_list() {
-	return AudioDriver::get_singleton()->get_device_list();
+PackedStringArray AudioServer::get_output_device_list() {
+	return AudioDriver::get_singleton()->get_output_device_list();
 }
 
-String AudioServer::get_device() {
-	return AudioDriver::get_singleton()->get_device();
+String AudioServer::get_output_device() {
+	return AudioDriver::get_singleton()->get_output_device();
 }
 
-void AudioServer::set_device(String device) {
-	AudioDriver::get_singleton()->set_device(device);
+void AudioServer::set_output_device(const String &p_name) {
+	AudioDriver::get_singleton()->set_output_device(p_name);
 }
 
-Array AudioServer::capture_get_device_list() {
-	return AudioDriver::get_singleton()->capture_get_device_list();
+PackedStringArray AudioServer::get_input_device_list() {
+	return AudioDriver::get_singleton()->get_input_device_list();
 }
 
-String AudioServer::capture_get_device() {
-	return AudioDriver::get_singleton()->capture_get_device();
+String AudioServer::get_input_device() {
+	return AudioDriver::get_singleton()->get_input_device();
 }
 
-void AudioServer::capture_set_device(const String &p_name) {
-	AudioDriver::get_singleton()->capture_set_device(p_name);
+void AudioServer::set_input_device(const String &p_name) {
+	AudioDriver::get_singleton()->set_input_device(p_name);
 }
 
 void AudioServer::set_enable_tagging_used_audio_streams(bool p_enable) {
@@ -1716,17 +1729,18 @@ void AudioServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_speaker_mode"), &AudioServer::get_speaker_mode);
 	ClassDB::bind_method(D_METHOD("get_mix_rate"), &AudioServer::get_mix_rate);
-	ClassDB::bind_method(D_METHOD("get_device_list"), &AudioServer::get_device_list);
-	ClassDB::bind_method(D_METHOD("get_device"), &AudioServer::get_device);
-	ClassDB::bind_method(D_METHOD("set_device", "device"), &AudioServer::set_device);
+
+	ClassDB::bind_method(D_METHOD("get_output_device_list"), &AudioServer::get_output_device_list);
+	ClassDB::bind_method(D_METHOD("get_output_device"), &AudioServer::get_output_device);
+	ClassDB::bind_method(D_METHOD("set_output_device", "name"), &AudioServer::set_output_device);
 
 	ClassDB::bind_method(D_METHOD("get_time_to_next_mix"), &AudioServer::get_time_to_next_mix);
 	ClassDB::bind_method(D_METHOD("get_time_since_last_mix"), &AudioServer::get_time_since_last_mix);
 	ClassDB::bind_method(D_METHOD("get_output_latency"), &AudioServer::get_output_latency);
 
-	ClassDB::bind_method(D_METHOD("capture_get_device_list"), &AudioServer::capture_get_device_list);
-	ClassDB::bind_method(D_METHOD("capture_get_device"), &AudioServer::capture_get_device);
-	ClassDB::bind_method(D_METHOD("capture_set_device", "name"), &AudioServer::capture_set_device);
+	ClassDB::bind_method(D_METHOD("get_input_device_list"), &AudioServer::get_input_device_list);
+	ClassDB::bind_method(D_METHOD("get_input_device"), &AudioServer::get_input_device);
+	ClassDB::bind_method(D_METHOD("set_input_device", "name"), &AudioServer::set_input_device);
 
 	ClassDB::bind_method(D_METHOD("set_bus_layout", "bus_layout"), &AudioServer::set_bus_layout);
 	ClassDB::bind_method(D_METHOD("generate_bus_layout"), &AudioServer::generate_bus_layout);
@@ -1734,14 +1748,15 @@ void AudioServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_enable_tagging_used_audio_streams", "enable"), &AudioServer::set_enable_tagging_used_audio_streams);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "bus_count"), "set_bus_count", "get_bus_count");
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "device"), "set_device", "get_device");
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "capture_device"), "capture_set_device", "capture_get_device");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "output_device"), "set_output_device", "get_output_device");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "input_device"), "set_input_device", "get_input_device");
 	// The default value may be set to an empty string by the platform-specific audio driver.
 	// Override for class reference generation purposes.
-	ADD_PROPERTY_DEFAULT("capture_device", "Default");
+	ADD_PROPERTY_DEFAULT("input_device", "Default");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "playback_speed_scale"), "set_playback_speed_scale", "get_playback_speed_scale");
 
 	ADD_SIGNAL(MethodInfo("bus_layout_changed"));
+	ADD_SIGNAL(MethodInfo("bus_renamed", PropertyInfo(Variant::INT, "bus_index"), PropertyInfo(Variant::STRING_NAME, "old_name"), PropertyInfo(Variant::STRING_NAME, "new_name")));
 
 	BIND_ENUM_CONSTANT(SPEAKER_MODE_STEREO);
 	BIND_ENUM_CONSTANT(SPEAKER_SURROUND_31);
@@ -1881,5 +1896,5 @@ void AudioBusLayout::_get_property_list(List<PropertyInfo> *p_list) const {
 
 AudioBusLayout::AudioBusLayout() {
 	buses.resize(1);
-	buses.write[0].name = "Master";
+	buses.write[0].name = SceneStringNames::get_singleton()->Master;
 }

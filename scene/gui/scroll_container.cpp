@@ -1,41 +1,41 @@
-/*************************************************************************/
-/*  scroll_container.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scroll_container.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scroll_container.h"
 
 #include "core/config/project_settings.h"
 #include "core/os/os.h"
 #include "scene/main/window.h"
+#include "scene/theme/theme_db.h"
 
 Size2 ScrollContainer::get_minimum_size() const {
-	Ref<StyleBox> sb = get_theme_stylebox(SNAME("bg"));
 	Size2 min_size;
 
 	// Calculated in this function, as it needs to traverse all child controls once to calculate;
@@ -77,7 +77,7 @@ Size2 ScrollContainer::get_minimum_size() const {
 		min_size.x += v_scroll->get_minimum_size().x;
 	}
 
-	min_size += sb->get_minimum_size();
+	min_size += theme_cache.panel_style->get_minimum_size();
 	return min_size;
 }
 
@@ -102,45 +102,65 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 
 	double prev_v_scroll = v_scroll->get_value();
 	double prev_h_scroll = h_scroll->get_value();
+	bool h_scroll_enabled = horizontal_scroll_mode != SCROLL_MODE_DISABLED;
+	bool v_scroll_enabled = vertical_scroll_mode != SCROLL_MODE_DISABLED;
 
 	Ref<InputEventMouseButton> mb = p_gui_input;
 
 	if (mb.is_valid()) {
-		if (mb->get_button_index() == MouseButton::WHEEL_UP && mb->is_pressed()) {
-			// only horizontal is enabled, scroll horizontally
-			if (h_scroll->is_visible() && (!v_scroll->is_visible() || mb->is_shift_pressed())) {
-				h_scroll->set_value(h_scroll->get_value() - h_scroll->get_page() / 8 * mb->get_factor());
-			} else if (v_scroll->is_visible_in_tree()) {
-				v_scroll->set_value(v_scroll->get_value() - v_scroll->get_page() / 8 * mb->get_factor());
+		if (mb->is_pressed()) {
+			bool scroll_value_modified = false;
+
+			bool v_scroll_hidden = !v_scroll->is_visible() && vertical_scroll_mode != SCROLL_MODE_SHOW_NEVER;
+			if (mb->get_button_index() == MouseButton::WHEEL_UP) {
+				// By default, the vertical orientation takes precedence. This is an exception.
+				if ((h_scroll_enabled && mb->is_shift_pressed()) || v_scroll_hidden) {
+					h_scroll->set_value(prev_h_scroll - h_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				} else if (v_scroll_enabled) {
+					v_scroll->set_value(prev_v_scroll - v_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				}
+			}
+			if (mb->get_button_index() == MouseButton::WHEEL_DOWN) {
+				if ((h_scroll_enabled && mb->is_shift_pressed()) || v_scroll_hidden) {
+					h_scroll->set_value(prev_h_scroll + h_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				} else if (v_scroll_enabled) {
+					v_scroll->set_value(prev_v_scroll + v_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				}
+			}
+
+			bool h_scroll_hidden = !h_scroll->is_visible() && horizontal_scroll_mode != SCROLL_MODE_SHOW_NEVER;
+			if (mb->get_button_index() == MouseButton::WHEEL_LEFT) {
+				// By default, the horizontal orientation takes precedence. This is an exception.
+				if ((v_scroll_enabled && mb->is_shift_pressed()) || h_scroll_hidden) {
+					v_scroll->set_value(prev_v_scroll - v_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				} else if (h_scroll_enabled) {
+					h_scroll->set_value(prev_h_scroll - h_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				}
+			}
+			if (mb->get_button_index() == MouseButton::WHEEL_RIGHT) {
+				if ((v_scroll_enabled && mb->is_shift_pressed()) || h_scroll_hidden) {
+					v_scroll->set_value(prev_v_scroll + v_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				} else if (h_scroll_enabled) {
+					h_scroll->set_value(prev_h_scroll + h_scroll->get_page() / 8 * mb->get_factor());
+					scroll_value_modified = true;
+				}
+			}
+
+			if (scroll_value_modified && (v_scroll->get_value() != prev_v_scroll || h_scroll->get_value() != prev_h_scroll)) {
+				accept_event(); // Accept event if scroll changed.
+				return;
 			}
 		}
 
-		if (mb->get_button_index() == MouseButton::WHEEL_DOWN && mb->is_pressed()) {
-			// only horizontal is enabled, scroll horizontally
-			if (h_scroll->is_visible() && (!v_scroll->is_visible() || mb->is_shift_pressed())) {
-				h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() / 8 * mb->get_factor());
-			} else if (v_scroll->is_visible()) {
-				v_scroll->set_value(v_scroll->get_value() + v_scroll->get_page() / 8 * mb->get_factor());
-			}
-		}
-
-		if (mb->get_button_index() == MouseButton::WHEEL_LEFT && mb->is_pressed()) {
-			if (h_scroll->is_visible_in_tree()) {
-				h_scroll->set_value(h_scroll->get_value() - h_scroll->get_page() * mb->get_factor() / 8);
-			}
-		}
-
-		if (mb->get_button_index() == MouseButton::WHEEL_RIGHT && mb->is_pressed()) {
-			if (h_scroll->is_visible_in_tree()) {
-				h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() * mb->get_factor() / 8);
-			}
-		}
-
-		if (v_scroll->get_value() != prev_v_scroll || h_scroll->get_value() != prev_h_scroll) {
-			accept_event(); //accept event if scroll changed
-		}
-
-		if (!DisplayServer::get_singleton()->screen_is_touchscreen(DisplayServer::get_singleton()->window_get_current_screen(get_viewport()->get_window_id()))) {
+		bool is_touchscreen_available = DisplayServer::get_singleton()->is_touchscreen_available();
+		if (!is_touchscreen_available) {
 			return;
 		}
 
@@ -156,15 +176,13 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 			drag_speed = Vector2();
 			drag_accum = Vector2();
 			last_drag_accum = Vector2();
-			drag_from = Vector2(h_scroll->get_value(), v_scroll->get_value());
-			drag_touching = !DisplayServer::get_singleton()->screen_is_touchscreen(DisplayServer::get_singleton()->window_get_current_screen(get_viewport()->get_window_id()));
+			drag_from = Vector2(prev_h_scroll, prev_v_scroll);
+			drag_touching = true;
 			drag_touching_deaccel = false;
 			beyond_deadzone = false;
 			time_since_motion = 0;
-			if (drag_touching) {
-				set_physics_process_internal(true);
-				time_since_motion = 0;
-			}
+			set_physics_process_internal(true);
+			time_since_motion = 0;
 
 		} else {
 			if (drag_touching) {
@@ -175,6 +193,7 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 				}
 			}
 		}
+		return;
 	}
 
 	Ref<InputEventMouseMotion> mm = p_gui_input;
@@ -184,22 +203,22 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 			Vector2 motion = mm->get_relative();
 			drag_accum -= motion;
 
-			if (beyond_deadzone || (horizontal_scroll_mode != SCROLL_MODE_DISABLED && Math::abs(drag_accum.x) > deadzone) || (vertical_scroll_mode != SCROLL_MODE_DISABLED && Math::abs(drag_accum.y) > deadzone)) {
+			if (beyond_deadzone || (h_scroll_enabled && Math::abs(drag_accum.x) > deadzone) || (v_scroll_enabled && Math::abs(drag_accum.y) > deadzone)) {
 				if (!beyond_deadzone) {
 					propagate_notification(NOTIFICATION_SCROLL_BEGIN);
 					emit_signal(SNAME("scroll_started"));
 
 					beyond_deadzone = true;
-					// resetting drag_accum here ensures smooth scrolling after reaching deadzone
+					// Resetting drag_accum here ensures smooth scrolling after reaching deadzone.
 					drag_accum = -motion;
 				}
 				Vector2 diff = drag_from + drag_accum;
-				if (horizontal_scroll_mode != SCROLL_MODE_DISABLED) {
+				if (h_scroll_enabled) {
 					h_scroll->set_value(diff.x);
 				} else {
 					drag_accum.x = 0;
 				}
-				if (vertical_scroll_mode != SCROLL_MODE_DISABLED) {
+				if (v_scroll_enabled) {
 					v_scroll->set_value(diff.y);
 				} else {
 					drag_accum.y = 0;
@@ -207,20 +226,26 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 				time_since_motion = 0;
 			}
 		}
+
+		if (v_scroll->get_value() != prev_v_scroll || h_scroll->get_value() != prev_h_scroll) {
+			accept_event(); // Accept event if scroll changed.
+		}
+		return;
 	}
 
 	Ref<InputEventPanGesture> pan_gesture = p_gui_input;
 	if (pan_gesture.is_valid()) {
-		if (h_scroll->is_visible_in_tree()) {
-			h_scroll->set_value(h_scroll->get_value() + h_scroll->get_page() * pan_gesture->get_delta().x / 8);
+		if (h_scroll_enabled) {
+			h_scroll->set_value(prev_h_scroll + h_scroll->get_page() * pan_gesture->get_delta().x / 8);
 		}
-		if (v_scroll->is_visible_in_tree()) {
-			v_scroll->set_value(v_scroll->get_value() + v_scroll->get_page() * pan_gesture->get_delta().y / 8);
+		if (v_scroll_enabled) {
+			v_scroll->set_value(prev_v_scroll + v_scroll->get_page() * pan_gesture->get_delta().y / 8);
 		}
-	}
 
-	if (v_scroll->get_value() != prev_v_scroll || h_scroll->get_value() != prev_h_scroll) {
-		accept_event(); //accept event if scroll changed
+		if (v_scroll->get_value() != prev_v_scroll || h_scroll->get_value() != prev_h_scroll) {
+			accept_event(); // Accept event if scroll changed.
+		}
+		return;
 	}
 }
 
@@ -271,9 +296,8 @@ void ScrollContainer::_reposition_children() {
 	Size2 size = get_size();
 	Point2 ofs;
 
-	Ref<StyleBox> sb = get_theme_stylebox(SNAME("bg"));
-	size -= sb->get_minimum_size();
-	ofs += sb->get_offset();
+	size -= theme_cache.panel_style->get_minimum_size();
+	ofs += theme_cache.panel_style->get_offset();
 	bool rtl = is_layout_rtl();
 
 	if (h_scroll->is_visible_in_tree() && h_scroll->get_parent() == this) { //scrolls may have been moved out for reasons
@@ -298,10 +322,10 @@ void ScrollContainer::_reposition_children() {
 		Size2 minsize = c->get_combined_minimum_size();
 
 		Rect2 r = Rect2(-Size2(get_h_scroll(), get_v_scroll()), minsize);
-		if (c->get_h_size_flags() & SIZE_EXPAND) {
+		if (c->get_h_size_flags().has_flag(SIZE_EXPAND)) {
 			r.size.width = MAX(size.width, minsize.width);
 		}
-		if (c->get_v_size_flags() & SIZE_EXPAND) {
+		if (c->get_v_size_flags().has_flag(SIZE_EXPAND)) {
 			r.size.height = MAX(size.height, minsize.height);
 		}
 		r.position += ofs;
@@ -312,7 +336,7 @@ void ScrollContainer::_reposition_children() {
 		fit_child_in_rect(c, r);
 	}
 
-	update();
+	queue_redraw();
 }
 
 void ScrollContainer::_notification(int p_what) {
@@ -327,7 +351,7 @@ void ScrollContainer::_notification(int p_what) {
 
 		case NOTIFICATION_READY: {
 			Viewport *viewport = get_viewport();
-			ERR_FAIL_COND(!viewport);
+			ERR_FAIL_NULL(viewport);
 			viewport->connect("gui_focus_changed", callable_mp(this, &ScrollContainer::_gui_focus_changed));
 			_reposition_children();
 		} break;
@@ -337,8 +361,7 @@ void ScrollContainer::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_DRAW: {
-			Ref<StyleBox> sb = get_theme_stylebox(SNAME("bg"));
-			draw_style_box(sb, Rect2(Vector2(), get_size()));
+			draw_style_box(theme_cache.panel_style, Rect2(Vector2(), get_size()));
 		} break;
 
 		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
@@ -413,8 +436,7 @@ void ScrollContainer::_notification(int p_what) {
 
 void ScrollContainer::update_scrollbars() {
 	Size2 size = get_size();
-	Ref<StyleBox> sb = get_theme_stylebox(SNAME("bg"));
-	size -= sb->get_minimum_size();
+	size -= theme_cache.panel_style->get_minimum_size();
 
 	Size2 hmin = h_scroll->get_combined_minimum_size();
 	Size2 vmin = v_scroll->get_combined_minimum_size();
@@ -453,6 +475,22 @@ void ScrollContainer::set_v_scroll(int p_pos) {
 
 int ScrollContainer::get_v_scroll() const {
 	return v_scroll->get_value();
+}
+
+void ScrollContainer::set_horizontal_custom_step(float p_custom_step) {
+	h_scroll->set_custom_step(p_custom_step);
+}
+
+float ScrollContainer::get_horizontal_custom_step() const {
+	return h_scroll->get_custom_step();
+}
+
+void ScrollContainer::set_vertical_custom_step(float p_custom_step) {
+	v_scroll->set_custom_step(p_custom_step);
+}
+
+float ScrollContainer::get_vertical_custom_step() const {
+	return v_scroll->get_custom_step();
 }
 
 void ScrollContainer::set_horizontal_scroll_mode(ScrollMode p_mode) {
@@ -499,8 +537,8 @@ void ScrollContainer::set_follow_focus(bool p_follow) {
 	follow_focus = p_follow;
 }
 
-TypedArray<String> ScrollContainer::get_configuration_warnings() const {
-	TypedArray<String> warnings = Container::get_configuration_warnings();
+PackedStringArray ScrollContainer::get_configuration_warnings() const {
+	PackedStringArray warnings = Container::get_configuration_warnings();
 
 	int found = 0;
 
@@ -543,6 +581,12 @@ void ScrollContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_v_scroll", "value"), &ScrollContainer::set_v_scroll);
 	ClassDB::bind_method(D_METHOD("get_v_scroll"), &ScrollContainer::get_v_scroll);
 
+	ClassDB::bind_method(D_METHOD("set_horizontal_custom_step", "value"), &ScrollContainer::set_horizontal_custom_step);
+	ClassDB::bind_method(D_METHOD("get_horizontal_custom_step"), &ScrollContainer::get_horizontal_custom_step);
+
+	ClassDB::bind_method(D_METHOD("set_vertical_custom_step", "value"), &ScrollContainer::set_vertical_custom_step);
+	ClassDB::bind_method(D_METHOD("get_vertical_custom_step"), &ScrollContainer::get_vertical_custom_step);
+
 	ClassDB::bind_method(D_METHOD("set_horizontal_scroll_mode", "enable"), &ScrollContainer::set_horizontal_scroll_mode);
 	ClassDB::bind_method(D_METHOD("get_horizontal_scroll_mode"), &ScrollContainer::get_horizontal_scroll_mode);
 
@@ -567,6 +611,8 @@ void ScrollContainer::_bind_methods() {
 	ADD_GROUP("Scroll", "scroll_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "scroll_horizontal", PROPERTY_HINT_NONE, "suffix:px"), "set_h_scroll", "get_h_scroll");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "scroll_vertical", PROPERTY_HINT_NONE, "suffix:px"), "set_v_scroll", "get_v_scroll");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "scroll_horizontal_custom_step", PROPERTY_HINT_RANGE, "-1,4096,suffix:px"), "set_horizontal_custom_step", "get_horizontal_custom_step");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "scroll_vertical_custom_step", PROPERTY_HINT_RANGE, "-1,4096,suffix:px"), "set_vertical_custom_step", "get_vertical_custom_step");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "horizontal_scroll_mode", PROPERTY_HINT_ENUM, "Disabled,Auto,Always Show,Never Show"), "set_horizontal_scroll_mode", "get_horizontal_scroll_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vertical_scroll_mode", PROPERTY_HINT_ENUM, "Disabled,Auto,Always Show,Never Show"), "set_vertical_scroll_mode", "get_vertical_scroll_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "scroll_deadzone"), "set_deadzone", "get_deadzone");
@@ -575,6 +621,8 @@ void ScrollContainer::_bind_methods() {
 	BIND_ENUM_CONSTANT(SCROLL_MODE_AUTO);
 	BIND_ENUM_CONSTANT(SCROLL_MODE_SHOW_ALWAYS);
 	BIND_ENUM_CONSTANT(SCROLL_MODE_SHOW_NEVER);
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollContainer, panel_style, "panel");
 
 	GLOBAL_DEF("gui/common/default_scroll_deadzone", 0);
 };

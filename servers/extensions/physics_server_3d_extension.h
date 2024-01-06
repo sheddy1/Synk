@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  physics_server_3d_extension.h                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  physics_server_3d_extension.h                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef PHYSICS_SERVER_3D_EXTENSION_H
 #define PHYSICS_SERVER_3D_EXTENSION_H
@@ -94,8 +94,9 @@ public:
 
 	EXBIND1RC(Vector3, get_contact_local_position, int)
 	EXBIND1RC(Vector3, get_contact_local_normal, int)
-	EXBIND1RC(real_t, get_contact_impulse, int)
+	EXBIND1RC(Vector3, get_contact_impulse, int)
 	EXBIND1RC(int, get_contact_local_shape, int)
+	EXBIND1RC(Vector3, get_contact_local_velocity_at_position, int)
 	EXBIND1RC(RID, get_contact_collider, int)
 	EXBIND1RC(Vector3, get_contact_collider_position, int)
 	EXBIND1RC(ObjectID, get_contact_collider_id, int)
@@ -128,19 +129,19 @@ protected:
 	static void _bind_methods();
 	bool is_body_excluded_from_query(const RID &p_body) const;
 
-	GDVIRTUAL8R(bool, _intersect_ray, const Vector3 &, const Vector3 &, uint32_t, bool, bool, bool, bool, GDNativePtr<PhysicsServer3DExtensionRayResult>)
-	GDVIRTUAL6R(int, _intersect_point, const Vector3 &, uint32_t, bool, bool, GDNativePtr<PhysicsServer3DExtensionShapeResult>, int)
-	GDVIRTUAL9R(int, _intersect_shape, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDNativePtr<PhysicsServer3DExtensionShapeResult>, int)
-	GDVIRTUAL10R(bool, _cast_motion, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDNativePtr<real_t>, GDNativePtr<real_t>, GDNativePtr<PhysicsServer3DExtensionShapeRestInfo>)
-	GDVIRTUAL10R(bool, _collide_shape, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDNativePtr<Vector3>, int, GDNativePtr<int>)
-	GDVIRTUAL8R(bool, _rest_info, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDNativePtr<PhysicsServer3DExtensionShapeRestInfo>)
+	GDVIRTUAL9R(bool, _intersect_ray, const Vector3 &, const Vector3 &, uint32_t, bool, bool, bool, bool, bool, GDExtensionPtr<PhysicsServer3DExtensionRayResult>)
+	GDVIRTUAL6R(int, _intersect_point, const Vector3 &, uint32_t, bool, bool, GDExtensionPtr<PhysicsServer3DExtensionShapeResult>, int)
+	GDVIRTUAL9R(int, _intersect_shape, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDExtensionPtr<PhysicsServer3DExtensionShapeResult>, int)
+	GDVIRTUAL10R(bool, _cast_motion, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDExtensionPtr<real_t>, GDExtensionPtr<real_t>, GDExtensionPtr<PhysicsServer3DExtensionShapeRestInfo>)
+	GDVIRTUAL10R(bool, _collide_shape, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDExtensionPtr<Vector3>, int, GDExtensionPtr<int>)
+	GDVIRTUAL8R(bool, _rest_info, RID, const Transform3D &, const Vector3 &, real_t, uint32_t, bool, bool, GDExtensionPtr<PhysicsServer3DExtensionShapeRestInfo>)
 	GDVIRTUAL2RC(Vector3, _get_closest_point_to_object_volume, RID, const Vector3 &)
 
 public:
 	virtual bool intersect_ray(const RayParameters &p_parameters, RayResult &r_result) override {
 		exclude = &p_parameters.exclude;
 		bool ret = false;
-		GDVIRTUAL_REQUIRED_CALL(_intersect_ray, p_parameters.from, p_parameters.to, p_parameters.collision_mask, p_parameters.collide_with_bodies, p_parameters.collide_with_areas, p_parameters.hit_from_inside, p_parameters.hit_back_faces, &r_result, ret);
+		GDVIRTUAL_REQUIRED_CALL(_intersect_ray, p_parameters.from, p_parameters.to, p_parameters.collision_mask, p_parameters.collide_with_bodies, p_parameters.collide_with_areas, p_parameters.hit_from_inside, p_parameters.hit_back_faces, p_parameters.pick_ray, &r_result, ret);
 		exclude = nullptr;
 		return ret;
 	}
@@ -192,14 +193,8 @@ public:
 typedef PhysicsServer3D::MotionCollision PhysicsServer3DExtensionMotionCollision;
 typedef PhysicsServer3D::MotionResult PhysicsServer3DExtensionMotionResult;
 
-struct PhysicsServer3DExtensionStateCallback {
-	void *instance = nullptr;
-	void (*callback)(void *p_instance, PhysicsDirectBodyState3D *p_state);
-};
-
 GDVIRTUAL_NATIVE_PTR(PhysicsServer3DExtensionMotionCollision)
 GDVIRTUAL_NATIVE_PTR(PhysicsServer3DExtensionMotionResult)
-GDVIRTUAL_NATIVE_PTR(PhysicsServer3DExtensionStateCallback)
 
 class PhysicsServer3DExtension : public PhysicsServer3D {
 	GDCLASS(PhysicsServer3DExtension, PhysicsServer3D);
@@ -209,6 +204,8 @@ protected:
 
 public:
 	// The warning is valid, but unavoidable. If the function is not overridden it will error anyway.
+
+	/* SHAPE API */
 
 	EXBIND0R(RID, world_boundary_shape_create)
 	EXBIND0R(RID, separation_ray_shape_create)
@@ -262,6 +259,7 @@ public:
 	EXBIND1RC(int, area_get_shape_count, RID)
 	EXBIND2RC(RID, area_get_shape, RID, int)
 	EXBIND2RC(Transform3D, area_get_shape_transform, RID, int)
+
 	EXBIND2(area_remove_shape, RID, int)
 	EXBIND1(area_clear_shapes, RID)
 
@@ -274,8 +272,11 @@ public:
 	EXBIND2RC(Variant, area_get_param, RID, AreaParameter)
 	EXBIND1RC(Transform3D, area_get_transform, RID)
 
-	EXBIND2(area_set_collision_mask, RID, uint32_t)
 	EXBIND2(area_set_collision_layer, RID, uint32_t)
+	EXBIND1RC(uint32_t, area_get_collision_layer, RID)
+
+	EXBIND2(area_set_collision_mask, RID, uint32_t)
+	EXBIND1RC(uint32_t, area_get_collision_mask, RID)
 
 	EXBIND2(area_set_monitorable, RID, bool)
 	EXBIND2(area_set_ray_pickable, RID, bool)
@@ -297,12 +298,11 @@ public:
 	EXBIND4(body_add_shape, RID, RID, const Transform3D &, bool)
 	EXBIND3(body_set_shape, RID, int, RID)
 	EXBIND3(body_set_shape_transform, RID, int, const Transform3D &)
+	EXBIND3(body_set_shape_disabled, RID, int, bool)
 
 	EXBIND1RC(int, body_get_shape_count, RID)
-	EXBIND2RC(Transform3D, body_get_shape_transform, RID, int)
 	EXBIND2RC(RID, body_get_shape, RID, int)
-
-	EXBIND3(body_set_shape_disabled, RID, int, bool)
+	EXBIND2RC(Transform3D, body_get_shape_transform, RID, int)
 
 	EXBIND2(body_remove_shape, RID, int)
 	EXBIND1(body_clear_shapes, RID)
@@ -319,6 +319,9 @@ public:
 	EXBIND2(body_set_collision_mask, RID, uint32_t)
 	EXBIND1RC(uint32_t, body_get_collision_mask, RID)
 
+	EXBIND2(body_set_collision_priority, RID, real_t)
+	EXBIND1RC(real_t, body_get_collision_priority, RID)
+
 	EXBIND2(body_set_user_flags, RID, uint32_t)
 	EXBIND1RC(uint32_t, body_get_user_flags, RID)
 
@@ -330,9 +333,9 @@ public:
 	EXBIND3(body_set_state, RID, BodyState, const Variant &)
 	EXBIND2RC(Variant, body_get_state, RID, BodyState)
 
-	EXBIND2(body_apply_torque_impulse, RID, const Vector3 &)
 	EXBIND2(body_apply_central_impulse, RID, const Vector3 &)
 	EXBIND3(body_apply_impulse, RID, const Vector3 &, const Vector3 &)
+	EXBIND2(body_apply_torque_impulse, RID, const Vector3 &)
 
 	EXBIND2(body_apply_central_force, RID, const Vector3 &)
 	EXBIND3(body_apply_force, RID, const Vector3 &, const Vector3 &)
@@ -375,18 +378,12 @@ public:
 	EXBIND2(body_set_omit_force_integration, RID, bool)
 	EXBIND1RC(bool, body_is_omitting_force_integration, RID)
 
-	GDVIRTUAL2(_body_set_state_sync_callback, RID, GDNativePtr<PhysicsServer3DExtensionStateCallback>)
-	void body_set_state_sync_callback(RID p_body, void *p_instance, BodyStateCallback p_callback) override {
-		PhysicsServer3DExtensionStateCallback callback;
-		callback.callback = p_callback;
-		callback.instance = p_instance;
-		GDVIRTUAL_REQUIRED_CALL(_body_set_state_sync_callback, p_body, &callback);
-	}
+	EXBIND2(body_set_state_sync_callback, RID, const Callable &)
 	EXBIND3(body_set_force_integration_callback, RID, const Callable &, const Variant &)
 
 	EXBIND2(body_set_ray_pickable, RID, bool)
 
-	GDVIRTUAL7RC(bool, _body_test_motion, RID, const Transform3D &, const Vector3 &, real_t, int, bool, GDNativePtr<PhysicsServer3DExtensionMotionResult>)
+	GDVIRTUAL8RC(bool, _body_test_motion, RID, const Transform3D &, const Vector3 &, real_t, int, bool, bool, GDExtensionPtr<PhysicsServer3DExtensionMotionResult>)
 
 	thread_local static const HashSet<RID> *exclude_bodies;
 	thread_local static const HashSet<ObjectID> *exclude_objects;
@@ -398,7 +395,7 @@ public:
 		bool ret = false;
 		exclude_bodies = &p_parameters.exclude_bodies;
 		exclude_objects = &p_parameters.exclude_objects;
-		GDVIRTUAL_REQUIRED_CALL(_body_test_motion, p_body, p_parameters.from, p_parameters.motion, p_parameters.margin, p_parameters.max_collisions, p_parameters.collide_separation_ray, r_result, ret);
+		GDVIRTUAL_REQUIRED_CALL(_body_test_motion, p_body, p_parameters.from, p_parameters.motion, p_parameters.margin, p_parameters.max_collisions, p_parameters.collide_separation_ray, p_parameters.recovery_as_collision, r_result, ret);
 		exclude_bodies = nullptr;
 		exclude_objects = nullptr;
 		return ret;
@@ -473,7 +470,6 @@ public:
 	/* JOINT API */
 
 	EXBIND0R(RID, joint_create)
-
 	EXBIND1(joint_clear, RID)
 
 	EXBIND5(joint_make_pin, RID, RID, const Vector3 &, RID, const Vector3 &)
@@ -534,8 +530,8 @@ public:
 	EXBIND0(init)
 	EXBIND1(step, real_t)
 	EXBIND0(sync)
-	EXBIND0(end_sync)
 	EXBIND0(flush_queries)
+	EXBIND0(end_sync)
 	EXBIND0(finish)
 
 	EXBIND0RC(bool, is_flushing_queries)

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  callable_method_pointer.h                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  callable_method_pointer.h                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef CALLABLE_METHOD_POINTER_H
 #define CALLABLE_METHOD_POINTER_H
@@ -81,35 +81,27 @@ template <class T, class... P>
 class CallableCustomMethodPointer : public CallableCustomMethodPointerBase {
 	struct Data {
 		T *instance;
-#ifdef DEBUG_ENABLED
 		uint64_t object_id;
-#endif
 		void (T::*method)(P...);
 	} data;
 
 public:
 	virtual ObjectID get_object() const {
-#ifdef DEBUG_ENABLED
 		if (ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr) {
 			return ObjectID();
 		}
-#endif
 		return data.instance->get_instance_id();
 	}
 
 	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
-#ifdef DEBUG_ENABLED
-		ERR_FAIL_COND_MSG(ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr, "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
-#endif
+		ERR_FAIL_NULL_MSG(ObjectDB::get_instance(ObjectID(data.object_id)), "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
 		call_with_variant_args(data.instance, data.method, p_arguments, p_argcount, r_call_error);
 	}
 
 	CallableCustomMethodPointer(T *p_instance, void (T::*p_method)(P...)) {
 		memset(&data, 0, sizeof(Data)); // Clear beforehand, may have padding bytes.
 		data.instance = p_instance;
-#ifdef DEBUG_ENABLED
 		data.object_id = p_instance->get_instance_id();
-#endif
 		data.method = p_method;
 		_setup((uint32_t *)&data, sizeof(Data));
 	}
@@ -135,36 +127,28 @@ template <class T, class R, class... P>
 class CallableCustomMethodPointerRet : public CallableCustomMethodPointerBase {
 	struct Data {
 		T *instance;
-#ifdef DEBUG_ENABLED
 		uint64_t object_id;
-#endif
 		R(T::*method)
 		(P...);
 	} data;
 
 public:
 	virtual ObjectID get_object() const {
-#ifdef DEBUG_ENABLED
 		if (ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr) {
 			return ObjectID();
 		}
-#endif
 		return data.instance->get_instance_id();
 	}
 
 	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
-#ifdef DEBUG_ENABLED
-		ERR_FAIL_COND_MSG(ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr, "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
-#endif
+		ERR_FAIL_NULL_MSG(ObjectDB::get_instance(ObjectID(data.object_id)), "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
 		call_with_variant_args_ret(data.instance, data.method, p_arguments, p_argcount, r_return_value, r_call_error);
 	}
 
 	CallableCustomMethodPointerRet(T *p_instance, R (T::*p_method)(P...)) {
 		memset(&data, 0, sizeof(Data)); // Clear beforehand, may have padding bytes.
 		data.instance = p_instance;
-#ifdef DEBUG_ENABLED
 		data.object_id = p_instance->get_instance_id();
-#endif
 		data.method = p_method;
 		_setup((uint32_t *)&data, sizeof(Data));
 	}
@@ -190,36 +174,28 @@ template <class T, class R, class... P>
 class CallableCustomMethodPointerRetC : public CallableCustomMethodPointerBase {
 	struct Data {
 		T *instance;
-#ifdef DEBUG_ENABLED
 		uint64_t object_id;
-#endif
 		R(T::*method)
 		(P...) const;
 	} data;
 
 public:
-	virtual ObjectID get_object() const {
-#ifdef DEBUG_ENABLED
+	virtual ObjectID get_object() const override {
 		if (ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr) {
 			return ObjectID();
 		}
-#endif
 		return data.instance->get_instance_id();
 	}
 
-	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
-#ifdef DEBUG_ENABLED
-		ERR_FAIL_COND_MSG(ObjectDB::get_instance(ObjectID(data.object_id)) == nullptr, "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
-#endif
+	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const override {
+		ERR_FAIL_NULL_MSG(ObjectDB::get_instance(ObjectID(data.object_id)), "Invalid Object id '" + uitos(data.object_id) + "', can't call method.");
 		call_with_variant_args_retc(data.instance, data.method, p_arguments, p_argcount, r_return_value, r_call_error);
 	}
 
 	CallableCustomMethodPointerRetC(T *p_instance, R (T::*p_method)(P...) const) {
 		memset(&data, 0, sizeof(Data)); // Clear beforehand, may have padding bytes.
 		data.instance = p_instance;
-#ifdef DEBUG_ENABLED
 		data.object_id = p_instance->get_instance_id();
-#endif
 		data.method = p_method;
 		_setup((uint32_t *)&data, sizeof(Data));
 	}
@@ -254,11 +230,15 @@ class CallableCustomStaticMethodPointer : public CallableCustomMethodPointerBase
 	} data;
 
 public:
-	virtual ObjectID get_object() const {
+	virtual bool is_valid() const override {
+		return true;
+	}
+
+	virtual ObjectID get_object() const override {
 		return ObjectID();
 	}
 
-	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
+	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const override {
 		call_with_variant_args_static_ret(data.method, p_arguments, p_argcount, r_return_value, r_call_error);
 		r_return_value = Variant();
 	}
@@ -292,11 +272,15 @@ class CallableCustomStaticMethodPointerRet : public CallableCustomMethodPointerB
 	} data;
 
 public:
-	virtual ObjectID get_object() const {
+	virtual bool is_valid() const override {
+		return true;
+	}
+
+	virtual ObjectID get_object() const override {
 		return ObjectID();
 	}
 
-	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const {
+	virtual void call(const Variant **p_arguments, int p_argcount, Variant &r_return_value, Callable::CallError &r_call_error) const override {
 		call_with_variant_args_static_ret(data.method, p_arguments, p_argcount, r_return_value, r_call_error);
 	}
 

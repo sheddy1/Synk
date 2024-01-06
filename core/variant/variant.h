@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  variant.h                                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  variant.h                                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef VARIANT_H
 #define VARIANT_H
@@ -70,6 +70,7 @@ typedef Vector<int32_t> PackedInt32Array;
 typedef Vector<int64_t> PackedInt64Array;
 typedef Vector<float> PackedFloat32Array;
 typedef Vector<double> PackedFloat64Array;
+typedef Vector<real_t> PackedRealArray;
 typedef Vector<String> PackedStringArray;
 typedef Vector<Vector2> PackedVector2Array;
 typedef Vector<Vector3> PackedVector3Array;
@@ -338,6 +339,9 @@ public:
 	_FORCE_INLINE_ bool is_num() const {
 		return type == INT || type == FLOAT;
 	}
+	_FORCE_INLINE_ bool is_string() const {
+		return type == STRING || type == STRING_NAME;
+	}
 	_FORCE_INLINE_ bool is_array() const {
 		return type >= ARRAY;
 	}
@@ -345,6 +349,10 @@ public:
 	bool is_zero() const;
 	bool is_one() const;
 	bool is_null() const;
+
+	// Make sure Variant is not implicitly cast when accessing it with bracket notation (GH-49469).
+	Variant &operator[](const Variant &p_key) = delete;
+	const Variant &operator[](const Variant &p_key) const = delete;
 
 	operator bool() const;
 	operator signed int() const;
@@ -484,12 +492,13 @@ public:
 	Variant(const IPAddress &p_address);
 
 #define VARIANT_ENUM_CLASS_CONSTRUCTOR(m_enum) \
-	Variant(const m_enum &p_value) {           \
+	Variant(m_enum p_value) {                  \
 		type = INT;                            \
 		_data._int = (int64_t)p_value;         \
 	}
 
 	// Only enum classes that need to be bound need this to be defined.
+	VARIANT_ENUM_CLASS_CONSTRUCTOR(EulerOrder)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(JoyAxis)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(JoyButton)
 	VARIANT_ENUM_CLASS_CONSTRUCTOR(Key)
@@ -552,9 +561,6 @@ public:
 	void zero();
 	Variant duplicate(bool p_deep = false) const;
 	Variant recursive_duplicate(bool p_deep, int recursion_count) const;
-	static void blend(const Variant &a, const Variant &b, float c, Variant &r_dst);
-	static void interpolate(const Variant &a, const Variant &b, float c, Variant &r_dst);
-	static void sub(const Variant &a, const Variant &b, Variant &r_dst);
 
 	/* Built-In Methods */
 
@@ -566,6 +572,7 @@ public:
 	static ValidatedBuiltInMethod get_validated_builtin_method(Variant::Type p_type, const StringName &p_method);
 	static PTRBuiltInMethod get_ptr_builtin_method(Variant::Type p_type, const StringName &p_method);
 
+	static MethodInfo get_builtin_method_info(Variant::Type p_type, const StringName &p_method);
 	static int get_builtin_method_argument_count(Variant::Type p_type, const StringName &p_method);
 	static Variant::Type get_builtin_method_argument_type(Variant::Type p_type, const StringName &p_method, int p_argument);
 	static String get_builtin_method_argument_name(Variant::Type p_type, const StringName &p_method, int p_argument);
@@ -657,6 +664,7 @@ public:
 
 	static bool has_indexing(Variant::Type p_type);
 	static Variant::Type get_indexed_element_type(Variant::Type p_type);
+	static uint32_t get_indexed_element_usage(Variant::Type p_type);
 
 	typedef void (*ValidatedIndexedSetter)(Variant *base, int64_t index, const Variant *value, bool *oob);
 	typedef void (*ValidatedIndexedGetter)(const Variant *base, int64_t index, Variant *value, bool *oob);
@@ -700,9 +708,20 @@ public:
 	bool has_key(const Variant &p_key, bool &r_valid) const;
 
 	/* Generic */
-
-	void set(const Variant &p_index, const Variant &p_value, bool *r_valid = nullptr);
-	Variant get(const Variant &p_index, bool *r_valid = nullptr) const;
+	enum VariantSetError {
+		SET_OK,
+		SET_KEYED_ERR,
+		SET_NAMED_ERR,
+		SET_INDEXED_ERR
+	};
+	enum VariantGetError {
+		GET_OK,
+		GET_KEYED_ERR,
+		GET_NAMED_ERR,
+		GET_INDEXED_ERR
+	};
+	void set(const Variant &p_index, const Variant &p_value, bool *r_valid = nullptr, VariantSetError *err_code = nullptr);
+	Variant get(const Variant &p_index, bool *r_valid = nullptr, VariantGetError *err_code = nullptr) const;
 	bool in(const Variant &p_index, bool *r_valid = nullptr) const;
 
 	bool iter_init(Variant &r_iter, bool &r_valid) const;
@@ -748,7 +767,9 @@ public:
 	uint32_t hash() const;
 	uint32_t recursive_hash(int recursion_count) const;
 
-	bool hash_compare(const Variant &p_variant, int recursion_count = 0) const;
+	// By default, performs a semantic comparison. Otherwise, numeric/binary comparison (if appropriate).
+	bool hash_compare(const Variant &p_variant, int recursion_count = 0, bool semantic_comparison = true) const;
+	bool identity_compare(const Variant &p_variant) const;
 	bool booleanize() const;
 	String stringify(int recursion_count = 0) const;
 	String to_json_string() const;
@@ -799,6 +820,10 @@ struct VariantComparator {
 	static _FORCE_INLINE_ bool compare(const Variant &p_lhs, const Variant &p_rhs) { return p_lhs.hash_compare(p_rhs); }
 };
 
+struct StringLikeVariantComparator {
+	static bool compare(const Variant &p_lhs, const Variant &p_rhs);
+};
+
 Variant::ObjData &Variant::_get_obj() {
 	return *reinterpret_cast<ObjData *>(&_data._mem[0]);
 }
@@ -807,7 +832,36 @@ const Variant::ObjData &Variant::_get_obj() const {
 	return *reinterpret_cast<const ObjData *>(&_data._mem[0]);
 }
 
-String vformat(const String &p_text, const Variant &p1 = Variant(), const Variant &p2 = Variant(), const Variant &p3 = Variant(), const Variant &p4 = Variant(), const Variant &p5 = Variant());
+template <typename... VarArgs>
+String vformat(const String &p_text, const VarArgs... p_args) {
+	Variant args[sizeof...(p_args) + 1] = { p_args..., Variant() }; // +1 makes sure zero sized arrays are also supported.
+	Array args_array;
+	args_array.resize(sizeof...(p_args));
+	for (uint32_t i = 0; i < sizeof...(p_args); i++) {
+		args_array[i] = args[i];
+	}
+
+	bool error = false;
+	String fmt = p_text.sprintf(args_array, &error);
+
+	ERR_FAIL_COND_V_MSG(error, String(), fmt);
+
+	return fmt;
+}
+
+template <typename... VarArgs>
+Variant Callable::call(VarArgs... p_args) const {
+	Variant args[sizeof...(p_args) + 1] = { p_args..., 0 }; // +1 makes sure zero sized arrays are also supported.
+	const Variant *argptrs[sizeof...(p_args) + 1];
+	for (uint32_t i = 0; i < sizeof...(p_args); i++) {
+		argptrs[i] = &args[i];
+	}
+
+	Variant ret;
+	CallError ce;
+	callp(sizeof...(p_args) == 0 ? nullptr : (const Variant **)argptrs, sizeof...(p_args), ret, ce);
+	return ret;
+}
 
 template <typename... VarArgs>
 Callable Callable::bind(VarArgs... p_args) {

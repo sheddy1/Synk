@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  godot_space_2d.cpp                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  godot_space_2d.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "godot_space_2d.h"
 
@@ -83,7 +83,7 @@ int GodotPhysicsDirectSpaceState2D::intersect_point(const PointParameters &p_par
 			continue;
 		}
 
-		if (p_parameters.canvas_instance_id.is_valid() && col_obj->get_canvas_instance_id() != p_parameters.canvas_instance_id) {
+		if (col_obj->get_canvas_instance_id() != p_parameters.canvas_instance_id) {
 			continue;
 		}
 
@@ -129,8 +129,8 @@ bool GodotPhysicsDirectSpaceState2D::intersect_ray(const RayParameters &p_parame
 
 	bool collided = false;
 	Vector2 res_point, res_normal;
-	int res_shape;
-	const GodotCollisionObject2D *res_obj;
+	int res_shape = -1;
+	const GodotCollisionObject2D *res_obj = nullptr;
 	real_t min_d = 1e10;
 
 	for (int i = 0; i < amount; i++) {
@@ -190,6 +190,7 @@ bool GodotPhysicsDirectSpaceState2D::intersect_ray(const RayParameters &p_parame
 	if (!collided) {
 		return false;
 	}
+	ERR_FAIL_NULL_V(res_obj, false); // Shouldn't happen but silences warning.
 
 	r_result.collider_id = res_obj->get_instance_id();
 	if (r_result.collider_id.is_valid()) {
@@ -209,7 +210,7 @@ int GodotPhysicsDirectSpaceState2D::intersect_shape(const ShapeParameters &p_par
 	}
 
 	GodotShape2D *shape = GodotPhysicsServer2D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	Rect2 aabb = p_parameters.transform.xform(shape->get_aabb());
 	aabb = aabb.merge(Rect2(aabb.position + p_parameters.motion, aabb.size)); //motion
@@ -254,7 +255,7 @@ int GodotPhysicsDirectSpaceState2D::intersect_shape(const ShapeParameters &p_par
 
 bool GodotPhysicsDirectSpaceState2D::cast_motion(const ShapeParameters &p_parameters, real_t &p_closest_safe, real_t &p_closest_unsafe) {
 	GodotShape2D *shape = GodotPhysicsServer2D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, false);
+	ERR_FAIL_NULL_V(shape, false);
 
 	Rect2 aabb = p_parameters.transform.xform(shape->get_aabb());
 	aabb = aabb.merge(Rect2(aabb.position + p_parameters.motion, aabb.size)); //motion
@@ -341,7 +342,7 @@ bool GodotPhysicsDirectSpaceState2D::collide_shape(const ShapeParameters &p_para
 	}
 
 	GodotShape2D *shape = GodotPhysicsServer2D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	Rect2 aabb = p_parameters.transform.xform(shape->get_aabb());
 	aabb = aabb.merge(Rect2(aabb.position + p_parameters.motion, aabb.size)); //motion
@@ -438,7 +439,7 @@ static void _rest_cbk_result(const Vector2 &p_point_A, const Vector2 &p_point_B,
 
 bool GodotPhysicsDirectSpaceState2D::rest_info(const ShapeParameters &p_parameters, ShapeRestInfo *r_info) {
 	GodotShape2D *shape = GodotPhysicsServer2D::godot_singleton->shape_owner.get_or_null(p_parameters.shape_rid);
-	ERR_FAIL_COND_V(!shape, 0);
+	ERR_FAIL_NULL_V(shape, 0);
 
 	real_t margin = MAX(p_parameters.margin, TEST_MOTION_MARGIN_MIN_VALUE);
 
@@ -594,6 +595,7 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 		const int max_results = 32;
 		int recover_attempts = 4;
 		Vector2 sr[max_results * 2];
+		real_t priorities[max_results];
 
 		do {
 			GodotPhysicsServer2D::CollCbkData cbk;
@@ -606,6 +608,7 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 
 			GodotPhysicsServer2D::CollCbkData *cbkptr = &cbk;
 			GodotCollisionSolver2D::CallbackResult cbkres = GodotPhysicsServer2D::_shape_col_cbk;
+			int priority_amount = 0;
 
 			bool collided = false;
 
@@ -641,7 +644,7 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 
 						if (col_obj->get_type() == GodotCollisionObject2D::TYPE_BODY) {
 							const GodotBody2D *b = static_cast<const GodotBody2D *>(col_obj);
-							if (b->get_mode() == PhysicsServer2D::BODY_MODE_KINEMATIC || b->get_mode() == PhysicsServer2D::BODY_MODE_DYNAMIC) {
+							if (b->get_mode() == PhysicsServer2D::BODY_MODE_KINEMATIC || b->get_mode() == PhysicsServer2D::BODY_MODE_RIGID) {
 								//fix for moving platforms (kinematic and dynamic), margin is increased by how much it moved in the given direction
 								Vector2 lv = b->get_linear_velocity();
 								//compute displacement from linear velocity
@@ -663,6 +666,10 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 					GodotShape2D *against_shape = col_obj->get_shape(shape_idx);
 					if (GodotCollisionSolver2D::solve(body_shape, body_shape_xform, Vector2(), against_shape, col_obj_shape_xform, Vector2(), cbkres, cbkptr, nullptr, margin)) {
 						did_collide = cbk.passed > current_passed; //more passed, so collision actually existed
+					}
+					while (cbk.amount > priority_amount) {
+						priorities[priority_amount] = col_obj->get_collision_priority();
+						priority_amount++;
 					}
 
 					if (!did_collide && cbk.invalid_by_dir > 0) {
@@ -686,6 +693,12 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 				break;
 			}
 
+			real_t inv_total_weight = 0.0;
+			for (int i = 0; i < cbk.amount; i++) {
+				inv_total_weight += priorities[i];
+			}
+			inv_total_weight = Math::is_zero_approx(inv_total_weight) ? 1.0 : (real_t)cbk.amount / inv_total_weight;
+
 			recovered = true;
 
 			Vector2 recover_motion;
@@ -701,7 +714,7 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 				real_t depth = n.dot(a + recover_motion) - d;
 				if (depth > min_contact_depth + CMP_EPSILON) {
 					// Only recover if there is penetration.
-					recover_motion -= n * (depth - min_contact_depth) * 0.4;
+					recover_motion -= n * (depth - min_contact_depth) * 0.4 * priorities[i] * inv_total_weight;
 				}
 			}
 
@@ -936,7 +949,7 @@ bool GodotSpace2D::test_body_motion(GodotBody2D *p_body, const PhysicsServer2D::
 
 					if (col_obj->get_type() == GodotCollisionObject2D::TYPE_BODY) {
 						const GodotBody2D *b = static_cast<const GodotBody2D *>(col_obj);
-						if (b->get_mode() == PhysicsServer2D::BODY_MODE_KINEMATIC || b->get_mode() == PhysicsServer2D::BODY_MODE_DYNAMIC) {
+						if (b->get_mode() == PhysicsServer2D::BODY_MODE_KINEMATIC || b->get_mode() == PhysicsServer2D::BODY_MODE_RIGID) {
 							//fix for moving platforms (kinematic and dynamic), margin is increased by how much it moved in the given direction
 							Vector2 lv = b->get_linear_velocity();
 							//compute displacement from linear velocity
@@ -1024,8 +1037,6 @@ void *GodotSpace2D::_broadphase_pair(GodotCollisionObject2D *A, int p_subindex_A
 		GodotBodyPair2D *b = memnew(GodotBodyPair2D(static_cast<GodotBody2D *>(A), p_subindex_A, static_cast<GodotBody2D *>(B), p_subindex_B));
 		return b;
 	}
-
-	return nullptr;
 }
 
 void GodotSpace2D::_broadphase_unpair(GodotCollisionObject2D *A, int p_subindex_A, GodotCollisionObject2D *B, int p_subindex_B, void *p_data, void *p_self) {
@@ -1205,28 +1216,15 @@ GodotPhysicsDirectSpaceState2D *GodotSpace2D::get_direct_state() {
 }
 
 GodotSpace2D::GodotSpace2D() {
-	body_linear_velocity_sleep_threshold = GLOBAL_DEF("physics/2d/sleep_threshold_linear", 2.0);
-	body_angular_velocity_sleep_threshold = GLOBAL_DEF("physics/2d/sleep_threshold_angular", Math::deg2rad(8.0));
-	body_time_to_sleep = GLOBAL_DEF("physics/2d/time_before_sleep", 0.5);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/time_before_sleep", PropertyInfo(Variant::FLOAT, "physics/2d/time_before_sleep", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"));
-
-	solver_iterations = GLOBAL_DEF("physics/2d/solver/solver_iterations", 16);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/solver_iterations", PropertyInfo(Variant::INT, "physics/2d/solver/solver_iterations", PROPERTY_HINT_RANGE, "1,32,1,or_greater"));
-
-	contact_recycle_radius = GLOBAL_DEF("physics/2d/solver/contact_recycle_radius", 1.0);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/contact_recycle_radius", PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"));
-
-	contact_max_separation = GLOBAL_DEF("physics/2d/solver/contact_max_separation", 1.5);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/contact_max_separation", PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"));
-
-	contact_max_allowed_penetration = GLOBAL_DEF("physics/2d/solver/contact_max_allowed_penetration", 0.3);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/contact_max_allowed_penetration", PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_max_allowed_penetration", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"));
-
-	contact_bias = GLOBAL_DEF("physics/2d/solver/default_contact_bias", 0.8);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/default_contact_bias", PropertyInfo(Variant::FLOAT, "physics/2d/solver/default_contact_bias", PROPERTY_HINT_RANGE, "0,1,0.01"));
-
-	constraint_bias = GLOBAL_DEF("physics/2d/solver/default_constraint_bias", 0.2);
-	ProjectSettings::get_singleton()->set_custom_property_info("physics/2d/solver/default_constraint_bias", PropertyInfo(Variant::FLOAT, "physics/2d/solver/default_constraint_bias", PROPERTY_HINT_RANGE, "0,1,0.01"));
+	body_linear_velocity_sleep_threshold = GLOBAL_GET("physics/2d/sleep_threshold_linear");
+	body_angular_velocity_sleep_threshold = GLOBAL_GET("physics/2d/sleep_threshold_angular");
+	body_time_to_sleep = GLOBAL_GET("physics/2d/time_before_sleep");
+	solver_iterations = GLOBAL_GET("physics/2d/solver/solver_iterations");
+	contact_recycle_radius = GLOBAL_GET("physics/2d/solver/contact_recycle_radius");
+	contact_max_separation = GLOBAL_GET("physics/2d/solver/contact_max_separation");
+	contact_max_allowed_penetration = GLOBAL_GET("physics/2d/solver/contact_max_allowed_penetration");
+	contact_bias = GLOBAL_GET("physics/2d/solver/default_contact_bias");
+	constraint_bias = GLOBAL_GET("physics/2d/solver/default_constraint_bias");
 
 	broadphase = GodotBroadPhase2D::create_func();
 	broadphase->set_pair_callback(_broadphase_pair, this);

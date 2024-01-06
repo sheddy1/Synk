@@ -1,37 +1,38 @@
-/*************************************************************************/
-/*  physics_server_2d.cpp                                                */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  physics_server_2d.cpp                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "physics_server_2d.h"
 
 #include "core/config/project_settings.h"
 #include "core/string/print_string.h"
+#include "core/variant/typed_array.h"
 
 PhysicsServer2D *PhysicsServer2D::singleton = nullptr;
 
@@ -119,12 +120,14 @@ void PhysicsDirectBodyState2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_contact_local_position", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_local_position);
 	ClassDB::bind_method(D_METHOD("get_contact_local_normal", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_local_normal);
 	ClassDB::bind_method(D_METHOD("get_contact_local_shape", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_local_shape);
+	ClassDB::bind_method(D_METHOD("get_contact_local_velocity_at_position", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_local_velocity_at_position);
 	ClassDB::bind_method(D_METHOD("get_contact_collider", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider);
 	ClassDB::bind_method(D_METHOD("get_contact_collider_position", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider_position);
 	ClassDB::bind_method(D_METHOD("get_contact_collider_id", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider_id);
 	ClassDB::bind_method(D_METHOD("get_contact_collider_object", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider_object);
 	ClassDB::bind_method(D_METHOD("get_contact_collider_shape", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider_shape);
 	ClassDB::bind_method(D_METHOD("get_contact_collider_velocity_at_position", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_collider_velocity_at_position);
+	ClassDB::bind_method(D_METHOD("get_contact_impulse", "contact_idx"), &PhysicsDirectBodyState2D::get_contact_impulse);
 	ClassDB::bind_method(D_METHOD("get_step"), &PhysicsDirectBodyState2D::get_step);
 	ClassDB::bind_method(D_METHOD("integrate_forces"), &PhysicsDirectBodyState2D::integrate_forces);
 	ClassDB::bind_method(D_METHOD("get_space_state"), &PhysicsDirectBodyState2D::get_space_state);
@@ -147,7 +150,7 @@ PhysicsDirectBodyState2D::PhysicsDirectBodyState2D() {}
 
 ///////////////////////////////////////////////////////
 
-Ref<PhysicsRayQueryParameters2D> PhysicsRayQueryParameters2D::create(Vector2 p_from, Vector2 p_to, uint32_t p_mask, const Vector<RID> &p_exclude) {
+Ref<PhysicsRayQueryParameters2D> PhysicsRayQueryParameters2D::create(Vector2 p_from, Vector2 p_to, uint32_t p_mask, const TypedArray<RID> &p_exclude) {
 	Ref<PhysicsRayQueryParameters2D> params;
 	params.instantiate();
 	params->set_from(p_from);
@@ -157,25 +160,25 @@ Ref<PhysicsRayQueryParameters2D> PhysicsRayQueryParameters2D::create(Vector2 p_f
 	return params;
 }
 
-void PhysicsRayQueryParameters2D::set_exclude(const Vector<RID> &p_exclude) {
+void PhysicsRayQueryParameters2D::set_exclude(const TypedArray<RID> &p_exclude) {
 	parameters.exclude.clear();
 	for (int i = 0; i < p_exclude.size(); i++) {
 		parameters.exclude.insert(p_exclude[i]);
 	}
 }
 
-Vector<RID> PhysicsRayQueryParameters2D::get_exclude() const {
-	Vector<RID> ret;
+TypedArray<RID> PhysicsRayQueryParameters2D::get_exclude() const {
+	TypedArray<RID> ret;
 	ret.resize(parameters.exclude.size());
 	int idx = 0;
 	for (const RID &E : parameters.exclude) {
-		ret.write[idx++] = E;
+		ret[idx++] = E;
 	}
 	return ret;
 }
 
 void PhysicsRayQueryParameters2D::_bind_methods() {
-	ClassDB::bind_static_method("PhysicsRayQueryParameters2D", D_METHOD("create", "from", "to", "collision_mask", "exclude"), &PhysicsRayQueryParameters2D::create, DEFVAL(UINT32_MAX), DEFVAL(Vector<RID>()));
+	ClassDB::bind_static_method("PhysicsRayQueryParameters2D", D_METHOD("create", "from", "to", "collision_mask", "exclude"), &PhysicsRayQueryParameters2D::create, DEFVAL(UINT32_MAX), DEFVAL(TypedArray<RID>()));
 
 	ClassDB::bind_method(D_METHOD("set_from", "from"), &PhysicsRayQueryParameters2D::set_from);
 	ClassDB::bind_method(D_METHOD("get_from"), &PhysicsRayQueryParameters2D::get_from);
@@ -209,19 +212,19 @@ void PhysicsRayQueryParameters2D::_bind_methods() {
 
 ///////////////////////////////////////////////////////
 
-void PhysicsPointQueryParameters2D::set_exclude(const Vector<RID> &p_exclude) {
+void PhysicsPointQueryParameters2D::set_exclude(const TypedArray<RID> &p_exclude) {
 	parameters.exclude.clear();
 	for (int i = 0; i < p_exclude.size(); i++) {
 		parameters.exclude.insert(p_exclude[i]);
 	}
 }
 
-Vector<RID> PhysicsPointQueryParameters2D::get_exclude() const {
-	Vector<RID> ret;
+TypedArray<RID> PhysicsPointQueryParameters2D::get_exclude() const {
+	TypedArray<RID> ret;
 	ret.resize(parameters.exclude.size());
 	int idx = 0;
 	for (const RID &E : parameters.exclude) {
-		ret.write[idx++] = E;
+		ret[idx++] = E;
 	}
 	return ret;
 }
@@ -268,19 +271,19 @@ void PhysicsShapeQueryParameters2D::set_shape_rid(const RID &p_shape) {
 	}
 }
 
-void PhysicsShapeQueryParameters2D::set_exclude(const Vector<RID> &p_exclude) {
+void PhysicsShapeQueryParameters2D::set_exclude(const TypedArray<RID> &p_exclude) {
 	parameters.exclude.clear();
 	for (int i = 0; i < p_exclude.size(); i++) {
 		parameters.exclude.insert(p_exclude[i]);
 	}
 }
 
-Vector<RID> PhysicsShapeQueryParameters2D::get_exclude() const {
-	Vector<RID> ret;
+TypedArray<RID> PhysicsShapeQueryParameters2D::get_exclude() const {
+	TypedArray<RID> ret;
 	ret.resize(parameters.exclude.size());
 	int idx = 0;
 	for (const RID &E : parameters.exclude) {
-		ret.write[idx++] = E;
+		ret[idx++] = E;
 	}
 	return ret;
 }
@@ -347,7 +350,7 @@ Dictionary PhysicsDirectSpaceState2D::_intersect_ray(const Ref<PhysicsRayQueryPa
 	return d;
 }
 
-Array PhysicsDirectSpaceState2D::_intersect_point(const Ref<PhysicsPointQueryParameters2D> &p_point_query, int p_max_results) {
+TypedArray<Dictionary> PhysicsDirectSpaceState2D::_intersect_point(const Ref<PhysicsPointQueryParameters2D> &p_point_query, int p_max_results) {
 	ERR_FAIL_COND_V(p_point_query.is_null(), Array());
 
 	Vector<ShapeResult> ret;
@@ -356,10 +359,10 @@ Array PhysicsDirectSpaceState2D::_intersect_point(const Ref<PhysicsPointQueryPar
 	int rc = intersect_point(p_point_query->get_parameters(), ret.ptrw(), ret.size());
 
 	if (rc == 0) {
-		return Array();
+		return TypedArray<Dictionary>();
 	}
 
-	Array r;
+	TypedArray<Dictionary> r;
 	r.resize(rc);
 	for (int i = 0; i < rc; i++) {
 		Dictionary d;
@@ -372,13 +375,13 @@ Array PhysicsDirectSpaceState2D::_intersect_point(const Ref<PhysicsPointQueryPar
 	return r;
 }
 
-Array PhysicsDirectSpaceState2D::_intersect_shape(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query, int p_max_results) {
-	ERR_FAIL_COND_V(!p_shape_query.is_valid(), Array());
+TypedArray<Dictionary> PhysicsDirectSpaceState2D::_intersect_shape(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query, int p_max_results) {
+	ERR_FAIL_COND_V(!p_shape_query.is_valid(), TypedArray<Dictionary>());
 
 	Vector<ShapeResult> sr;
 	sr.resize(p_max_results);
 	int rc = intersect_shape(p_shape_query->get_parameters(), sr.ptrw(), sr.size());
-	Array ret;
+	TypedArray<Dictionary> ret;
 	ret.resize(rc);
 	for (int i = 0; i < rc; i++) {
 		Dictionary d;
@@ -392,32 +395,32 @@ Array PhysicsDirectSpaceState2D::_intersect_shape(const Ref<PhysicsShapeQueryPar
 	return ret;
 }
 
-Array PhysicsDirectSpaceState2D::_cast_motion(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query) {
-	ERR_FAIL_COND_V(!p_shape_query.is_valid(), Array());
+Vector<real_t> PhysicsDirectSpaceState2D::_cast_motion(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query) {
+	ERR_FAIL_COND_V(!p_shape_query.is_valid(), Vector<real_t>());
 
 	real_t closest_safe, closest_unsafe;
 	bool res = cast_motion(p_shape_query->get_parameters(), closest_safe, closest_unsafe);
 	if (!res) {
-		return Array();
+		return Vector<real_t>();
 	}
-	Array ret;
+	Vector<real_t> ret;
 	ret.resize(2);
-	ret[0] = closest_safe;
-	ret[1] = closest_unsafe;
+	ret.write[0] = closest_safe;
+	ret.write[1] = closest_unsafe;
 	return ret;
 }
 
-Array PhysicsDirectSpaceState2D::_collide_shape(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query, int p_max_results) {
-	ERR_FAIL_COND_V(!p_shape_query.is_valid(), Array());
+TypedArray<Vector2> PhysicsDirectSpaceState2D::_collide_shape(const Ref<PhysicsShapeQueryParameters2D> &p_shape_query, int p_max_results) {
+	ERR_FAIL_COND_V(!p_shape_query.is_valid(), TypedArray<Vector2>());
 
 	Vector<Vector2> ret;
 	ret.resize(p_max_results * 2);
 	int rc = 0;
 	bool res = collide_shape(p_shape_query->get_parameters(), ret.ptrw(), p_max_results, rc);
 	if (!res) {
-		return Array();
+		return TypedArray<Vector2>();
 	}
-	Array r;
+	TypedArray<Vector2> r;
 	r.resize(rc * 2);
 	for (int i = 0; i < rc * 2; i++) {
 		r[i] = ret[i];
@@ -460,26 +463,27 @@ void PhysicsDirectSpaceState2D::_bind_methods() {
 
 ///////////////////////////////
 
-Vector<RID> PhysicsTestMotionParameters2D::get_exclude_bodies() const {
-	Vector<RID> exclude;
+TypedArray<RID> PhysicsTestMotionParameters2D::get_exclude_bodies() const {
+	TypedArray<RID> exclude;
 	exclude.resize(parameters.exclude_bodies.size());
 
 	int body_index = 0;
 	for (RID body : parameters.exclude_bodies) {
-		exclude.write[body_index++] = body;
+		exclude[body_index++] = body;
 	}
 
 	return exclude;
 }
 
-void PhysicsTestMotionParameters2D::set_exclude_bodies(const Vector<RID> &p_exclude) {
-	for (RID body : p_exclude) {
-		parameters.exclude_bodies.insert(body);
+void PhysicsTestMotionParameters2D::set_exclude_bodies(const TypedArray<RID> &p_exclude) {
+	parameters.exclude_bodies.clear();
+	for (int i = 0; i < p_exclude.size(); i++) {
+		parameters.exclude_bodies.insert(p_exclude[i]);
 	}
 }
 
-Array PhysicsTestMotionParameters2D::get_exclude_objects() const {
-	Array exclude;
+TypedArray<uint64_t> PhysicsTestMotionParameters2D::get_exclude_objects() const {
+	TypedArray<uint64_t> exclude;
 	exclude.resize(parameters.exclude_objects.size());
 
 	int object_index = 0;
@@ -490,7 +494,8 @@ Array PhysicsTestMotionParameters2D::get_exclude_objects() const {
 	return exclude;
 }
 
-void PhysicsTestMotionParameters2D::set_exclude_objects(const Array &p_exclude) {
+void PhysicsTestMotionParameters2D::set_exclude_objects(const TypedArray<uint64_t> &p_exclude) {
+	parameters.exclude_objects.clear();
 	for (int i = 0; i < p_exclude.size(); ++i) {
 		ObjectID object_id = p_exclude[i];
 		ERR_CONTINUE(object_id.is_null());
@@ -651,7 +656,10 @@ void PhysicsServer2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("area_clear_shapes", "area"), &PhysicsServer2D::area_clear_shapes);
 
 	ClassDB::bind_method(D_METHOD("area_set_collision_layer", "area", "layer"), &PhysicsServer2D::area_set_collision_layer);
+	ClassDB::bind_method(D_METHOD("area_get_collision_layer", "area"), &PhysicsServer2D::area_get_collision_layer);
+
 	ClassDB::bind_method(D_METHOD("area_set_collision_mask", "area", "mask"), &PhysicsServer2D::area_set_collision_mask);
+	ClassDB::bind_method(D_METHOD("area_get_collision_mask", "area"), &PhysicsServer2D::area_get_collision_mask);
 
 	ClassDB::bind_method(D_METHOD("area_set_param", "area", "param", "value"), &PhysicsServer2D::area_set_param);
 	ClassDB::bind_method(D_METHOD("area_set_transform", "area", "transform"), &PhysicsServer2D::area_set_transform);
@@ -706,6 +714,9 @@ void PhysicsServer2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("body_set_collision_mask", "body", "mask"), &PhysicsServer2D::body_set_collision_mask);
 	ClassDB::bind_method(D_METHOD("body_get_collision_mask", "body"), &PhysicsServer2D::body_get_collision_mask);
 
+	ClassDB::bind_method(D_METHOD("body_set_collision_priority", "body", "priority"), &PhysicsServer2D::body_set_collision_priority);
+	ClassDB::bind_method(D_METHOD("body_get_collision_priority", "body"), &PhysicsServer2D::body_get_collision_priority);
+
 	ClassDB::bind_method(D_METHOD("body_set_param", "body", "param", "value"), &PhysicsServer2D::body_set_param);
 	ClassDB::bind_method(D_METHOD("body_get_param", "body", "param"), &PhysicsServer2D::body_get_param);
 
@@ -758,9 +769,18 @@ void PhysicsServer2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("joint_set_param", "joint", "param", "value"), &PhysicsServer2D::joint_set_param);
 	ClassDB::bind_method(D_METHOD("joint_get_param", "joint", "param"), &PhysicsServer2D::joint_get_param);
 
+	ClassDB::bind_method(D_METHOD("joint_disable_collisions_between_bodies", "joint", "disable"), &PhysicsServer2D::joint_disable_collisions_between_bodies);
+	ClassDB::bind_method(D_METHOD("joint_is_disabled_collisions_between_bodies", "joint"), &PhysicsServer2D::joint_is_disabled_collisions_between_bodies);
+
 	ClassDB::bind_method(D_METHOD("joint_make_pin", "joint", "anchor", "body_a", "body_b"), &PhysicsServer2D::joint_make_pin, DEFVAL(RID()));
 	ClassDB::bind_method(D_METHOD("joint_make_groove", "joint", "groove1_a", "groove2_a", "anchor_b", "body_a", "body_b"), &PhysicsServer2D::joint_make_groove, DEFVAL(RID()), DEFVAL(RID()));
 	ClassDB::bind_method(D_METHOD("joint_make_damped_spring", "joint", "anchor_a", "anchor_b", "body_a", "body_b"), &PhysicsServer2D::joint_make_damped_spring, DEFVAL(RID()));
+
+	ClassDB::bind_method(D_METHOD("pin_joint_set_flag", "joint", "flag", "enabled"), &PhysicsServer2D::pin_joint_set_flag);
+	ClassDB::bind_method(D_METHOD("pin_joint_get_flag", "joint", "flag"), &PhysicsServer2D::pin_joint_get_flag);
+
+	ClassDB::bind_method(D_METHOD("pin_joint_set_param", "joint", "param", "value"), &PhysicsServer2D::pin_joint_set_param);
+	ClassDB::bind_method(D_METHOD("pin_joint_get_param", "joint", "param"), &PhysicsServer2D::pin_joint_get_param);
 
 	ClassDB::bind_method(D_METHOD("damped_spring_joint_set_param", "joint", "param", "value"), &PhysicsServer2D::damped_spring_joint_set_param);
 	ClassDB::bind_method(D_METHOD("damped_spring_joint_get_param", "joint", "param"), &PhysicsServer2D::damped_spring_joint_get_param);
@@ -797,8 +817,7 @@ void PhysicsServer2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY);
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_VECTOR);
 	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_IS_POINT);
-	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_DISTANCE_SCALE);
-	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_POINT_ATTENUATION);
+	BIND_ENUM_CONSTANT(AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE);
 	BIND_ENUM_CONSTANT(AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE);
 	BIND_ENUM_CONSTANT(AREA_PARAM_LINEAR_DAMP);
 	BIND_ENUM_CONSTANT(AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE);
@@ -813,8 +832,8 @@ void PhysicsServer2D::_bind_methods() {
 
 	BIND_ENUM_CONSTANT(BODY_MODE_STATIC);
 	BIND_ENUM_CONSTANT(BODY_MODE_KINEMATIC);
-	BIND_ENUM_CONSTANT(BODY_MODE_DYNAMIC);
-	BIND_ENUM_CONSTANT(BODY_MODE_DYNAMIC_LINEAR);
+	BIND_ENUM_CONSTANT(BODY_MODE_RIGID);
+	BIND_ENUM_CONSTANT(BODY_MODE_RIGID_LINEAR);
 
 	BIND_ENUM_CONSTANT(BODY_PARAM_BOUNCE);
 	BIND_ENUM_CONSTANT(BODY_PARAM_FRICTION);
@@ -846,6 +865,14 @@ void PhysicsServer2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(JOINT_PARAM_MAX_BIAS);
 	BIND_ENUM_CONSTANT(JOINT_PARAM_MAX_FORCE);
 
+	BIND_ENUM_CONSTANT(PIN_JOINT_SOFTNESS);
+	BIND_ENUM_CONSTANT(PIN_JOINT_LIMIT_UPPER);
+	BIND_ENUM_CONSTANT(PIN_JOINT_LIMIT_LOWER);
+	BIND_ENUM_CONSTANT(PIN_JOINT_MOTOR_TARGET_VELOCITY);
+
+	BIND_ENUM_CONSTANT(PIN_JOINT_FLAG_ANGULAR_LIMIT_ENABLED);
+	BIND_ENUM_CONSTANT(PIN_JOINT_FLAG_MOTOR_ENABLED);
+
 	BIND_ENUM_CONSTANT(DAMPED_SPRING_REST_LENGTH);
 	BIND_ENUM_CONSTANT(DAMPED_SPRING_STIFFNESS);
 	BIND_ENUM_CONSTANT(DAMPED_SPRING_DAMPING);
@@ -864,15 +891,30 @@ void PhysicsServer2D::_bind_methods() {
 
 PhysicsServer2D::PhysicsServer2D() {
 	singleton = this;
+
+	// World2D physics space
+	GLOBAL_DEF_BASIC("physics/2d/default_gravity", 980.0);
+	GLOBAL_DEF_BASIC("physics/2d/default_gravity_vector", Vector2(0, 1));
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/default_linear_damp", PROPERTY_HINT_RANGE, "-1,100,0.001,or_greater"), 0.1);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/default_angular_damp", PROPERTY_HINT_RANGE, "-1,100,0.001,or_greater"), 1.0);
+
+	// PhysicsServer2D
+	GLOBAL_DEF("physics/2d/sleep_threshold_linear", 2.0);
+	GLOBAL_DEF("physics/2d/sleep_threshold_angular", Math::deg_to_rad(8.0));
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/time_before_sleep", PROPERTY_HINT_RANGE, "0,5,0.01,or_greater"), 0.5);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "physics/2d/solver/solver_iterations", PROPERTY_HINT_RANGE, "1,32,1,or_greater"), 16);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_recycle_radius", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), 1.0);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_max_separation", PROPERTY_HINT_RANGE, "0,10,0.01,or_greater"), 1.5);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/solver/contact_max_allowed_penetration", PROPERTY_HINT_RANGE, "0.01,10,0.01,or_greater"), 0.3);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/solver/default_contact_bias", PROPERTY_HINT_RANGE, "0,1,0.01"), 0.8);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "physics/2d/solver/default_constraint_bias", PROPERTY_HINT_RANGE, "0,1,0.01"), 0.2);
 }
 
 PhysicsServer2D::~PhysicsServer2D() {
 	singleton = nullptr;
 }
 
-Vector<PhysicsServer2DManager::ClassInfo> PhysicsServer2DManager::physics_2d_servers;
-int PhysicsServer2DManager::default_server_id = -1;
-int PhysicsServer2DManager::default_server_priority = -1;
+PhysicsServer2DManager *PhysicsServer2DManager::singleton = nullptr;
 const String PhysicsServer2DManager::setting_property_name(PNAME("physics/2d/physics_engine"));
 
 void PhysicsServer2DManager::on_servers_changed() {
@@ -880,13 +922,23 @@ void PhysicsServer2DManager::on_servers_changed() {
 	for (int i = get_servers_count() - 1; 0 <= i; --i) {
 		physics_servers += "," + get_server_name(i);
 	}
-	ProjectSettings::get_singleton()->set_custom_property_info(setting_property_name, PropertyInfo(Variant::STRING, setting_property_name, PROPERTY_HINT_ENUM, physics_servers));
+	ProjectSettings::get_singleton()->set_custom_property_info(PropertyInfo(Variant::STRING, setting_property_name, PROPERTY_HINT_ENUM, physics_servers));
+	ProjectSettings::get_singleton()->set_restart_if_changed(setting_property_name, true);
 }
 
-void PhysicsServer2DManager::register_server(const String &p_name, CreatePhysicsServer2DCallback p_creat_callback) {
-	ERR_FAIL_COND(!p_creat_callback);
+void PhysicsServer2DManager::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("register_server", "name", "create_callback"), &PhysicsServer2DManager::register_server);
+	ClassDB::bind_method(D_METHOD("set_default_server", "name", "priority"), &PhysicsServer2DManager::set_default_server);
+}
+
+PhysicsServer2DManager *PhysicsServer2DManager::get_singleton() {
+	return singleton;
+}
+
+void PhysicsServer2DManager::register_server(const String &p_name, const Callable &p_create_callback) {
+	//ERR_FAIL_COND(!p_create_callback.is_valid());
 	ERR_FAIL_COND(find_server_id(p_name) != -1);
-	physics_2d_servers.push_back(ClassInfo(p_name, p_creat_callback));
+	physics_2d_servers.push_back(ClassInfo(p_name, p_create_callback));
 	on_servers_changed();
 }
 
@@ -919,7 +971,11 @@ String PhysicsServer2DManager::get_server_name(int p_id) {
 
 PhysicsServer2D *PhysicsServer2DManager::new_default_server() {
 	ERR_FAIL_COND_V(default_server_id == -1, nullptr);
-	return physics_2d_servers[default_server_id].create_callback();
+	Variant ret;
+	Callable::CallError ce;
+	physics_2d_servers[default_server_id].create_callback.callp(nullptr, 0, ret, ce);
+	ERR_FAIL_COND_V(ce.error != Callable::CallError::CALL_OK, nullptr);
+	return Object::cast_to<PhysicsServer2D>(ret.get_validated_object());
 }
 
 PhysicsServer2D *PhysicsServer2DManager::new_server(const String &p_name) {
@@ -927,6 +983,18 @@ PhysicsServer2D *PhysicsServer2DManager::new_server(const String &p_name) {
 	if (id == -1) {
 		return nullptr;
 	} else {
-		return physics_2d_servers[id].create_callback();
+		Variant ret;
+		Callable::CallError ce;
+		physics_2d_servers[id].create_callback.callp(nullptr, 0, ret, ce);
+		ERR_FAIL_COND_V(ce.error != Callable::CallError::CALL_OK, nullptr);
+		return Object::cast_to<PhysicsServer2D>(ret.get_validated_object());
 	}
+}
+
+PhysicsServer2DManager::PhysicsServer2DManager() {
+	singleton = this;
+}
+
+PhysicsServer2DManager::~PhysicsServer2DManager() {
+	singleton = nullptr;
 }

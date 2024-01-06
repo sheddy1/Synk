@@ -1,47 +1,37 @@
-/*************************************************************************/
-/*  theme.cpp                                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  theme.cpp                                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "theme.h"
 
 #include "core/string/print_string.h"
-
-// Universal Theme resources used when no other theme has the item.
-Ref<Theme> Theme::default_theme;
-Ref<Theme> Theme::project_default_theme;
-
-// Universal default values, final fallback for every theme.
-float Theme::fallback_base_scale = 1.0;
-Ref<Texture2D> Theme::fallback_icon;
-Ref<StyleBox> Theme::fallback_style;
-Ref<Font> Theme::fallback_font;
-int Theme::fallback_font_size = 16;
+#include "scene/theme/theme_db.h"
 
 // Dynamic properties.
 bool Theme::_set(const StringName &p_name, const Variant &p_value) {
@@ -50,20 +40,20 @@ bool Theme::_set(const StringName &p_name, const Variant &p_value) {
 	if (sname.contains("/")) {
 		String type = sname.get_slicec('/', 1);
 		String theme_type = sname.get_slicec('/', 0);
-		String name = sname.get_slicec('/', 2);
+		String prop_name = sname.get_slicec('/', 2);
 
 		if (type == "icons") {
-			set_icon(name, theme_type, p_value);
+			set_icon(prop_name, theme_type, p_value);
 		} else if (type == "styles") {
-			set_stylebox(name, theme_type, p_value);
+			set_stylebox(prop_name, theme_type, p_value);
 		} else if (type == "fonts") {
-			set_font(name, theme_type, p_value);
+			set_font(prop_name, theme_type, p_value);
 		} else if (type == "font_sizes") {
-			set_font_size(name, theme_type, p_value);
+			set_font_size(prop_name, theme_type, p_value);
 		} else if (type == "colors") {
-			set_color(name, theme_type, p_value);
+			set_color(prop_name, theme_type, p_value);
 		} else if (type == "constants") {
-			set_constant(name, theme_type, p_value);
+			set_constant(prop_name, theme_type, p_value);
 		} else if (type == "base_type") {
 			set_type_variation(theme_type, p_value);
 		} else {
@@ -82,32 +72,32 @@ bool Theme::_get(const StringName &p_name, Variant &r_ret) const {
 	if (sname.contains("/")) {
 		String type = sname.get_slicec('/', 1);
 		String theme_type = sname.get_slicec('/', 0);
-		String name = sname.get_slicec('/', 2);
+		String prop_name = sname.get_slicec('/', 2);
 
 		if (type == "icons") {
-			if (!has_icon(name, theme_type)) {
+			if (!has_icon(prop_name, theme_type)) {
 				r_ret = Ref<Texture2D>();
 			} else {
-				r_ret = get_icon(name, theme_type);
+				r_ret = get_icon(prop_name, theme_type);
 			}
 		} else if (type == "styles") {
-			if (!has_stylebox(name, theme_type)) {
+			if (!has_stylebox(prop_name, theme_type)) {
 				r_ret = Ref<StyleBox>();
 			} else {
-				r_ret = get_stylebox(name, theme_type);
+				r_ret = get_stylebox(prop_name, theme_type);
 			}
 		} else if (type == "fonts") {
-			if (!has_font(name, theme_type)) {
+			if (!has_font(prop_name, theme_type)) {
 				r_ret = Ref<Font>();
 			} else {
-				r_ret = get_font(name, theme_type);
+				r_ret = get_font(prop_name, theme_type);
 			}
 		} else if (type == "font_sizes") {
-			r_ret = get_font_size(name, theme_type);
+			r_ret = get_font_size(prop_name, theme_type);
 		} else if (type == "colors") {
-			r_ret = get_color(name, theme_type);
+			r_ret = get_color(prop_name, theme_type);
 		} else if (type == "constants") {
-			r_ret = get_constant(name, theme_type);
+			r_ret = get_constant(prop_name, theme_type);
 		} else if (type == "base_type") {
 			r_ret = get_type_variation_base(theme_type);
 		} else {
@@ -185,64 +175,7 @@ void Theme::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 }
 
-// Universal fallback Theme resources.
-Ref<Theme> Theme::get_default() {
-	return default_theme;
-}
-
-void Theme::set_default(const Ref<Theme> &p_default) {
-	default_theme = p_default;
-}
-
-Ref<Theme> Theme::get_project_default() {
-	return project_default_theme;
-}
-
-void Theme::set_project_default(const Ref<Theme> &p_project_default) {
-	project_default_theme = p_project_default;
-}
-
-// Universal fallback values for theme item types.
-void Theme::set_fallback_base_scale(float p_base_scale) {
-	fallback_base_scale = p_base_scale;
-}
-
-void Theme::set_fallback_icon(const Ref<Texture2D> &p_icon) {
-	fallback_icon = p_icon;
-}
-
-void Theme::set_fallback_style(const Ref<StyleBox> &p_style) {
-	fallback_style = p_style;
-}
-
-void Theme::set_fallback_font(const Ref<Font> &p_font) {
-	fallback_font = p_font;
-}
-
-void Theme::set_fallback_font_size(int p_font_size) {
-	fallback_font_size = p_font_size;
-}
-
-float Theme::get_fallback_base_scale() {
-	return fallback_base_scale;
-}
-
-Ref<Texture2D> Theme::get_fallback_icon() {
-	return fallback_icon;
-}
-
-Ref<StyleBox> Theme::get_fallback_style() {
-	return fallback_style;
-}
-
-Ref<Font> Theme::get_fallback_font() {
-	return fallback_font;
-}
-
-int Theme::get_fallback_font_size() {
-	return fallback_font_size;
-}
-
+// Static helpers.
 bool Theme::is_valid_type_name(const String &p_name) {
 	for (int i = 0; i < p_name.length(); i++) {
 		if (!is_ascii_identifier_char(p_name[i])) {
@@ -289,13 +222,13 @@ void Theme::set_default_font(const Ref<Font> &p_default_font) {
 	}
 
 	if (default_font.is_valid()) {
-		default_font->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		default_font->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	default_font = p_default_font;
 
 	if (default_font.is_valid()) {
-		default_font->connect("changed", callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
+		default_font->connect_changed(callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
 	}
 
 	_emit_theme_changed();
@@ -335,13 +268,13 @@ void Theme::set_icon(const StringName &p_name, const StringName &p_theme_type, c
 	bool existing = false;
 	if (icon_map[p_theme_type].has(p_name) && icon_map[p_theme_type][p_name].is_valid()) {
 		existing = true;
-		icon_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		icon_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	icon_map[p_theme_type][p_name] = p_icon;
 
 	if (p_icon.is_valid()) {
-		icon_map[p_theme_type][p_name]->connect("changed", callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
+		icon_map[p_theme_type][p_name]->connect_changed(callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
 	}
 
 	_emit_theme_changed(!existing);
@@ -351,7 +284,7 @@ Ref<Texture2D> Theme::get_icon(const StringName &p_name, const StringName &p_the
 	if (icon_map.has(p_theme_type) && icon_map[p_theme_type].has(p_name) && icon_map[p_theme_type][p_name].is_valid()) {
 		return icon_map[p_theme_type][p_name];
 	} else {
-		return fallback_icon;
+		return ThemeDB::get_singleton()->get_fallback_icon();
 	}
 }
 
@@ -381,7 +314,7 @@ void Theme::clear_icon(const StringName &p_name, const StringName &p_theme_type)
 	ERR_FAIL_COND_MSG(!icon_map[p_theme_type].has(p_name), "Cannot clear the icon '" + String(p_name) + "' because it does not exist.");
 
 	if (icon_map[p_theme_type][p_name].is_valid()) {
-		icon_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		icon_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	icon_map[p_theme_type].erase(p_name);
@@ -420,7 +353,7 @@ void Theme::remove_icon_type(const StringName &p_theme_type) {
 	for (const KeyValue<StringName, Ref<Texture2D>> &E : icon_map[p_theme_type]) {
 		Ref<Texture2D> icon = E.value;
 		if (icon.is_valid()) {
-			icon->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+			icon->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 		}
 	}
 
@@ -445,13 +378,13 @@ void Theme::set_stylebox(const StringName &p_name, const StringName &p_theme_typ
 	bool existing = false;
 	if (style_map[p_theme_type].has(p_name) && style_map[p_theme_type][p_name].is_valid()) {
 		existing = true;
-		style_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		style_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	style_map[p_theme_type][p_name] = p_style;
 
 	if (p_style.is_valid()) {
-		style_map[p_theme_type][p_name]->connect("changed", callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
+		style_map[p_theme_type][p_name]->connect_changed(callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
 	}
 
 	_emit_theme_changed(!existing);
@@ -461,7 +394,7 @@ Ref<StyleBox> Theme::get_stylebox(const StringName &p_name, const StringName &p_
 	if (style_map.has(p_theme_type) && style_map[p_theme_type].has(p_name) && style_map[p_theme_type][p_name].is_valid()) {
 		return style_map[p_theme_type][p_name];
 	} else {
-		return fallback_style;
+		return ThemeDB::get_singleton()->get_fallback_stylebox();
 	}
 }
 
@@ -491,7 +424,7 @@ void Theme::clear_stylebox(const StringName &p_name, const StringName &p_theme_t
 	ERR_FAIL_COND_MSG(!style_map[p_theme_type].has(p_name), "Cannot clear the stylebox '" + String(p_name) + "' because it does not exist.");
 
 	if (style_map[p_theme_type][p_name].is_valid()) {
-		style_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		style_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	style_map[p_theme_type].erase(p_name);
@@ -530,7 +463,7 @@ void Theme::remove_stylebox_type(const StringName &p_theme_type) {
 	for (const KeyValue<StringName, Ref<StyleBox>> &E : style_map[p_theme_type]) {
 		Ref<StyleBox> style = E.value;
 		if (style.is_valid()) {
-			style->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+			style->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 		}
 	}
 
@@ -555,13 +488,13 @@ void Theme::set_font(const StringName &p_name, const StringName &p_theme_type, c
 	bool existing = false;
 	if (font_map[p_theme_type][p_name].is_valid()) {
 		existing = true;
-		font_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		font_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	font_map[p_theme_type][p_name] = p_font;
 
 	if (p_font.is_valid()) {
-		font_map[p_theme_type][p_name]->connect("changed", callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
+		font_map[p_theme_type][p_name]->connect_changed(callable_mp(this, &Theme::_emit_theme_changed).bind(false), CONNECT_REFERENCE_COUNTED);
 	}
 
 	_emit_theme_changed(!existing);
@@ -573,7 +506,7 @@ Ref<Font> Theme::get_font(const StringName &p_name, const StringName &p_theme_ty
 	} else if (has_default_font()) {
 		return default_font;
 	} else {
-		return fallback_font;
+		return ThemeDB::get_singleton()->get_fallback_font();
 	}
 }
 
@@ -603,7 +536,7 @@ void Theme::clear_font(const StringName &p_name, const StringName &p_theme_type)
 	ERR_FAIL_COND_MSG(!font_map[p_theme_type].has(p_name), "Cannot clear the font '" + String(p_name) + "' because it does not exist.");
 
 	if (font_map[p_theme_type][p_name].is_valid()) {
-		font_map[p_theme_type][p_name]->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+		font_map[p_theme_type][p_name]->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 	}
 
 	font_map[p_theme_type].erase(p_name);
@@ -642,7 +575,7 @@ void Theme::remove_font_type(const StringName &p_theme_type) {
 	for (const KeyValue<StringName, Ref<Font>> &E : font_map[p_theme_type]) {
 		Ref<Font> font = E.value;
 		if (font.is_valid()) {
-			font->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+			font->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 		}
 	}
 
@@ -676,7 +609,7 @@ int Theme::get_font_size(const StringName &p_name, const StringName &p_theme_typ
 	} else if (has_default_font_size()) {
 		return default_font_size;
 	} else {
-		return fallback_font_size;
+		return ThemeDB::get_singleton()->get_fallback_font_size();
 	}
 }
 
@@ -1307,6 +1240,11 @@ void Theme::get_type_list(List<StringName> *p_list) const {
 		types.insert(E.key);
 	}
 
+	// Variations.
+	for (const KeyValue<StringName, StringName> &E : variation_map) {
+		types.insert(E.key);
+	}
+
 	for (const StringName &E : types) {
 		p_list->push_back(E);
 	}
@@ -1330,11 +1268,7 @@ void Theme::get_type_dependencies(const StringName &p_base_type, const StringNam
 	}
 
 	// Continue building the chain using native class hierarchy.
-	StringName class_name = p_base_type;
-	while (class_name != StringName()) {
-		p_list->push_back(class_name);
-		class_name = ClassDB::get_parent_class_nocheck(class_name);
-	}
+	ThemeDB::get_singleton()->get_native_type_dependencies(p_base_type, p_list);
 }
 
 // Internal methods for getting lists as a Vector of String (compatible with public API).
@@ -1689,7 +1623,7 @@ void Theme::clear() {
 			for (const KeyValue<StringName, Ref<Texture2D>> &F : E.value) {
 				if (F.value.is_valid()) {
 					Ref<Texture2D> icon = F.value;
-					icon->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+					icon->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 				}
 			}
 		}
@@ -1700,7 +1634,7 @@ void Theme::clear() {
 			for (const KeyValue<StringName, Ref<StyleBox>> &F : E.value) {
 				if (F.value.is_valid()) {
 					Ref<StyleBox> style = F.value;
-					style->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+					style->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 				}
 			}
 		}
@@ -1711,7 +1645,7 @@ void Theme::clear() {
 			for (const KeyValue<StringName, Ref<Font>> &F : E.value) {
 				if (F.value.is_valid()) {
 					Ref<Font> font = F.value;
-					font->disconnect("changed", callable_mp(this, &Theme::_emit_theme_changed));
+					font->disconnect_changed(callable_mp(this, &Theme::_emit_theme_changed));
 				}
 			}
 		}

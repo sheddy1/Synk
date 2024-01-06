@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 - 2022 Samsung Electronics Co., Ltd. All rights reserved.
+ * Copyright (c) 2020 - 2023 the ThorVG project. All rights reserved.
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,13 +26,14 @@
 
 #ifdef _WIN32
     #include <malloc.h>
-#elif defined(__FreeBSD__)
-    #include <stdlib.h>
-#else
+#elif defined(__linux__)
     #include <alloca.h>
+#else
+    #include <stdlib.h>
 #endif
 
 #include "tvgXmlParser.h"
+#include "tvgStr.h"
 
 /************************************************************************/
 /* Internal Class Implementation                                        */
@@ -238,14 +239,6 @@ static SimpleXMLType _getXMLType(const char* itr, const char* itrEnd, size_t &to
 }
 
 
-static char* _strndup(const char* src, unsigned len)
-{
-    auto ret = (char*)malloc(len + 1);
-    if (!ret) return nullptr;
-    ret[len] = '\0';
-    return (char*)memcpy(ret, src, len);
-}
-
 /************************************************************************/
 /* External Class Implementation                                        */
 /************************************************************************/
@@ -304,38 +297,38 @@ bool isIgnoreUnsupportedLogElements(TVG_UNUSED const char* tagName)
 bool simpleXmlParseAttributes(const char* buf, unsigned bufLength, simpleXMLAttributeCb func, const void* data)
 {
     const char *itr = buf, *itrEnd = buf + bufLength;
-    char* tmpBuf = (char*)alloca(bufLength + 1);
+    char* tmpBuf = (char*)malloc(bufLength + 1);
 
-    if (!buf || !func) return false;
+    if (!buf || !func || !tmpBuf) goto error;
 
     while (itr < itrEnd) {
         const char* p = _skipWhiteSpacesAndXmlEntities(itr, itrEnd);
         const char *key, *keyEnd, *value, *valueEnd;
         char* tval;
 
-        if (p == itrEnd) return true;
+        if (p == itrEnd) goto success;
 
         key = p;
         for (keyEnd = key; keyEnd < itrEnd; keyEnd++) {
             if ((*keyEnd == '=') || (isspace((unsigned char)*keyEnd))) break;
         }
-        if (keyEnd == itrEnd) return false;
+        if (keyEnd == itrEnd) goto error;
         if (keyEnd == key) continue;
 
         if (*keyEnd == '=') value = keyEnd + 1;
         else {
             value = (const char*)memchr(keyEnd, '=', itrEnd - keyEnd);
-            if (!value) return false;
+            if (!value) goto error;
             value++;
         }
         keyEnd = _simpleXmlUnskipXmlEntities(keyEnd, key);
 
         value = _skipWhiteSpacesAndXmlEntities(value, itrEnd);
-        if (value == itrEnd) return false;
+        if (value == itrEnd) goto error;
 
         if ((*value == '"') || (*value == '\'')) {
             valueEnd = (const char*)memchr(value + 1, *value, itrEnd - value);
-            if (!valueEnd) return false;
+            if (!valueEnd) goto error;
             value++;
         } else {
             valueEnd = _simpleXmlFindWhiteSpace(value, itrEnd);
@@ -364,7 +357,14 @@ bool simpleXmlParseAttributes(const char* buf, unsigned bufLength, simpleXMLAttr
             }
         }
     }
+
+success:
+    free(tmpBuf);
     return true;
+
+error:
+    free(tmpBuf);
+    return false;
 }
 
 
@@ -390,7 +390,7 @@ bool simpleXmlParse(const char* buf, unsigned bufLength, bool strip, simpleXMLCb
 
             if (p) {
                 //Invalid case: '<' nested
-                if (*p == '<') return false;
+                if (*p == '<' && type != SimpleXMLType::Doctype) return false;
                 const char *start, *end;
 
                 start = itr + 1 + toff;
@@ -557,10 +557,10 @@ const char* simpleXmlParseCSSAttribute(const char* buf, unsigned bufLength, char
     }
 
     if (p == itr) *tag = strdup("all");
-    else *tag = _strndup(itr, p - itr);
+    else *tag = strDuplicate(itr, p - itr);
 
     if (p == itrEnd) *name = nullptr;
-    else *name = _strndup(p + 1, itrEnd - p - 1);
+    else *name = strDuplicate(p + 1, itrEnd - p - 1);
 
     return (nextElement ? nextElement + 1 : nullptr);
 }

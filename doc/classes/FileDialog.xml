@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="FileDialog" inherits="ConfirmationDialog" version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+<class name="FileDialog" inherits="ConfirmationDialog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
 	<brief_description>
-		Dialog for selecting files or directories in the filesystem.
+		A dialog for selecting files or directories in the filesystem.
 	</brief_description>
 	<description>
-		FileDialog is a preset dialog used to choose files and directories in the filesystem. It supports filter masks. The FileDialog automatically sets its window title according to the [member file_mode]. If you want to use a custom title, disable this by setting [member mode_overrides_title] to [code]false[/code].
+		[FileDialog] is a preset dialog used to choose files and directories in the filesystem. It supports filter masks. [FileDialog] automatically sets its window title according to the [member file_mode]. If you want to use a custom title, disable this by setting [member mode_overrides_title] to [code]false[/code].
 	</description>
 	<tutorials>
 	</tutorials>
 	<methods>
 		<method name="add_filter">
 			<return type="void" />
-			<argument index="0" name="filter" type="String" />
-			<argument index="1" name="description" type="String" default="&quot;&quot;" />
+			<param index="0" name="filter" type="String" />
+			<param index="1" name="description" type="String" default="&quot;&quot;" />
 			<description>
-				Adds a comma-delimited file name [code]filter[/code] option to the [FileDialog] with an optional [code]description[/code], which restricts what files can be picked.
-				A [code]filter[/code] should be of the form [code]"filename.extension"[/code], where filename and extension can be [code]*[/code] to match any string. Filters starting with [code].[/code] (i.e. empty filenames) are not allowed.
-				For example, a [code]filter[/code] of [code]"*.png, *.jpg"[/code] and a [code]description[/code] of [code]"Images"[/code] results in filter text "Images (*.png, *.jpg)".
+				Adds a comma-delimited file name [param filter] option to the [FileDialog] with an optional [param description], which restricts what files can be picked.
+				A [param filter] should be of the form [code]"filename.extension"[/code], where filename and extension can be [code]*[/code] to match any string. Filters starting with [code].[/code] (i.e. empty filenames) are not allowed.
+				For example, a [param filter] of [code]"*.png, *.jpg"[/code] and a [param description] of [code]"Images"[/code] results in filter text "Images (*.png, *.jpg)".
 			</description>
 		</method>
 		<method name="clear_filters">
@@ -54,8 +54,8 @@
 	</methods>
 	<members>
 		<member name="access" type="int" setter="set_access" getter="get_access" enum="FileDialog.Access" default="0">
-			The file system access scope. See enum [code]Access[/code] constants.
-			[b]Warning:[/b] Currently, in sandboxed environments such as HTML5 builds or sandboxed macOS apps, FileDialog cannot access the host file system. See [url=https://github.com/godotengine/godot-proposals/issues/1123]godot-proposals#1123[/url].
+			The file system access scope. See [enum Access] constants.
+			[b]Warning:[/b] Currently, in sandboxed environments such as Web builds or sandboxed macOS apps, FileDialog cannot access the host file system. See [url=https://github.com/godotengine/godot-proposals/issues/1123]godot-proposals#1123[/url].
 		</member>
 		<member name="current_dir" type="String" setter="set_current_dir" getter="get_current_dir">
 			The current working directory of the file dialog.
@@ -74,7 +74,7 @@
 			The available file type filters. For example, this shows only [code].png[/code] and [code].gd[/code] files: [code]set_filters(PackedStringArray(["*.png ; PNG Images","*.gd ; GDScript Files"]))[/code]. Multiple file types can also be specified in a single filter. [code]"*.png, *.jpg, *.jpeg ; Supported Images"[/code] will show both PNG and JPEG files when selected.
 		</member>
 		<member name="mode_overrides_title" type="bool" setter="set_mode_overrides_title" getter="is_mode_overriding_title" default="true">
-			If [code]true[/code], changing the [code]Mode[/code] property will set the window title accordingly (e.g. setting mode to [constant FILE_MODE_OPEN_FILE] will change the window title to "Open a File").
+			If [code]true[/code], changing the [member file_mode] property will set the window title accordingly (e.g. setting [member file_mode] to [constant FILE_MODE_OPEN_FILE] will change the window title to "Open a File").
 		</member>
 		<member name="root_subfolder" type="String" setter="set_root_subfolder" getter="get_root_subfolder" default="&quot;&quot;">
 			If non-empty, the given sub-folder will be "root" of this [FileDialog], i.e. user won't be able to go to its parent directory.
@@ -83,22 +83,26 @@
 			If [code]true[/code], the dialog will show hidden files.
 		</member>
 		<member name="title" type="String" setter="set_title" getter="get_title" overrides="Window" default="&quot;Save a File&quot;" />
+		<member name="use_native_dialog" type="bool" setter="set_use_native_dialog" getter="get_use_native_dialog" default="false">
+			If [code]true[/code], [member access] is set to [constant ACCESS_FILESYSTEM], and it is supported by the current [DisplayServer], OS native dialog will be used instead of custom one.
+			[b]Note:[/b] On macOS, sandboxed apps always use native dialogs to access host filesystem.
+		</member>
 	</members>
 	<signals>
 		<signal name="dir_selected">
-			<argument index="0" name="dir" type="String" />
+			<param index="0" name="dir" type="String" />
 			<description>
 				Emitted when the user selects a directory.
 			</description>
 		</signal>
 		<signal name="file_selected">
-			<argument index="0" name="path" type="String" />
+			<param index="0" name="path" type="String" />
 			<description>
 				Emitted when the user selects a file by double-clicking it or pressing the [b]OK[/b] button.
 			</description>
 		</signal>
 		<signal name="files_selected">
-			<argument index="0" name="paths" type="PackedStringArray" />
+			<param index="0" name="paths" type="PackedStringArray" />
 			<description>
 				Emitted when the user selects multiple files.
 			</description>
@@ -131,13 +135,13 @@
 		</constant>
 	</constants>
 	<theme_items>
-		<theme_item name="file_icon_modulate" data_type="color" type="Color" default="Color(1, 1, 1, 1)">
-			The color modulation applied to the file icon.
-		</theme_item>
-		<theme_item name="files_disabled" data_type="color" type="Color" default="Color(1, 1, 1, 0.25)">
+		<theme_item name="file_disabled_color" data_type="color" type="Color" default="Color(1, 1, 1, 0.25)">
 			The color tint for disabled files (when the [FileDialog] is used in open folder mode).
 		</theme_item>
-		<theme_item name="folder_icon_modulate" data_type="color" type="Color" default="Color(1, 1, 1, 1)">
+		<theme_item name="file_icon_color" data_type="color" type="Color" default="Color(1, 1, 1, 1)">
+			The color modulation applied to the file icon.
+		</theme_item>
+		<theme_item name="folder_icon_color" data_type="color" type="Color" default="Color(1, 1, 1, 1)">
 			The color modulation applied to the folder icon.
 		</theme_item>
 		<theme_item name="back_folder" data_type="icon" type="Texture2D">

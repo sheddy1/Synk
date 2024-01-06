@@ -1,43 +1,43 @@
-/*************************************************************************/
-/*  dependency_editor.cpp                                                */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  dependency_editor.cpp                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "dependency_editor.h"
 
 #include "core/config/project_settings.h"
 #include "core/io/file_access.h"
 #include "core/io/resource_loader.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_file_system.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/gui/editor_file_dialog.h"
 #include "scene/gui/margin_container.h"
 
 void DependencyEditor::_searched(const String &p_path) {
@@ -191,10 +191,16 @@ void DependencyEditor::_update_list() {
 
 		ResourceUID::ID uid = ResourceUID::get_singleton()->text_to_id(path);
 		if (uid != ResourceUID::INVALID_ID) {
-			// dependency is in uid format, obtain proper path
-			ERR_CONTINUE(!ResourceUID::get_singleton()->has_id(uid));
-
-			path = ResourceUID::get_singleton()->get_id_path(uid);
+			// Dependency is in uid format, obtain proper path.
+			if (ResourceUID::get_singleton()->has_id(uid)) {
+				path = ResourceUID::get_singleton()->get_id_path(uid);
+			} else if (n.get_slice_count("::") >= 3) {
+				// If uid can't be found, try to use fallback path.
+				path = n.get_slice("::", 2);
+			} else {
+				ERR_PRINT("Invalid dependency UID and fallback path.");
+				continue;
+			}
 		}
 
 		String name = path.get_file();
@@ -286,7 +292,24 @@ void DependencyEditorOwners::_list_rmb_clicked(int p_item, const Vector2 &p_pos,
 	file_options->clear();
 	file_options->reset_size();
 	if (p_item >= 0) {
-		file_options->add_item(TTR("Open"), FILE_OPEN);
+		PackedInt32Array selected_items = owners->get_selected_items();
+		bool only_scenes_selected = true;
+
+		for (int i = 0; i < selected_items.size(); i++) {
+			int item_idx = selected_items[i];
+			if (ResourceLoader::get_resource_type(owners->get_item_text(item_idx)) != "PackedScene") {
+				only_scenes_selected = false;
+				break;
+			}
+		}
+
+		if (only_scenes_selected) {
+			file_options->add_icon_item(get_editor_theme_icon(SNAME("Load")), TTRN("Open Scene", "Open Scenes", selected_items.size()), FILE_OPEN);
+		} else if (selected_items.size() == 1) {
+			file_options->add_icon_item(get_editor_theme_icon(SNAME("Load")), TTR("Open"), FILE_OPEN);
+		} else {
+			return;
+		}
 	}
 
 	file_options->set_position(owners->get_screen_position() + p_pos);
@@ -299,19 +322,32 @@ void DependencyEditorOwners::_select_file(int p_idx) {
 
 	if (ResourceLoader::get_resource_type(fpath) == "PackedScene") {
 		EditorNode::get_singleton()->open_request(fpath);
-		hide();
-		emit_signal(SNAME("confirmed"));
+	} else {
+		EditorNode::get_singleton()->load_resource(fpath);
 	}
+	hide();
+	emit_signal(SNAME("confirmed"));
+}
+
+void DependencyEditorOwners::_empty_clicked(const Vector2 &p_pos, MouseButton p_mouse_button_index) {
+	if (p_mouse_button_index != MouseButton::LEFT) {
+		return;
+	}
+
+	owners->deselect_all();
 }
 
 void DependencyEditorOwners::_file_option(int p_option) {
 	switch (p_option) {
 		case FILE_OPEN: {
-			int idx = owners->get_current();
-			if (idx < 0 || idx >= owners->get_item_count()) {
-				break;
+			PackedInt32Array selected_items = owners->get_selected_items();
+			for (int i = 0; i < selected_items.size(); i++) {
+				int item_idx = selected_items[i];
+				if (item_idx < 0 || item_idx >= owners->get_item_count()) {
+					break;
+				}
+				_select_file(item_idx);
 			}
-			_select_file(idx);
 		} break;
 	}
 }
@@ -362,9 +398,11 @@ DependencyEditorOwners::DependencyEditorOwners() {
 	file_options->connect("id_pressed", callable_mp(this, &DependencyEditorOwners::_file_option));
 
 	owners = memnew(ItemList);
-	owners->set_select_mode(ItemList::SELECT_SINGLE);
+	owners->set_auto_translate(false);
+	owners->set_select_mode(ItemList::SELECT_MULTI);
 	owners->connect("item_clicked", callable_mp(this, &DependencyEditorOwners::_list_rmb_clicked));
 	owners->connect("item_activated", callable_mp(this, &DependencyEditorOwners::_select_file));
+	owners->connect("empty_clicked", callable_mp(this, &DependencyEditorOwners::_empty_clicked));
 	owners->set_allow_rmb_select(true);
 	add_child(owners);
 }
@@ -423,7 +461,7 @@ void DependencyRemoveDialog::_find_localization_remaps_of_removed_files(Vector<R
 
 		// Look for dependencies in the translation remaps.
 		if (ProjectSettings::get_singleton()->has_setting("internationalization/locale/translation_remaps")) {
-			Dictionary remaps = ProjectSettings::get_singleton()->get("internationalization/locale/translation_remaps");
+			Dictionary remaps = GLOBAL_GET("internationalization/locale/translation_remaps");
 
 			if (remaps.has(path)) {
 				RemovedDependency dep;
@@ -471,17 +509,17 @@ void DependencyRemoveDialog::_build_removed_dependency_tree(const Vector<Removed
 				if (!tree_items.has(rd.dependency_folder)) {
 					TreeItem *folder_item = owners->create_item(owners->get_root());
 					folder_item->set_text(0, rd.dependency_folder);
-					folder_item->set_icon(0, owners->get_theme_icon(SNAME("Folder"), SNAME("EditorIcons")));
+					folder_item->set_icon(0, owners->get_editor_theme_icon(SNAME("Folder")));
 					tree_items[rd.dependency_folder] = folder_item;
 				}
 				TreeItem *dependency_item = owners->create_item(tree_items[rd.dependency_folder]);
 				dependency_item->set_text(0, rd.dependency);
-				dependency_item->set_icon(0, owners->get_theme_icon(SNAME("Warning"), SNAME("EditorIcons")));
+				dependency_item->set_icon(0, owners->get_editor_theme_icon(SNAME("Warning")));
 				tree_items[rd.dependency] = dependency_item;
 			} else {
 				TreeItem *dependency_item = owners->create_item(owners->get_root());
 				dependency_item->set_text(0, rd.dependency);
-				dependency_item->set_icon(0, owners->get_theme_icon(SNAME("Warning"), SNAME("EditorIcons")));
+				dependency_item->set_icon(0, owners->get_editor_theme_icon(SNAME("Warning")));
 				tree_items[rd.dependency] = dependency_item;
 			}
 		}
@@ -529,36 +567,41 @@ void DependencyRemoveDialog::show(const Vector<String> &p_folders, const Vector<
 }
 
 void DependencyRemoveDialog::ok_pressed() {
-	for (int i = 0; i < files_to_delete.size(); ++i) {
-		if (ResourceCache::has(files_to_delete[i])) {
-			Ref<Resource> res = ResourceCache::get_ref(files_to_delete[i]);
+	for (const KeyValue<String, String> &E : all_remove_files) {
+		String file = E.key;
+
+		if (ResourceCache::has(file)) {
+			Ref<Resource> res = ResourceCache::get_ref(file);
+			emit_signal(SNAME("resource_removed"), res);
 			res->set_path("");
 		}
+	}
 
+	for (int i = 0; i < files_to_delete.size(); ++i) {
 		// If the file we are deleting for e.g. the main scene, default environment,
 		// or audio bus layout, we must clear its definition in Project Settings.
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("application/config/icon"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("application/config/icon"))) {
 			ProjectSettings::get_singleton()->set("application/config/icon", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("application/run/main_scene"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("application/run/main_scene"))) {
 			ProjectSettings::get_singleton()->set("application/run/main_scene", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("application/boot_splash/image"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("application/boot_splash/image"))) {
 			ProjectSettings::get_singleton()->set("application/boot_splash/image", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("rendering/environment/defaults/default_environment"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("rendering/environment/defaults/default_environment"))) {
 			ProjectSettings::get_singleton()->set("rendering/environment/defaults/default_environment", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("display/mouse_cursor/custom_image"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("display/mouse_cursor/custom_image"))) {
 			ProjectSettings::get_singleton()->set("display/mouse_cursor/custom_image", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("gui/theme/custom"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("gui/theme/custom"))) {
 			ProjectSettings::get_singleton()->set("gui/theme/custom", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("gui/theme/custom_font"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("gui/theme/custom_font"))) {
 			ProjectSettings::get_singleton()->set("gui/theme/custom_font", "");
 		}
-		if (files_to_delete[i] == String(ProjectSettings::get_singleton()->get("audio/buses/default_bus_layout"))) {
+		if (files_to_delete[i] == String(GLOBAL_GET("audio/buses/default_bus_layout"))) {
 			ProjectSettings::get_singleton()->set("audio/buses/default_bus_layout", "");
 		}
 
@@ -614,6 +657,7 @@ void DependencyRemoveDialog::ok_pressed() {
 }
 
 void DependencyRemoveDialog::_bind_methods() {
+	ADD_SIGNAL(MethodInfo("resource_removed", PropertyInfo(Variant::OBJECT, "obj")));
 	ADD_SIGNAL(MethodInfo("file_removed", PropertyInfo(Variant::STRING, "file")));
 	ADD_SIGNAL(MethodInfo("folder_removed", PropertyInfo(Variant::STRING, "folder")));
 }
@@ -761,7 +805,7 @@ bool OrphanResourcesDialog::_fill_owners(EditorFileSystemDirectory *efsd, HashMa
 				int ds = efsd->get_file_deps(i).size();
 				ti->set_text(1, itos(ds));
 				if (ds) {
-					ti->add_button(1, files->get_theme_icon(SNAME("GuiVisibilityVisible"), SNAME("EditorIcons")), -1, false, TTR("Show Dependencies"));
+					ti->add_button(1, files->get_editor_theme_icon(SNAME("GuiVisibilityVisible")), -1, false, TTR("Show Dependencies"));
 				}
 				ti->set_metadata(0, path);
 				has_children = true;
@@ -785,14 +829,14 @@ void OrphanResourcesDialog::show() {
 	popup_centered_ratio(0.4);
 }
 
-void OrphanResourcesDialog::_find_to_delete(TreeItem *p_item, List<String> &paths) {
+void OrphanResourcesDialog::_find_to_delete(TreeItem *p_item, List<String> &r_paths) {
 	while (p_item) {
 		if (p_item->get_cell_mode(0) == TreeItem::CELL_MODE_CHECK && p_item->is_checked(0)) {
-			paths.push_back(p_item->get_metadata(0));
+			r_paths.push_back(p_item->get_metadata(0));
 		}
 
 		if (p_item->get_first_child()) {
-			_find_to_delete(p_item->get_first_child(), paths);
+			_find_to_delete(p_item->get_first_child(), r_paths);
 		}
 
 		p_item = p_item->get_next();

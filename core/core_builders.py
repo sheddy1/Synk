@@ -2,6 +2,7 @@
 
 All such functions are invoked in a subprocess on Windows to prevent build flakiness.
 """
+import zlib
 
 from platform_methods import subprocess_main
 
@@ -33,7 +34,6 @@ def make_certs_header(target, source, env):
     g = open(dst, "w", encoding="utf-8")
     buf = f.read()
     decomp_size = len(buf)
-    import zlib
 
     # Use maximum zlib compression level to further reduce file size
     # (at the cost of initial build times).
@@ -117,24 +117,24 @@ def make_authors_header(target, source, env):
 
 def make_donors_header(target, source, env):
     sections = [
+        "Patrons",
         "Platinum sponsors",
         "Gold sponsors",
         "Silver sponsors",
-        "Bronze sponsors",
-        "Mini sponsors",
-        "Gold donors",
-        "Silver donors",
-        "Bronze donors",
+        "Diamond members",
+        "Titanium members",
+        "Platinum members",
+        "Gold members",
     ]
     sections_id = [
-        "DONORS_SPONSOR_PLATINUM",
-        "DONORS_SPONSOR_GOLD",
-        "DONORS_SPONSOR_SILVER",
-        "DONORS_SPONSOR_BRONZE",
-        "DONORS_SPONSOR_MINI",
-        "DONORS_GOLD",
-        "DONORS_SILVER",
-        "DONORS_BRONZE",
+        "DONORS_PATRONS",
+        "DONORS_SPONSORS_PLATINUM",
+        "DONORS_SPONSORS_GOLD",
+        "DONORS_SPONSORS_SILVER",
+        "DONORS_MEMBERS_DIAMOND",
+        "DONORS_MEMBERS_TITANIUM",
+        "DONORS_MEMBERS_PLATINUM",
+        "DONORS_MEMBERS_GOLD",
     ]
 
     src = source[0]
@@ -208,7 +208,7 @@ def make_license_header(target, source, env):
 
     from collections import OrderedDict
 
-    projects = OrderedDict()
+    projects: dict = OrderedDict()
     license_list = []
 
     with open(src_copyright, "r", encoding="utf-8") as copyright_file:
@@ -230,7 +230,7 @@ def make_license_header(target, source, env):
                 part = {}
                 reader.next_line()
 
-    data_list = []
+    data_list: list = []
     for project in iter(projects.values()):
         for part in project:
             part["file_index"] = len(data_list)
@@ -239,7 +239,6 @@ def make_license_header(target, source, env):
             data_list += part["Copyright"]
 
     with open(dst, "w", encoding="utf-8") as f:
-
         f.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
         f.write("#ifndef LICENSE_GEN_H\n")
         f.write("#define LICENSE_GEN_H\n")

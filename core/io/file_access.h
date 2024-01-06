@@ -1,36 +1,37 @@
-/*************************************************************************/
-/*  file_access.h                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  file_access.h                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef FILE_ACCESS_H
 #define FILE_ACCESS_H
 
+#include "core/io/compression.h"
 #include "core/math/math_defs.h"
 #include "core/object/ref_counted.h"
 #include "core/os/memory.h"
@@ -42,6 +43,8 @@
  */
 
 class FileAccess : public RefCounted {
+	GDCLASS(FileAccess, RefCounted);
+
 public:
 	enum AccessType {
 		ACCESS_RESOURCES,
@@ -50,24 +53,64 @@ public:
 		ACCESS_MAX
 	};
 
+	enum ModeFlags {
+		READ = 1,
+		WRITE = 2,
+		READ_WRITE = 3,
+		WRITE_READ = 7,
+	};
+
+	enum UnixPermissionFlags {
+		UNIX_EXECUTE_OTHER = 0x001,
+		UNIX_WRITE_OTHER = 0x002,
+		UNIX_READ_OTHER = 0x004,
+		UNIX_EXECUTE_GROUP = 0x008,
+		UNIX_WRITE_GROUP = 0x010,
+		UNIX_READ_GROUP = 0x020,
+		UNIX_EXECUTE_OWNER = 0x040,
+		UNIX_WRITE_OWNER = 0x080,
+		UNIX_READ_OWNER = 0x100,
+		UNIX_RESTRICTED_DELETE = 0x200,
+		UNIX_SET_GROUP_ID = 0x400,
+		UNIX_SET_USER_ID = 0x800,
+	};
+
+	enum CompressionMode {
+		COMPRESSION_FASTLZ = Compression::MODE_FASTLZ,
+		COMPRESSION_DEFLATE = Compression::MODE_DEFLATE,
+		COMPRESSION_ZSTD = Compression::MODE_ZSTD,
+		COMPRESSION_GZIP = Compression::MODE_GZIP,
+		COMPRESSION_BROTLI = Compression::MODE_BROTLI,
+	};
+
 	typedef void (*FileCloseFailNotify)(const String &);
 
 	typedef Ref<FileAccess> (*CreateFunc)();
 	bool big_endian = false;
 	bool real_is_double = false;
 
-	virtual uint32_t _get_unix_permissions(const String &p_file) = 0;
-	virtual Error _set_unix_permissions(const String &p_file, uint32_t p_permissions) = 0;
+	virtual BitField<UnixPermissionFlags> _get_unix_permissions(const String &p_file) = 0;
+	virtual Error _set_unix_permissions(const String &p_file, BitField<UnixPermissionFlags> p_permissions) = 0;
+
+	virtual bool _get_hidden_attribute(const String &p_file) = 0;
+	virtual Error _set_hidden_attribute(const String &p_file, bool p_hidden) = 0;
+	virtual bool _get_read_only_attribute(const String &p_file) = 0;
+	virtual Error _set_read_only_attribute(const String &p_file, bool p_ro) = 0;
 
 protected:
-	String fix_path(const String &p_path) const;
-	virtual Error _open(const String &p_path, int p_mode_flags) = 0; ///< open a file
+	static void _bind_methods();
+
+	AccessType get_access_type() const;
+	virtual String fix_path(const String &p_path) const;
+	virtual Error open_internal(const String &p_path, int p_mode_flags) = 0; ///< open a file
 	virtual uint64_t _get_modified_time(const String &p_file) = 0;
+	virtual void _set_access_type(AccessType p_access);
 
 	static FileCloseFailNotify close_fail_notify;
 
 private:
 	static bool backup_save;
+	thread_local static Error last_file_open_error;
 
 	AccessType _access_type = ACCESS_FILESYSTEM;
 	static CreateFunc create_func[ACCESS_MAX]; /** default file access creation function for a platform */
@@ -76,17 +119,10 @@ private:
 		return memnew(T);
 	}
 
+	static Ref<FileAccess> _open(const String &p_path, ModeFlags p_mode_flags);
+
 public:
 	static void set_file_close_fail_notify_callback(FileCloseFailNotify p_cbk) { close_fail_notify = p_cbk; }
-
-	virtual void _set_access_type(AccessType p_access);
-
-	enum ModeFlags {
-		READ = 1,
-		WRITE = 2,
-		READ_WRITE = 3,
-		WRITE_READ = 7,
-	};
 
 	virtual bool is_open() const = 0; ///< true when file is open
 
@@ -109,10 +145,14 @@ public:
 	virtual double get_double() const;
 	virtual real_t get_real() const;
 
+	Variant get_var(bool p_allow_objects = false) const;
+
 	virtual uint64_t get_buffer(uint8_t *p_dst, uint64_t p_length) const; ///< get an array of bytes
+	Vector<uint8_t> get_buffer(int64_t p_length) const;
 	virtual String get_line() const;
 	virtual String get_token() const;
 	virtual Vector<String> get_csv_line(const String &p_delim = ",") const;
+	String get_as_text(bool p_skip_cr = false) const;
 	virtual String get_as_utf8_string(bool p_skip_cr = false) const;
 
 	/**
@@ -143,6 +183,11 @@ public:
 	virtual String get_pascal_string();
 
 	virtual void store_buffer(const uint8_t *p_src, uint64_t p_length); ///< store an array of bytes
+	void store_buffer(const Vector<uint8_t> &p_buffer);
+
+	void store_var(const Variant &p_var, bool p_full_objects = false);
+
+	virtual void close() = 0;
 
 	virtual bool file_exists(const String &p_name) = 0; ///< return true if a file exists
 
@@ -151,11 +196,22 @@ public:
 	static Ref<FileAccess> create(AccessType p_access); /// Create a file access (for the current platform) this is the only portable way of accessing files.
 	static Ref<FileAccess> create_for_path(const String &p_path);
 	static Ref<FileAccess> open(const String &p_path, int p_mode_flags, Error *r_error = nullptr); /// Create a file access (for the current platform) this is the only portable way of accessing files.
+
+	static Ref<FileAccess> open_encrypted(const String &p_path, ModeFlags p_mode_flags, const Vector<uint8_t> &p_key);
+	static Ref<FileAccess> open_encrypted_pass(const String &p_path, ModeFlags p_mode_flags, const String &p_pass);
+	static Ref<FileAccess> open_compressed(const String &p_path, ModeFlags p_mode_flags, CompressionMode p_compress_mode = COMPRESSION_FASTLZ);
+	static Error get_open_error();
+
 	static CreateFunc get_create_func(AccessType p_access);
 	static bool exists(const String &p_name); ///< return true if a file exists
 	static uint64_t get_modified_time(const String &p_file);
-	static uint32_t get_unix_permissions(const String &p_file);
-	static Error set_unix_permissions(const String &p_file, uint32_t p_permissions);
+	static BitField<FileAccess::UnixPermissionFlags> get_unix_permissions(const String &p_file);
+	static Error set_unix_permissions(const String &p_file, BitField<FileAccess::UnixPermissionFlags> p_permissions);
+
+	static bool get_hidden_attribute(const String &p_file);
+	static Error set_hidden_attribute(const String &p_file, bool p_hidden);
+	static bool get_read_only_attribute(const String &p_file);
+	static Error set_read_only_attribute(const String &p_file, bool p_ro);
 
 	static void set_backup_save(bool p_enable) { backup_save = p_enable; };
 	static bool is_backup_save_enabled() { return backup_save; };
@@ -164,8 +220,11 @@ public:
 	static String get_sha256(const String &p_file);
 	static String get_multiple_md5(const Vector<String> &p_file);
 
-	static Vector<uint8_t> get_file_as_array(const String &p_path, Error *r_error = nullptr);
+	static Vector<uint8_t> get_file_as_bytes(const String &p_path, Error *r_error = nullptr);
 	static String get_file_as_string(const String &p_path, Error *r_error = nullptr);
+
+	static PackedByteArray _get_file_as_bytes(const String &p_path) { return get_file_as_bytes(p_path, &last_file_open_error); }
+	static String _get_file_as_string(const String &p_path) { return get_file_as_string(p_path, &last_file_open_error); }
 
 	template <class T>
 	static void make_default(AccessType p_access) {
@@ -175,5 +234,9 @@ public:
 	FileAccess() {}
 	virtual ~FileAccess() {}
 };
+
+VARIANT_ENUM_CAST(FileAccess::CompressionMode);
+VARIANT_ENUM_CAST(FileAccess::ModeFlags);
+VARIANT_BITFIELD_CAST(FileAccess::UnixPermissionFlags);
 
 #endif // FILE_ACCESS_H

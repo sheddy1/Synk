@@ -1,36 +1,37 @@
-/*************************************************************************/
-/*  rendering_server_default.h                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rendering_server_default.h                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef RENDERING_SERVER_DEFAULT_H
 #define RENDERING_SERVER_DEFAULT_H
 
+#include "core/os/thread.h"
 #include "core/templates/command_queue_mt.h"
 #include "core/templates/hash_map.h"
 #include "renderer_canvas_cull.h"
@@ -95,6 +96,8 @@ class RenderingServerDefault : public RenderingServer {
 	void _finish();
 
 	void _free(RID p_rid);
+
+	void _call_on_render_thread(const Callable &p_callable);
 
 public:
 	//if editor is redrawing when it shouldn't, enable this and put a breakpoint in _changes_changed()
@@ -209,9 +212,15 @@ public:
 
 	FUNC2(texture_set_path, RID, const String &)
 	FUNC1RC(String, texture_get_path, RID)
+
+	FUNC1RC(Image::Format, texture_get_format, RID)
+
 	FUNC1(texture_debug_usage, List<TextureInfo> *)
 
 	FUNC2(texture_set_force_redraw_if_visible, RID, bool)
+	FUNCRIDTEX2(texture_rd, const RID &, const RS::TextureLayeredType)
+	FUNC2RC(RID, texture_get_rd_texture, RID, bool)
+	FUNC2RC(uint64_t, texture_get_native_handle, RID, bool)
 
 	/* SHADER API */
 
@@ -227,11 +236,11 @@ public:
 	FUNC2(shader_set_path_hint, RID, const String &)
 	FUNC1RC(String, shader_get_code, RID)
 
-	FUNC2SC(shader_get_shader_uniform_list, RID, List<PropertyInfo> *)
+	FUNC2SC(get_shader_parameter_list, RID, List<PropertyInfo> *)
 
-	FUNC4(shader_set_default_texture_param, RID, const StringName &, RID, int)
-	FUNC3RC(RID, shader_get_default_texture_param, RID, const StringName &, int)
-	FUNC2RC(Variant, shader_get_param_default, RID, const StringName &)
+	FUNC4(shader_set_default_texture_parameter, RID, const StringName &, RID, int)
+	FUNC3RC(RID, shader_get_default_texture_parameter, RID, const StringName &, int)
+	FUNC2RC(Variant, shader_get_parameter_default, RID, const StringName &)
 
 	FUNC1RC(ShaderNativeSourceCode, shader_get_native_source_code, RID)
 
@@ -386,7 +395,7 @@ public:
 	FUNC2(reflection_probe_set_ambient_energy, RID, float)
 	FUNC2(reflection_probe_set_ambient_mode, RID, ReflectionProbeAmbientMode)
 	FUNC2(reflection_probe_set_max_distance, RID, float)
-	FUNC2(reflection_probe_set_extents, RID, const Vector3 &)
+	FUNC2(reflection_probe_set_size, RID, const Vector3 &)
 	FUNC2(reflection_probe_set_origin_offset, RID, const Vector3 &)
 	FUNC2(reflection_probe_set_as_interior, RID, bool)
 	FUNC2(reflection_probe_set_enable_box_projection, RID, bool)
@@ -403,11 +412,19 @@ public:
 	FUNC2(lightmap_set_probe_bounds, RID, const AABB &)
 	FUNC2(lightmap_set_probe_interior, RID, bool)
 	FUNC5(lightmap_set_probe_capture_data, RID, const PackedVector3Array &, const PackedColorArray &, const PackedInt32Array &, const PackedInt32Array &)
+	FUNC2(lightmap_set_baked_exposure_normalization, RID, float)
 	FUNC1RC(PackedVector3Array, lightmap_get_probe_capture_points, RID)
 	FUNC1RC(PackedColorArray, lightmap_get_probe_capture_sh, RID)
 	FUNC1RC(PackedInt32Array, lightmap_get_probe_capture_tetrahedra, RID)
 	FUNC1RC(PackedInt32Array, lightmap_get_probe_capture_bsp_tree, RID)
 	FUNC1(lightmap_set_probe_capture_update_speed, float)
+
+	/* Shadow Atlas */
+	FUNC0R(RID, shadow_atlas_create)
+	FUNC3(shadow_atlas_set_size, RID, int, bool)
+	FUNC3(shadow_atlas_set_quadrant_subdivision, RID, int, int)
+
+	FUNC2(directional_shadow_atlas_set_size, int, bool)
 
 	/* DECAL API */
 
@@ -419,7 +436,7 @@ public:
 
 	FUNCRIDSPLIT(decal)
 
-	FUNC2(decal_set_extents, RID, const Vector3 &)
+	FUNC2(decal_set_size, RID, const Vector3 &)
 	FUNC3(decal_set_texture, RID, DecalTexture, RID)
 	FUNC2(decal_set_emission_energy, RID, float)
 	FUNC2(decal_set_albedo_mix, RID, float)
@@ -453,10 +470,13 @@ public:
 	FUNC2(voxel_gi_set_dynamic_range, RID, float)
 	FUNC2(voxel_gi_set_propagation, RID, float)
 	FUNC2(voxel_gi_set_energy, RID, float)
+	FUNC2(voxel_gi_set_baked_exposure_normalization, RID, float)
 	FUNC2(voxel_gi_set_bias, RID, float)
 	FUNC2(voxel_gi_set_normal_bias, RID, float)
 	FUNC2(voxel_gi_set_interior, RID, bool)
 	FUNC2(voxel_gi_set_use_two_bounces, RID, bool)
+
+	FUNC0(sdfgi_reset)
 
 	/* PARTICLES */
 
@@ -472,6 +492,7 @@ public:
 	FUNC2(particles_set_emitting, RID, bool)
 	FUNC1R(bool, particles_get_emitting, RID)
 	FUNC2(particles_set_amount, RID, int)
+	FUNC2(particles_set_amount_ratio, RID, float)
 	FUNC2(particles_set_lifetime, RID, double)
 	FUNC2(particles_set_one_shot, RID, bool)
 	FUNC2(particles_set_pre_process_time, RID, double)
@@ -503,6 +524,8 @@ public:
 
 	FUNC1R(AABB, particles_get_current_aabb, RID)
 	FUNC2(particles_set_emission_transform, RID, const Transform3D &)
+	FUNC2(particles_set_emitter_velocity, RID, const Vector3 &)
+	FUNC2(particles_set_interp_to_end, RID, float)
 
 	/* PARTICLES COLLISION */
 
@@ -530,7 +553,7 @@ public:
 	FUNCRIDSPLIT(fog_volume)
 
 	FUNC2(fog_volume_set_shape, RID, FogVolumeShape)
-	FUNC2(fog_volume_set_extents, RID, const Vector3 &)
+	FUNC2(fog_volume_set_size, RID, const Vector3 &)
 	FUNC2(fog_volume_set_material, RID, RID)
 
 	/* VISIBILITY_NOTIFIER */
@@ -548,7 +571,7 @@ public:
 #undef server_name
 #undef ServerName
 //from now on, calls forwarded to this singleton
-#define ServerName RendererScene
+#define ServerName RenderingMethod
 #define server_name RSG::scene
 
 	/* CAMERA API */
@@ -560,7 +583,7 @@ public:
 	FUNC2(camera_set_transform, RID, const Transform3D &)
 	FUNC2(camera_set_cull_mask, RID, uint32_t)
 	FUNC2(camera_set_environment, RID, RID)
-	FUNC2(camera_set_camera_effects, RID, RID)
+	FUNC2(camera_set_camera_attributes, RID, RID)
 	FUNC2(camera_set_use_vertical_aspect, RID, bool)
 
 	/* OCCLUDER */
@@ -595,11 +618,14 @@ public:
 
 	FUNC2(viewport_set_update_mode, RID, ViewportUpdateMode)
 
+	FUNC1RC(RID, viewport_get_render_target, RID)
 	FUNC1RC(RID, viewport_get_texture, RID)
 
 	FUNC2(viewport_set_disable_2d, RID, bool)
-	FUNC2(viewport_set_disable_environment, RID, bool)
+	FUNC2(viewport_set_environment_mode, RID, ViewportEnvironmentMode)
 	FUNC2(viewport_set_disable_3d, RID, bool)
+
+	FUNC2(viewport_set_canvas_cull_mask, RID, uint32_t)
 
 	FUNC2(viewport_attach_camera, RID, RID)
 	FUNC2(viewport_set_scenario, RID, RID)
@@ -608,6 +634,7 @@ public:
 	FUNC2(viewport_remove_canvas, RID, RID)
 	FUNC3(viewport_set_canvas_transform, RID, RID, const Transform2D &)
 	FUNC2(viewport_set_transparent_background, RID, bool)
+	FUNC2(viewport_set_use_hdr_2d, RID, bool)
 	FUNC2(viewport_set_snap_2d_transforms_to_pixel, RID, bool)
 	FUNC2(viewport_set_snap_2d_vertices_to_pixel, RID, bool)
 
@@ -619,7 +646,8 @@ public:
 	FUNC3(viewport_set_positional_shadow_atlas_size, RID, int, bool)
 	FUNC3(viewport_set_sdf_oversize_and_scale, RID, ViewportSDFOversize, ViewportSDFScale)
 	FUNC3(viewport_set_positional_shadow_atlas_quadrant_subdivision, RID, int, int)
-	FUNC2(viewport_set_msaa, RID, ViewportMSAA)
+	FUNC2(viewport_set_msaa_2d, RID, ViewportMSAA)
+	FUNC2(viewport_set_msaa_3d, RID, ViewportMSAA)
 	FUNC2(viewport_set_screen_space_aa, RID, ViewportScreenSpaceAA)
 	FUNC2(viewport_set_use_taa, RID, bool)
 	FUNC2(viewport_set_use_debanding, RID, bool)
@@ -646,10 +674,9 @@ public:
 #undef server_name
 #undef ServerName
 //from now on, calls forwarded to this singleton
-#define ServerName RendererScene
+#define ServerName RenderingMethod
 #define server_name RSG::scene
 
-	FUNC2(directional_shadow_atlas_set_size, int, bool)
 	FUNC1(voxel_gi_set_quality, VoxelGIQuality)
 
 	/* SKY API */
@@ -667,7 +694,7 @@ public:
 	FUNC2(environment_set_sky_custom_fov, RID, float)
 	FUNC2(environment_set_sky_orientation, RID, const Basis &)
 	FUNC2(environment_set_bg_color, RID, const Color &)
-	FUNC2(environment_set_bg_energy, RID, float)
+	FUNC3(environment_set_bg_energy, RID, float, float)
 	FUNC2(environment_set_canvas_max_layer, RID, int)
 	FUNC6(environment_set_ambient_light, RID, const Color &, EnvironmentAmbientSource, float, float, EnvironmentReflectionSource)
 
@@ -686,14 +713,13 @@ public:
 
 	FUNC13(environment_set_glow, RID, bool, Vector<float>, float, float, float, float, EnvironmentGlowBlendMode, float, float, float, float, RID)
 	FUNC1(environment_glow_set_use_bicubic_upscale, bool)
-	FUNC1(environment_glow_set_use_high_quality, bool)
 
-	FUNC9(environment_set_tonemap, RID, EnvironmentToneMapper, float, float, bool, float, float, float, float)
+	FUNC4(environment_set_tonemap, RID, EnvironmentToneMapper, float, float)
 
 	FUNC7(environment_set_adjustment, RID, bool, float, float, float, bool, RID)
 
-	FUNC9(environment_set_fog, RID, bool, const Color &, float, float, float, float, float, float)
-	FUNC13(environment_set_volumetric_fog, RID, bool, float, const Color &, const Color &, float, float, float, float, float, bool, float, float)
+	FUNC10(environment_set_fog, RID, bool, const Color &, float, float, float, float, float, float, float)
+	FUNC14(environment_set_volumetric_fog, RID, bool, float, const Color &, const Color &, float, float, float, float, float, bool, float, float, float)
 
 	FUNC2(environment_set_volumetric_fog_volume_size, int, int)
 	FUNC1(environment_set_volumetric_fog_filter_active, bool)
@@ -709,33 +735,40 @@ public:
 	FUNC1(sub_surface_scattering_set_quality, SubSurfaceScatteringQuality)
 	FUNC2(sub_surface_scattering_set_scale, float, float)
 
-	/* CAMERA EFFECTS */
-
-	FUNCRIDSPLIT(camera_effects)
-
-	FUNC2(camera_effects_set_dof_blur_quality, DOFBlurQuality, bool)
-	FUNC1(camera_effects_set_dof_blur_bokeh_shape, DOFBokehShape)
-
-	FUNC8(camera_effects_set_dof_blur, RID, bool, float, float, bool, float, float, float)
-	FUNC3(camera_effects_set_custom_exposure, RID, bool, float)
-
 	FUNC1(positional_soft_shadow_filter_set_quality, ShadowQuality);
 	FUNC1(directional_soft_shadow_filter_set_quality, ShadowQuality);
 	FUNC1(decals_set_filter, RS::DecalFilter);
 	FUNC1(light_projectors_set_filter, RS::LightProjectorFilter);
+
+	/* CAMERA ATTRIBUTES */
+
+#undef server_name
+#undef ServerName
+//from now on, calls forwarded to this singleton
+#define ServerName RendererCameraAttributes
+#define server_name RSG::camera_attributes
+
+	FUNCRIDSPLIT(camera_attributes)
+
+	FUNC2(camera_attributes_set_dof_blur_quality, DOFBlurQuality, bool)
+	FUNC1(camera_attributes_set_dof_blur_bokeh_shape, DOFBokehShape)
+
+	FUNC8(camera_attributes_set_dof_blur, RID, bool, float, float, bool, float, float, float)
+	FUNC3(camera_attributes_set_exposure, RID, float, float)
+	FUNC6(camera_attributes_set_auto_exposure, RID, bool, float, float, float, float)
 
 	/* SCENARIO API */
 
 #undef server_name
 #undef ServerName
 
-#define ServerName RendererScene
+#define ServerName RenderingMethod
 #define server_name RSG::scene
 
 	FUNCRIDSPLIT(scenario)
 
 	FUNC2(scenario_set_environment, RID, RID)
-	FUNC2(scenario_set_camera_effects, RID, RID)
+	FUNC2(scenario_set_camera_attributes, RID, RID)
 	FUNC2(scenario_set_fallback_environment, RID, RID)
 
 	/* INSTANCING API */
@@ -744,6 +777,7 @@ public:
 	FUNC2(instance_set_base, RID, RID)
 	FUNC2(instance_set_scenario, RID, RID)
 	FUNC2(instance_set_layer_mask, RID, uint32_t)
+	FUNC3(instance_set_pivot_data, RID, float, bool)
 	FUNC2(instance_set_transform, RID, const Transform3D &)
 	FUNC2(instance_attach_object_instance_id, RID, ObjectID)
 	FUNC3(instance_set_blend_shape_weight, RID, int, float)
@@ -773,12 +807,12 @@ public:
 	FUNC4(instance_geometry_set_lightmap, RID, RID, const Rect2 &, int)
 	FUNC2(instance_geometry_set_lod_bias, RID, float)
 	FUNC2(instance_geometry_set_transparency, RID, float)
-	FUNC3(instance_geometry_set_shader_uniform, RID, const StringName &, const Variant &)
-	FUNC2RC(Variant, instance_geometry_get_shader_uniform, RID, const StringName &)
-	FUNC2RC(Variant, instance_geometry_get_shader_uniform_default_value, RID, const StringName &)
-	FUNC2C(instance_geometry_get_shader_uniform_list, RID, List<PropertyInfo> *)
+	FUNC3(instance_geometry_set_shader_parameter, RID, const StringName &, const Variant &)
+	FUNC2RC(Variant, instance_geometry_get_shader_parameter, RID, const StringName &)
+	FUNC2RC(Variant, instance_geometry_get_shader_parameter_default_value, RID, const StringName &)
+	FUNC2C(instance_geometry_get_shader_parameter_list, RID, List<PropertyInfo> *)
 
-	FUNC3R(TypedArray<Image>, bake_render_uv2, RID, const Vector<RID> &, const Size2i &)
+	FUNC3R(TypedArray<Image>, bake_render_uv2, RID, const TypedArray<RID> &, const Size2i &)
 
 	FUNC1(gi_set_use_half_resolution, bool)
 
@@ -812,6 +846,8 @@ public:
 	FUNC2(canvas_item_set_visible, RID, bool)
 	FUNC2(canvas_item_set_light_mask, RID, int)
 
+	FUNC2(canvas_item_set_visibility_layer, RID, uint32_t)
+
 	FUNC2(canvas_item_set_update_when_visible, RID, bool)
 
 	FUNC2(canvas_item_set_transform, RID, const Transform2D &)
@@ -830,9 +866,10 @@ public:
 	FUNC4(canvas_item_add_circle, RID, const Point2 &, float, const Color &)
 	FUNC6(canvas_item_add_texture_rect, RID, const Rect2 &, RID, bool, const Color &, bool)
 	FUNC7(canvas_item_add_texture_rect_region, RID, const Rect2 &, RID, const Rect2 &, const Color &, bool, bool)
-	FUNC7(canvas_item_add_msdf_texture_rect_region, RID, const Rect2 &, RID, const Rect2 &, const Color &, int, float)
+	FUNC8(canvas_item_add_msdf_texture_rect_region, RID, const Rect2 &, RID, const Rect2 &, const Color &, int, float, float)
+	FUNC5(canvas_item_add_lcd_texture_rect_region, RID, const Rect2 &, RID, const Rect2 &, const Color &)
 	FUNC10(canvas_item_add_nine_patch, RID, const Rect2 &, const Rect2 &, RID, const Vector2 &, const Vector2 &, NinePatchAxisMode, NinePatchAxisMode, bool, const Color &)
-	FUNC6(canvas_item_add_primitive, RID, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, RID, float)
+	FUNC5(canvas_item_add_primitive, RID, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, RID)
 	FUNC5(canvas_item_add_polygon, RID, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, RID)
 	FUNC9(canvas_item_add_triangle_array, RID, const Vector<int> &, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, const Vector<int> &, const Vector<float> &, RID, int)
 	FUNC5(canvas_item_add_mesh, RID, const RID &, const Transform2D &, const Color &, RID)
@@ -858,6 +895,9 @@ public:
 	FUNC5(canvas_item_set_visibility_notifier, RID, bool, const Rect2 &, const Callable &, const Callable &)
 
 	FUNC6(canvas_item_set_canvas_group_mode, RID, CanvasGroupMode, float, bool, float, bool)
+
+	FUNC1(canvas_item_set_debug_redraw, bool)
+	FUNC0RC(bool, canvas_item_get_debug_redraw)
 
 	FUNCRIDSPLIT(canvas_light)
 
@@ -900,6 +940,8 @@ public:
 
 	FUNC1(canvas_set_shadow_texture_size, int)
 
+	FUNC1R(Rect2, _debug_canvas_item_get_rect, RID)
+
 	/* GLOBAL SHADER UNIFORMS */
 
 #undef server_name
@@ -908,21 +950,38 @@ public:
 #define ServerName RendererMaterialStorage
 #define server_name RSG::material_storage
 
-	FUNC3(global_shader_uniform_add, const StringName &, GlobalShaderUniformType, const Variant &)
-	FUNC1(global_shader_uniform_remove, const StringName &)
-	FUNC0RC(Vector<StringName>, global_shader_uniform_get_list)
-	FUNC2(global_shader_uniform_set, const StringName &, const Variant &)
-	FUNC2(global_shader_uniform_set_override, const StringName &, const Variant &)
-	FUNC1RC(GlobalShaderUniformType, global_shader_uniform_get_type, const StringName &)
-	FUNC1RC(Variant, global_shader_uniform_get, const StringName &)
+	FUNC3(global_shader_parameter_add, const StringName &, GlobalShaderParameterType, const Variant &)
+	FUNC1(global_shader_parameter_remove, const StringName &)
+	FUNC0RC(Vector<StringName>, global_shader_parameter_get_list)
+	FUNC2(global_shader_parameter_set, const StringName &, const Variant &)
+	FUNC2(global_shader_parameter_set_override, const StringName &, const Variant &)
+	FUNC1RC(GlobalShaderParameterType, global_shader_parameter_get_type, const StringName &)
+	FUNC1RC(Variant, global_shader_parameter_get, const StringName &)
 
-	FUNC1(global_shader_uniforms_load_settings, bool)
-	FUNC0(global_shader_uniforms_clear)
+	FUNC1(global_shader_parameters_load_settings, bool)
+	FUNC0(global_shader_parameters_clear)
 
+#undef server_name
+#undef ServerName
+	/* STATUS INFORMATION */
+#define ServerName RendererUtilities
+#define server_name RSG::utilities
+	FUNC0RC(String, get_video_adapter_name)
+	FUNC0RC(String, get_video_adapter_vendor)
+	FUNC0RC(String, get_video_adapter_api_version)
 #undef server_name
 #undef ServerName
 #undef WRITE_ACTION
 #undef SYNC_DEBUG
+
+	virtual uint64_t get_rendering_info(RenderingInfo p_info) override;
+	virtual RenderingDevice::DeviceType get_video_adapter_type() const override;
+
+	virtual void set_frame_profiling_enabled(bool p_enable) override;
+	virtual Vector<FrameProfileArea> get_frame_profile() override;
+	virtual uint64_t get_frame_profile_frame() override;
+
+	virtual RID get_test_cube() override;
 
 	/* FREE */
 
@@ -945,25 +1004,21 @@ public:
 	virtual void init() override;
 	virtual void finish() override;
 
-	/* STATUS INFORMATION */
-
-	virtual uint64_t get_rendering_info(RenderingInfo p_info) override;
-	virtual String get_video_adapter_name() const override;
-	virtual String get_video_adapter_vendor() const override;
-	virtual RenderingDevice::DeviceType get_video_adapter_type() const override;
-	virtual String get_video_adapter_api_version() const override;
-
-	virtual void set_frame_profiling_enabled(bool p_enable) override;
-	virtual Vector<FrameProfileArea> get_frame_profile() override;
-	virtual uint64_t get_frame_profile_frame() override;
-
-	virtual RID get_test_cube() override;
+	virtual void call_on_render_thread(const Callable &p_callable) override {
+		if (Thread::get_caller_id() == server_thread) {
+			command_queue.flush_if_pending();
+			_call_on_render_thread(p_callable);
+		} else {
+			command_queue.push(this, &RenderingServerDefault::_call_on_render_thread, p_callable);
+		}
+	}
 
 	/* TESTING */
 
 	virtual double get_frame_setup_time_cpu() const override;
 
 	virtual void set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale, bool p_use_filter = true) override;
+	virtual Color get_default_clear_color() override;
 	virtual void set_default_clear_color(const Color &p_color) override;
 
 	virtual bool has_feature(Features p_feature) const override;
@@ -976,6 +1031,8 @@ public:
 	virtual void sdfgi_set_debug_probe_select(const Vector3 &p_position, const Vector3 &p_dir) override;
 
 	virtual void set_print_gpu_profile(bool p_enable) override;
+
+	virtual Size2i get_maximum_viewport_size() const override;
 
 	RenderingServerDefault(bool p_create_thread = false);
 	~RenderingServerDefault();

@@ -1,38 +1,39 @@
-/*************************************************************************/
-/*  mesh_instance_3d.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  mesh_instance_3d.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "mesh_instance_3d.h"
 
 #include "collision_shape_3d.h"
-#include "core/core_string_names.h"
 #include "physics_body_3d.h"
+#include "scene/resources/concave_polygon_shape_3d.h"
+#include "scene/resources/convex_polygon_shape_3d.h"
 
 bool MeshInstance3D::_set(const StringName &p_name, const Variant &p_value) {
 	//this is not _too_ bad performance wise, really. it only arrives here if the property was not set anywhere else.
@@ -50,6 +51,7 @@ bool MeshInstance3D::_set(const StringName &p_name, const Variant &p_value) {
 
 	if (p_name.operator String().begins_with("surface_material_override/")) {
 		int idx = p_name.operator String().get_slicec('/', 1).to_int();
+
 		if (idx >= surface_override_materials.size() || idx < 0) {
 			return false;
 		}
@@ -97,7 +99,7 @@ void MeshInstance3D::_get_property_list(List<PropertyInfo> *p_list) const {
 
 	if (mesh.is_valid()) {
 		for (int i = 0; i < mesh->get_surface_count(); i++) {
-			p_list->push_back(PropertyInfo(Variant::OBJECT, vformat("%s/%d", PNAME("surface_material_override"), i), PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_DEFERRED_SET_RESOURCE));
+			p_list->push_back(PropertyInfo(Variant::OBJECT, vformat("%s/%d", PNAME("surface_material_override"), i), PROPERTY_HINT_RESOURCE_TYPE, "BaseMaterial3D,ShaderMaterial", PROPERTY_USAGE_DEFAULT));
 		}
 	}
 }
@@ -108,15 +110,17 @@ void MeshInstance3D::set_mesh(const Ref<Mesh> &p_mesh) {
 	}
 
 	if (mesh.is_valid()) {
-		mesh->disconnect(CoreStringNames::get_singleton()->changed, callable_mp(this, &MeshInstance3D::_mesh_changed));
+		mesh->disconnect_changed(callable_mp(this, &MeshInstance3D::_mesh_changed));
 	}
 
 	mesh = p_mesh;
 
 	if (mesh.is_valid()) {
-		mesh->connect(CoreStringNames::get_singleton()->changed, callable_mp(this, &MeshInstance3D::_mesh_changed));
-		_mesh_changed();
+		// If mesh is a PrimitiveMesh, calling get_rid on it can trigger a changed callback
+		// so do this before connecting _mesh_changed.
 		set_base(mesh->get_rid());
+		mesh->connect_changed(callable_mp(this, &MeshInstance3D::_mesh_changed));
+		_mesh_changed();
 	} else {
 		blend_shape_tracks.clear();
 		blend_shape_properties.clear();
@@ -224,7 +228,7 @@ Node *MeshInstance3D::create_trimesh_collision_node() {
 		return nullptr;
 	}
 
-	Ref<Shape3D> shape = mesh->create_trimesh_shape();
+	Ref<ConcavePolygonShape3D> shape = mesh->create_trimesh_shape();
 	if (shape.is_null()) {
 		return nullptr;
 	}
@@ -238,7 +242,7 @@ Node *MeshInstance3D::create_trimesh_collision_node() {
 
 void MeshInstance3D::create_trimesh_collision() {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_trimesh_collision_node());
-	ERR_FAIL_COND(!static_body);
+	ERR_FAIL_NULL(static_body);
 	static_body->set_name(String(get_name()) + "_col");
 
 	add_child(static_body, true);
@@ -254,7 +258,7 @@ Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify
 		return nullptr;
 	}
 
-	Ref<Shape3D> shape = mesh->create_convex_shape(p_clean, p_simplify);
+	Ref<ConvexPolygonShape3D> shape = mesh->create_convex_shape(p_clean, p_simplify);
 	if (shape.is_null()) {
 		return nullptr;
 	}
@@ -268,7 +272,7 @@ Node *MeshInstance3D::create_convex_collision_node(bool p_clean, bool p_simplify
 
 void MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
 	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_convex_collision_node(p_clean, p_simplify));
-	ERR_FAIL_COND(!static_body);
+	ERR_FAIL_NULL(static_body);
 	static_body->set_name(String(get_name()) + "_col");
 
 	add_child(static_body, true);
@@ -279,12 +283,18 @@ void MeshInstance3D::create_convex_collision(bool p_clean, bool p_simplify) {
 	}
 }
 
-Node *MeshInstance3D::create_multiple_convex_collisions_node() {
+Node *MeshInstance3D::create_multiple_convex_collisions_node(const Ref<MeshConvexDecompositionSettings> &p_settings) {
 	if (mesh.is_null()) {
 		return nullptr;
 	}
 
-	Mesh::ConvexDecompositionSettings settings;
+	Ref<MeshConvexDecompositionSettings> settings;
+	if (p_settings.is_valid()) {
+		settings = p_settings;
+	} else {
+		settings.instantiate();
+	}
+
 	Vector<Ref<Shape3D>> shapes = mesh->convex_decompose(settings);
 	if (!shapes.size()) {
 		return nullptr;
@@ -299,9 +309,9 @@ Node *MeshInstance3D::create_multiple_convex_collisions_node() {
 	return static_body;
 }
 
-void MeshInstance3D::create_multiple_convex_collisions() {
-	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_multiple_convex_collisions_node());
-	ERR_FAIL_COND(!static_body);
+void MeshInstance3D::create_multiple_convex_collisions(const Ref<MeshConvexDecompositionSettings> &p_settings) {
+	StaticBody3D *static_body = Object::cast_to<StaticBody3D>(create_multiple_convex_collisions_node(p_settings));
+	ERR_FAIL_NULL(static_body);
 	static_body->set_name(String(get_name()) + "_col");
 
 	add_child(static_body, true);
@@ -319,6 +329,11 @@ void MeshInstance3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
 			_resolve_skeleton_path();
+		} break;
+		case NOTIFICATION_TRANSLATION_CHANGED: {
+			if (mesh.is_valid()) {
+				mesh->notification(NOTIFICATION_TRANSLATION_CHANGED);
+			}
 		} break;
 	}
 }
@@ -346,9 +361,9 @@ Ref<Material> MeshInstance3D::get_surface_override_material(int p_surface) const
 }
 
 Ref<Material> MeshInstance3D::get_active_material(int p_surface) const {
-	Ref<Material> material_override = get_material_override();
-	if (material_override.is_valid()) {
-		return material_override;
+	Ref<Material> mat_override = get_material_override();
+	if (mat_override.is_valid()) {
+		return mat_override;
 	}
 
 	Ref<Material> surface_material = get_surface_override_material(p_surface);
@@ -356,9 +371,9 @@ Ref<Material> MeshInstance3D::get_active_material(int p_surface) const {
 		return surface_material;
 	}
 
-	Ref<Mesh> mesh = get_mesh();
-	if (mesh.is_valid()) {
-		return mesh->surface_get_material(p_surface);
+	Ref<Mesh> m = get_mesh();
+	if (m.is_valid()) {
+		return m->surface_get_material(p_surface);
 	}
 
 	return Ref<Material>();
@@ -380,20 +395,27 @@ void MeshInstance3D::_mesh_changed() {
 		}
 	}
 
+	int surface_count = mesh->get_surface_count();
+	for (int surface_index = 0; surface_index < surface_count; ++surface_index) {
+		if (surface_override_materials[surface_index].is_valid()) {
+			RS::get_singleton()->instance_set_surface_override_material(get_instance(), surface_index, surface_override_materials[surface_index]->get_rid());
+		}
+	}
+
 	update_gizmos();
 }
 
-void MeshInstance3D::create_debug_tangents() {
+MeshInstance3D *MeshInstance3D::create_debug_tangents_node() {
 	Vector<Vector3> lines;
 	Vector<Color> colors;
 
-	Ref<Mesh> mesh = get_mesh();
-	if (!mesh.is_valid()) {
-		return;
+	Ref<Mesh> m = get_mesh();
+	if (!m.is_valid()) {
+		return nullptr;
 	}
 
-	for (int i = 0; i < mesh->get_surface_count(); i++) {
-		Array arrays = mesh->surface_get_arrays(i);
+	for (int i = 0; i < m->get_surface_count(); i++) {
+		Array arrays = m->surface_get_arrays(i);
 		ERR_CONTINUE(arrays.size() != Mesh::ARRAY_MAX);
 
 		Vector<Vector3> verts = arrays[Mesh::ARRAY_VERTEX];
@@ -436,6 +458,7 @@ void MeshInstance3D::create_debug_tangents() {
 		sm->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
 		sm->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, true);
 		sm->set_flag(StandardMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
+		sm->set_flag(StandardMaterial3D::FLAG_DISABLE_FOG, true);
 
 		Ref<ArrayMesh> am;
 		am.instantiate();
@@ -450,15 +473,23 @@ void MeshInstance3D::create_debug_tangents() {
 		MeshInstance3D *mi = memnew(MeshInstance3D);
 		mi->set_mesh(am);
 		mi->set_name("DebugTangents");
-		add_child(mi, true);
-#ifdef TOOLS_ENABLED
+		return mi;
+	}
 
-		if (is_inside_tree() && this == get_tree()->get_edited_scene_root()) {
-			mi->set_owner(this);
-		} else {
-			mi->set_owner(get_owner());
-		}
-#endif
+	return nullptr;
+}
+
+void MeshInstance3D::create_debug_tangents() {
+	MeshInstance3D *mi = create_debug_tangents_node();
+	if (!mi) {
+		return;
+	}
+
+	add_child(mi, true);
+	if (is_inside_tree() && this == get_tree()->get_edited_scene_root()) {
+		mi->set_owner(this);
+	} else {
+		mi->set_owner(get_owner());
 	}
 }
 
@@ -479,7 +510,7 @@ void MeshInstance3D::_bind_methods() {
 	ClassDB::set_method_flags("MeshInstance3D", "create_trimesh_collision", METHOD_FLAGS_DEFAULT);
 	ClassDB::bind_method(D_METHOD("create_convex_collision", "clean", "simplify"), &MeshInstance3D::create_convex_collision, DEFVAL(true), DEFVAL(false));
 	ClassDB::set_method_flags("MeshInstance3D", "create_convex_collision", METHOD_FLAGS_DEFAULT);
-	ClassDB::bind_method(D_METHOD("create_multiple_convex_collisions"), &MeshInstance3D::create_multiple_convex_collisions);
+	ClassDB::bind_method(D_METHOD("create_multiple_convex_collisions", "settings"), &MeshInstance3D::create_multiple_convex_collisions, DEFVAL(Ref<MeshConvexDecompositionSettings>()));
 	ClassDB::set_method_flags("MeshInstance3D", "create_multiple_convex_collisions", METHOD_FLAGS_DEFAULT);
 
 	ClassDB::bind_method(D_METHOD("get_blend_shape_count"), &MeshInstance3D::get_blend_shape_count);
@@ -488,8 +519,6 @@ void MeshInstance3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_blend_shape_value", "blend_shape_idx", "value"), &MeshInstance3D::set_blend_shape_value);
 
 	ClassDB::bind_method(D_METHOD("create_debug_tangents"), &MeshInstance3D::create_debug_tangents);
-	ClassDB::set_method_flags("MeshInstance3D", "create_debug_tangents", METHOD_FLAGS_DEFAULT | METHOD_FLAG_EDITOR);
-
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh"), "set_mesh", "get_mesh");
 	ADD_GROUP("Skeleton", "");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "skin", PROPERTY_HINT_RESOURCE_TYPE, "Skin"), "set_skin", "get_skin");

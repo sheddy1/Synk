@@ -1,34 +1,35 @@
-/*************************************************************************/
-/*  ogg_packet_sequence.cpp                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  ogg_packet_sequence.cpp                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "ogg_packet_sequence.h"
+
 #include "core/variant/typed_array.h"
 
 void OggPacketSequence::push_page(int64_t p_granule_pos, const Vector<PackedByteArray> &p_data) {
@@ -41,7 +42,7 @@ void OggPacketSequence::push_page(int64_t p_granule_pos, const Vector<PackedByte
 	data_version++;
 }
 
-void OggPacketSequence::set_packet_data(const Array &p_data) {
+void OggPacketSequence::set_packet_data(const TypedArray<Array> &p_data) {
 	data_version++; // Update the data version so old playbacks know that they can't rely on us anymore.
 	page_data.clear();
 	for (int page_idx = 0; page_idx < p_data.size(); page_idx++) {
@@ -54,8 +55,8 @@ void OggPacketSequence::set_packet_data(const Array &p_data) {
 	}
 }
 
-Array OggPacketSequence::get_packet_data() const {
-	Array ret;
+TypedArray<Array> OggPacketSequence::get_packet_data() const {
+	TypedArray<Array> ret;
 	for (const Vector<PackedByteArray> &page : page_data) {
 		Array page_variant;
 		for (const PackedByteArray &packet : page) {
@@ -66,7 +67,7 @@ Array OggPacketSequence::get_packet_data() const {
 	return ret;
 }
 
-void OggPacketSequence::set_packet_granule_positions(const Array &p_granule_positions) {
+void OggPacketSequence::set_packet_granule_positions(const PackedInt64Array &p_granule_positions) {
 	data_version++; // Update the data version so old playbacks know that they can't rely on us anymore.
 	page_granule_positions.clear();
 	for (int page_idx = 0; page_idx < p_granule_positions.size(); page_idx++) {
@@ -75,8 +76,8 @@ void OggPacketSequence::set_packet_granule_positions(const Array &p_granule_posi
 	}
 }
 
-Array OggPacketSequence::get_packet_granule_positions() const {
-	Array ret;
+PackedInt64Array OggPacketSequence::get_packet_granule_positions() const {
+	PackedInt64Array ret;
 	for (int64_t granule_pos : page_granule_positions) {
 		ret.push_back(granule_pos);
 	}
@@ -127,8 +128,8 @@ void OggPacketSequence::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_length"), &OggPacketSequence::get_length);
 
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "packet_data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_packet_data", "get_packet_data");
-	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "granule_positions", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_packet_granule_positions", "get_packet_granule_positions");
+	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "packet_data", PROPERTY_HINT_ARRAY_TYPE, "PackedByteArray", PROPERTY_USAGE_NO_EDITOR), "set_packet_data", "get_packet_data");
+	ADD_PROPERTY(PropertyInfo(Variant::PACKED_INT64_ARRAY, "granule_positions", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_packet_granule_positions", "get_packet_granule_positions");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "sampling_rate", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_sampling_rate", "get_sampling_rate");
 }
 
@@ -136,6 +137,8 @@ bool OggPacketSequencePlayback::next_ogg_packet(ogg_packet **p_packet) const {
 	ERR_FAIL_COND_V(data_version != ogg_packet_sequence->data_version, false);
 	ERR_FAIL_COND_V(ogg_packet_sequence->page_data.is_empty(), false);
 	ERR_FAIL_COND_V(ogg_packet_sequence->page_granule_positions.is_empty(), false);
+	ERR_FAIL_COND_V(page_cursor >= ogg_packet_sequence->page_data.size(), false);
+
 	// Move on to the next page if need be. This happens first to help simplify seek logic.
 	while (packet_cursor >= ogg_packet_sequence->page_data[page_cursor].size()) {
 		packet_cursor = 0;
@@ -211,6 +214,20 @@ bool OggPacketSequencePlayback::seek_page(int64_t p_granule_pos) {
 	packetno = 0;
 
 	return true;
+}
+
+int64_t OggPacketSequencePlayback::get_page_number() const {
+	return page_cursor;
+}
+
+bool OggPacketSequencePlayback::set_page_number(int64_t p_page_number) {
+	if (p_page_number >= 0 && p_page_number < ogg_packet_sequence->page_data.size()) {
+		page_cursor = p_page_number;
+		packet_cursor = 0;
+		packetno = 0;
+		return true;
+	}
+	return false;
 }
 
 OggPacketSequencePlayback::OggPacketSequencePlayback() {

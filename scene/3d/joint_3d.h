@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  joint_3d.h                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  joint_3d.h                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef JOINT_3D_H
 #define JOINT_3D_H
@@ -63,7 +63,7 @@ protected:
 	_FORCE_INLINE_ bool is_configured() const { return configured; }
 
 public:
-	virtual TypedArray<String> get_configuration_warnings() const override;
+	virtual PackedStringArray get_configuration_warnings() const override;
 
 	void set_node_a(const NodePath &p_node_a);
 	NodePath get_node_a() const;
@@ -77,7 +77,7 @@ public:
 	void set_exclude_nodes_from_collision(bool p_enable);
 	bool get_exclude_nodes_from_collision() const;
 
-	RID get_joint() const { return joint; }
+	RID get_rid() const { return joint; }
 	Joint3D();
 	~Joint3D();
 };
@@ -136,12 +136,6 @@ protected:
 	virtual void _configure_joint(RID p_joint, PhysicsBody3D *body_a, PhysicsBody3D *body_b) override;
 	static void _bind_methods();
 
-	void _set_upper_limit(real_t p_limit);
-	real_t _get_upper_limit() const;
-
-	void _set_lower_limit(real_t p_limit);
-	real_t _get_lower_limit() const;
-
 public:
 	void set_param(Param p_param, real_t p_value);
 	real_t get_param(Param p_param) const;
@@ -188,12 +182,6 @@ public:
 	};
 
 protected:
-	void _set_upper_limit_angular(real_t p_limit_angular);
-	real_t _get_upper_limit_angular() const;
-
-	void _set_lower_limit_angular(real_t p_limit_angular);
-	real_t _get_lower_limit_angular() const;
-
 	real_t params[PARAM_MAX];
 	virtual void _configure_joint(RID p_joint, PhysicsBody3D *body_a, PhysicsBody3D *body_b) override;
 	static void _bind_methods();
@@ -221,12 +209,6 @@ public:
 	};
 
 protected:
-	void _set_swing_span(real_t p_limit_angular);
-	real_t _get_swing_span() const;
-
-	void _set_twist_span(real_t p_limit_angular);
-	real_t _get_twist_span() const;
-
 	real_t params[PARAM_MAX];
 	virtual void _configure_joint(RID p_joint, PhysicsBody3D *body_a, PhysicsBody3D *body_b) override;
 	static void _bind_methods();
@@ -281,24 +263,6 @@ public:
 	};
 
 protected:
-	void _set_angular_hi_limit_x(real_t p_limit_angular);
-	real_t _get_angular_hi_limit_x() const;
-
-	void _set_angular_hi_limit_y(real_t p_limit_angular);
-	real_t _get_angular_hi_limit_y() const;
-
-	void _set_angular_hi_limit_z(real_t p_limit_angular);
-	real_t _get_angular_hi_limit_z() const;
-
-	void _set_angular_lo_limit_x(real_t p_limit_angular);
-	real_t _get_angular_lo_limit_x() const;
-
-	void _set_angular_lo_limit_y(real_t p_limit_angular);
-	real_t _get_angular_lo_limit_y() const;
-
-	void _set_angular_lo_limit_z(real_t p_limit_angular);
-	real_t _get_angular_lo_limit_z() const;
-
 	real_t params_x[PARAM_MAX];
 	bool flags_x[FLAG_MAX];
 	real_t params_y[PARAM_MAX];

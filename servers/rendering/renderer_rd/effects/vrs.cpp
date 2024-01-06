@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  vrs.cpp                                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  vrs.cpp                                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "vrs.h"
 #include "../renderer_compositor_rd.h"
@@ -44,7 +44,7 @@ VRS::VRS() {
 
 		vrs_shader.shader.initialize(vrs_modes);
 
-		if (!RendererCompositorRD::singleton->is_xr_enabled()) {
+		if (!RendererCompositorRD::get_singleton()->is_xr_enabled()) {
 			vrs_shader.shader.set_variant_enabled(VRS_MULTIVIEW, false);
 		}
 
@@ -85,53 +85,24 @@ void VRS::copy_vrs(RID p_source_rd_texture, RID p_dest_framebuffer, bool p_multi
 	RD::DrawListID draw_list = RD::get_singleton()->draw_list_begin(p_dest_framebuffer, RD::INITIAL_ACTION_KEEP, RD::FINAL_ACTION_READ, RD::INITIAL_ACTION_KEEP, RD::FINAL_ACTION_DISCARD, Vector<Color>());
 	RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, vrs_shader.pipelines[mode].get_render_pipeline(RD::INVALID_ID, RD::get_singleton()->framebuffer_get_format(p_dest_framebuffer)));
 	RD::get_singleton()->draw_list_bind_uniform_set(draw_list, uniform_set_cache->get_cache(shader, 0, u_source_rd_texture), 0);
-	RD::get_singleton()->draw_list_bind_index_array(draw_list, material_storage->get_quad_index_array());
 	// RD::get_singleton()->draw_list_set_push_constant(draw_list, &vrs_shader.push_constant, sizeof(VRSPushConstant));
-	RD::get_singleton()->draw_list_draw(draw_list, true);
+	RD::get_singleton()->draw_list_draw(draw_list, false, 1u, 3u);
 	RD::get_singleton()->draw_list_end();
 }
 
-void VRS::create_vrs_texture(const int p_base_width, const int p_base_height, const uint32_t p_view_count, RID &p_vrs_texture, RID &p_vrs_fb) {
-	// TODO find a way to skip this if VRS is not supported, but we don't have access to VulkanContext here, even though we're in vulkan.. hmmm
+Size2i VRS::get_vrs_texture_size(const Size2i p_base_size) const {
+	int32_t texel_width = RD::get_singleton()->limit_get(RD::LIMIT_VRS_TEXEL_WIDTH);
+	int32_t texel_height = RD::get_singleton()->limit_get(RD::LIMIT_VRS_TEXEL_HEIGHT);
 
-	// TODO we should find some way to store this properly, we're assuming 16x16 as this seems to be the standard but in our vrs_capacities we
-	// obtain a minimum and maximum size, and we should choose something within this range and then make sure that is consistently set when creating
-	// our frame buffer. Also it is important that we make the resulting size we calculate down below available to the end user so they know the size
-	// of the VRS buffer to supply.
-	Size2i texel_size = Size2i(16, 16);
-
-	RD::TextureFormat tf;
-	if (p_view_count > 1) {
-		tf.texture_type = RD::TEXTURE_TYPE_2D_ARRAY;
-	} else {
-		tf.texture_type = RD::TEXTURE_TYPE_2D;
+	int width = p_base_size.x / texel_width;
+	if (p_base_size.x % texel_width != 0) {
+		width++;
 	}
-	tf.format = RD::DATA_FORMAT_R8_UINT;
-	tf.width = p_base_width / texel_size.x;
-	if (p_base_width % texel_size.x != 0) {
-		tf.width++;
+	int height = p_base_size.y / texel_height;
+	if (p_base_size.y % texel_height != 0) {
+		height++;
 	}
-	tf.height = p_base_height / texel_size.y;
-	if (p_base_height % texel_size.y != 0) {
-		tf.height++;
-	}
-	tf.array_layers = p_view_count; // create a layer for every view
-	tf.usage_bits = RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RD::TEXTURE_USAGE_VRS_ATTACHMENT_BIT | RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT;
-	tf.samples = RD::TEXTURE_SAMPLES_1;
-
-	p_vrs_texture = RD::get_singleton()->texture_create(tf, RD::TextureView());
-
-	// by default VRS is assumed to be our VRS attachment, but if we need to write into it, we need a bit more control
-	Vector<RID> fb;
-	fb.push_back(p_vrs_texture);
-
-	RD::FramebufferPass pass;
-	pass.color_attachments.push_back(0);
-
-	Vector<RD::FramebufferPass> passes;
-	passes.push_back(pass);
-
-	p_vrs_fb = RD::get_singleton()->framebuffer_create_multipass(fb, passes, RenderingDevice::INVALID_ID, p_view_count);
+	return Size2i(width, height);
 }
 
 void VRS::update_vrs_texture(RID p_vrs_fb, RID p_render_target) {

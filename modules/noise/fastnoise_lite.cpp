@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  fastnoise_lite.cpp                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  fastnoise_lite.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "fastnoise_lite.h"
 
@@ -416,8 +416,8 @@ void FastNoiseLite::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "noise_type", PROPERTY_HINT_ENUM, "Simplex,Simplex Smooth,Cellular,Perlin,Value Cubic,Value"), "set_noise_type", "get_noise_type");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "seed"), "set_seed", "get_seed");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "frequency", PROPERTY_HINT_RANGE, ".001,1"), "set_frequency", "get_frequency");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "offset", PROPERTY_HINT_RANGE, "-999999999,999999999,0.01"), "set_offset", "get_offset");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "frequency", PROPERTY_HINT_RANGE, ".0001,1,.0001,exp"), "set_frequency", "get_frequency");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR3, "offset", PROPERTY_HINT_RANGE, "-1000,1000,0.01,or_less,or_greater"), "set_offset", "get_offset");
 
 	ADD_GROUP("Fractal", "fractal_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fractal_type", PROPERTY_HINT_ENUM, "None,FBM,Ridged,Ping-Pong"), "set_fractal_type", "get_fractal_type");
@@ -476,24 +476,24 @@ void FastNoiseLite::_bind_methods() {
 	BIND_ENUM_CONSTANT(DOMAIN_WARP_FRACTAL_INDEPENDENT);
 }
 
-void FastNoiseLite::_validate_property(PropertyInfo &property) const {
-	if (property.name.begins_with("cellular") && get_noise_type() != TYPE_CELLULAR) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+void FastNoiseLite::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name.begins_with("cellular") && get_noise_type() != TYPE_CELLULAR) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		return;
 	}
 
-	if (property.name != "fractal_type" && property.name.begins_with("fractal") && get_fractal_type() == FRACTAL_NONE) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name != "fractal_type" && p_property.name.begins_with("fractal") && get_fractal_type() == FRACTAL_NONE) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		return;
 	}
 
-	if (property.name == "fractal_ping_pong_strength" && get_fractal_type() != FRACTAL_PING_PONG) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name == "fractal_ping_pong_strength" && get_fractal_type() != FRACTAL_PING_PONG) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		return;
 	}
 
-	if (property.name != "domain_warp_enabled" && property.name.begins_with("domain_warp") && !domain_warp_enabled) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (p_property.name != "domain_warp_enabled" && p_property.name.begins_with("domain_warp") && !domain_warp_enabled) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		return;
 	}
 }

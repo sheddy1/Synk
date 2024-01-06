@@ -1,71 +1,63 @@
-/*************************************************************************/
-/*  check_box.cpp                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  check_box.cpp                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "check_box.h"
 
+#include "scene/theme/theme_db.h"
 #include "servers/rendering_server.h"
 
 Size2 CheckBox::get_icon_size() const {
-	Ref<Texture2D> checked = Control::get_theme_icon(SNAME("checked"));
-	Ref<Texture2D> unchecked = Control::get_theme_icon(SNAME("unchecked"));
-	Ref<Texture2D> radio_checked = Control::get_theme_icon(SNAME("radio_checked"));
-	Ref<Texture2D> radio_unchecked = Control::get_theme_icon(SNAME("radio_unchecked"));
-	Ref<Texture2D> checked_disabled = Control::get_theme_icon(SNAME("checked_disabled"));
-	Ref<Texture2D> unchecked_disabled = Control::get_theme_icon(SNAME("unchecked_disabled"));
-	Ref<Texture2D> radio_checked_disabled = Control::get_theme_icon(SNAME("radio_checked_disabled"));
-	Ref<Texture2D> radio_unchecked_disabled = Control::get_theme_icon(SNAME("radio_unchecked_disabled"));
-
 	Size2 tex_size = Size2(0, 0);
-	if (!checked.is_null()) {
-		tex_size = Size2(checked->get_width(), checked->get_height());
+	if (!theme_cache.checked.is_null()) {
+		tex_size = Size2(theme_cache.checked->get_width(), theme_cache.checked->get_height());
 	}
-	if (!unchecked.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, unchecked->get_width()), MAX(tex_size.height, unchecked->get_height()));
+	if (!theme_cache.unchecked.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.unchecked->get_width()), MAX(tex_size.height, theme_cache.unchecked->get_height()));
 	}
-	if (!radio_checked.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, radio_checked->get_width()), MAX(tex_size.height, radio_checked->get_height()));
+	if (!theme_cache.radio_checked.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.radio_checked->get_width()), MAX(tex_size.height, theme_cache.radio_checked->get_height()));
 	}
-	if (!radio_unchecked.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, radio_unchecked->get_width()), MAX(tex_size.height, radio_unchecked->get_height()));
+	if (!theme_cache.radio_unchecked.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.radio_unchecked->get_width()), MAX(tex_size.height, theme_cache.radio_unchecked->get_height()));
 	}
-	if (!checked_disabled.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, checked_disabled->get_width()), MAX(tex_size.height, checked_disabled->get_height()));
+	if (!theme_cache.checked_disabled.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.checked_disabled->get_width()), MAX(tex_size.height, theme_cache.checked_disabled->get_height()));
 	}
-	if (!unchecked_disabled.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, unchecked_disabled->get_width()), MAX(tex_size.height, unchecked_disabled->get_height()));
+	if (!theme_cache.unchecked_disabled.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.unchecked_disabled->get_width()), MAX(tex_size.height, theme_cache.unchecked_disabled->get_height()));
 	}
-	if (!radio_checked_disabled.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, radio_checked_disabled->get_width()), MAX(tex_size.height, radio_checked_disabled->get_height()));
+	if (!theme_cache.radio_checked_disabled.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.radio_checked_disabled->get_width()), MAX(tex_size.height, theme_cache.radio_checked_disabled->get_height()));
 	}
-	if (!radio_unchecked_disabled.is_null()) {
-		tex_size = Size2(MAX(tex_size.width, radio_unchecked_disabled->get_width()), MAX(tex_size.height, radio_unchecked_disabled->get_height()));
+	if (!theme_cache.radio_unchecked_disabled.is_null()) {
+		tex_size = Size2(MAX(tex_size.width, theme_cache.radio_unchecked_disabled->get_width()), MAX(tex_size.height, theme_cache.radio_unchecked_disabled->get_height()));
 	}
 	return tex_size;
 }
@@ -75,10 +67,9 @@ Size2 CheckBox::get_minimum_size() const {
 	Size2 tex_size = get_icon_size();
 	minsize.width += tex_size.width;
 	if (get_text().length() > 0) {
-		minsize.width += get_theme_constant(SNAME("h_separation"));
+		minsize.width += MAX(0, theme_cache.h_separation);
 	}
-	Ref<StyleBox> sb = get_theme_stylebox(SNAME("normal"));
-	minsize.height = MAX(minsize.height, tex_size.height + sb->get_margin(SIDE_TOP) + sb->get_margin(SIDE_BOTTOM));
+	minsize.height = MAX(minsize.height, tex_size.height + theme_cache.normal_style->get_margin(SIDE_TOP) + theme_cache.normal_style->get_margin(SIDE_BOTTOM));
 
 	return minsize;
 }
@@ -100,22 +91,39 @@ void CheckBox::_notification(int p_what) {
 		case NOTIFICATION_DRAW: {
 			RID ci = get_canvas_item();
 
-			Ref<Texture2D> on = Control::get_theme_icon(vformat("%s%s", is_radio() ? "radio_checked" : "checked", is_disabled() ? "_disabled" : ""));
-			Ref<Texture2D> off = Control::get_theme_icon(vformat("%s%s", is_radio() ? "radio_unchecked" : "unchecked", is_disabled() ? "_disabled" : ""));
-			Ref<StyleBox> sb = get_theme_stylebox(SNAME("normal"));
+			Ref<Texture2D> on_tex;
+			Ref<Texture2D> off_tex;
+
+			if (is_radio()) {
+				if (is_disabled()) {
+					on_tex = theme_cache.radio_checked_disabled;
+					off_tex = theme_cache.radio_unchecked_disabled;
+				} else {
+					on_tex = theme_cache.radio_checked;
+					off_tex = theme_cache.radio_unchecked;
+				}
+			} else {
+				if (is_disabled()) {
+					on_tex = theme_cache.checked_disabled;
+					off_tex = theme_cache.unchecked_disabled;
+				} else {
+					on_tex = theme_cache.checked;
+					off_tex = theme_cache.unchecked;
+				}
+			}
 
 			Vector2 ofs;
 			if (is_layout_rtl()) {
-				ofs.x = get_size().x - sb->get_margin(SIDE_RIGHT) - get_icon_size().width;
+				ofs.x = get_size().x - theme_cache.normal_style->get_margin(SIDE_RIGHT) - get_icon_size().width;
 			} else {
-				ofs.x = sb->get_margin(SIDE_LEFT);
+				ofs.x = theme_cache.normal_style->get_margin(SIDE_LEFT);
 			}
-			ofs.y = int((get_size().height - get_icon_size().height) / 2) + get_theme_constant(SNAME("check_v_adjust"));
+			ofs.y = int((get_size().height - get_icon_size().height) / 2) + theme_cache.check_v_offset;
 
 			if (is_pressed()) {
-				on->draw(ci, ofs);
+				on_tex->draw(ci, ofs);
 			} else {
-				off->draw(ci, ofs);
+				off_tex->draw(ci, ofs);
 			}
 		} break;
 	}
@@ -123,6 +131,21 @@ void CheckBox::_notification(int p_what) {
 
 bool CheckBox::is_radio() {
 	return get_button_group().is_valid();
+}
+
+void CheckBox::_bind_methods() {
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, CheckBox, h_separation);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, CheckBox, check_v_offset);
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, CheckBox, normal_style, "normal");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, checked);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, unchecked);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, radio_checked);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, radio_unchecked);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, checked_disabled);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, unchecked_disabled);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, radio_checked_disabled);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_ICON, CheckBox, radio_unchecked_disabled);
 }
 
 CheckBox::CheckBox(const String &p_text) :

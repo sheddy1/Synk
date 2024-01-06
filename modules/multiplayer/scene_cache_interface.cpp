@@ -1,40 +1,40 @@
-/*************************************************************************/
-/*  scene_cache_interface.cpp                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scene_cache_interface.cpp                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scene_cache_interface.h"
+
+#include "scene_multiplayer.h"
 
 #include "core/io/marshalls.h"
 #include "scene/main/node.h"
 #include "scene/main/window.h"
-
-#include "scene_multiplayer.h"
 
 void SceneCacheInterface::on_peer_change(int p_id, bool p_connected) {
 	if (p_connected) {
@@ -44,16 +44,15 @@ void SceneCacheInterface::on_peer_change(int p_id, bool p_connected) {
 		path_get_cache.erase(p_id);
 		// Cleanup sent cache.
 		// Some refactoring is needed to make this faster and do paths GC.
-		for (const KeyValue<NodePath, PathSentCache> &E : path_send_cache) {
-			PathSentCache *psc = path_send_cache.getptr(E.key);
-			psc->confirmed_peers.erase(p_id);
+		for (KeyValue<ObjectID, PathSentCache> &E : path_send_cache) {
+			E.value.confirmed_peers.erase(p_id);
 		}
 	}
 }
 
 void SceneCacheInterface::process_simplify_path(int p_from, const uint8_t *p_packet, int p_packet_len) {
 	Node *root_node = SceneTree::get_singleton()->get_root()->get_node(multiplayer->get_root_path());
-	ERR_FAIL_COND(!root_node);
+	ERR_FAIL_NULL(root_node);
 	ERR_FAIL_COND_MSG(p_packet_len < 38, "Invalid packet received. Size too small.");
 	int ofs = 1;
 
@@ -67,21 +66,21 @@ void SceneCacheInterface::process_simplify_path(int p_from, const uint8_t *p_pac
 	String paths;
 	paths.parse_utf8((const char *)(p_packet + ofs), p_packet_len - ofs);
 
-	NodePath path = paths;
+	const NodePath path = paths;
 
 	if (!path_get_cache.has(p_from)) {
 		path_get_cache[p_from] = PathGetCache();
 	}
 
 	Node *node = root_node->get_node(path);
-	ERR_FAIL_COND(node == nullptr);
+	ERR_FAIL_NULL(node);
 	const bool valid_rpc_checksum = multiplayer->get_rpc_md5(node) == methods_md5;
 	if (valid_rpc_checksum == false) {
 		ERR_PRINT("The rpc node checksum failed. Make sure to have the same methods on both nodes. Node path: " + path);
 	}
 
 	PathGetCache::NodeInfo ni;
-	ni.path = path;
+	ni.path = node->get_path();
 
 	path_get_cache[p_from].nodes[id] = ni;
 
@@ -99,41 +98,41 @@ void SceneCacheInterface::process_simplify_path(int p_from, const uint8_t *p_pac
 	Ref<MultiplayerPeer> multiplayer_peer = multiplayer->get_multiplayer_peer();
 	ERR_FAIL_COND(multiplayer_peer.is_null());
 
-#ifdef DEBUG_ENABLED
-	multiplayer->profile_bandwidth("out", packet.size());
-#endif
-
 	multiplayer_peer->set_transfer_channel(0);
 	multiplayer_peer->set_transfer_mode(MultiplayerPeer::TRANSFER_MODE_RELIABLE);
-	multiplayer_peer->set_target_peer(p_from);
-	multiplayer_peer->put_packet(packet.ptr(), packet.size());
+	multiplayer->send_command(p_from, packet.ptr(), packet.size());
 }
 
 void SceneCacheInterface::process_confirm_path(int p_from, const uint8_t *p_packet, int p_packet_len) {
 	ERR_FAIL_COND_MSG(p_packet_len < 3, "Invalid packet received. Size too small.");
+	Node *root_node = SceneTree::get_singleton()->get_root()->get_node(multiplayer->get_root_path());
+	ERR_FAIL_NULL(root_node);
 
 	const bool valid_rpc_checksum = p_packet[1];
 
 	String paths;
 	paths.parse_utf8((const char *)&p_packet[2], p_packet_len - 2);
 
-	NodePath path = paths;
+	const NodePath path = paths;
 
 	if (valid_rpc_checksum == false) {
 		ERR_PRINT("The rpc node checksum failed. Make sure to have the same methods on both nodes. Node path: " + path);
 	}
 
-	PathSentCache *psc = path_send_cache.getptr(path);
-	ERR_FAIL_COND_MSG(!psc, "Invalid packet received. Tries to confirm a path which was not found in cache.");
+	Node *node = root_node->get_node(path);
+	ERR_FAIL_NULL(node);
+
+	PathSentCache *psc = path_send_cache.getptr(node->get_instance_id());
+	ERR_FAIL_NULL_MSG(psc, "Invalid packet received. Tries to confirm a path which was not found in cache.");
 
 	HashMap<int, bool>::Iterator E = psc->confirmed_peers.find(p_from);
 	ERR_FAIL_COND_MSG(!E, "Invalid packet received. Source peer was not found in cache for the given path.");
 	E->value = true;
 }
 
-Error SceneCacheInterface::_send_confirm_path(Node *p_node, NodePath p_path, PathSentCache *psc, const List<int> &p_peers) {
+Error SceneCacheInterface::_send_confirm_path(Node *p_node, PathSentCache *psc, const List<int> &p_peers) {
 	// Encode function name.
-	const CharString path = String(p_path).utf8();
+	const CharString path = String(multiplayer->get_root_path().rel_path_to(p_node->get_path())).utf8();
 	const int path_len = encode_cstring(path.get_data(), nullptr);
 
 	// Extract MD5 from rpc methods list.
@@ -156,16 +155,11 @@ Error SceneCacheInterface::_send_confirm_path(Node *p_node, NodePath p_path, Pat
 	Ref<MultiplayerPeer> multiplayer_peer = multiplayer->get_multiplayer_peer();
 	ERR_FAIL_COND_V(multiplayer_peer.is_null(), ERR_BUG);
 
-#ifdef DEBUG_ENABLED
-	multiplayer->profile_bandwidth("out", packet.size() * p_peers.size());
-#endif
-
 	Error err = OK;
 	for (int peer_id : p_peers) {
-		multiplayer_peer->set_target_peer(peer_id);
 		multiplayer_peer->set_transfer_channel(0);
 		multiplayer_peer->set_transfer_mode(MultiplayerPeer::TRANSFER_MODE_RELIABLE);
-		err = multiplayer_peer->put_packet(packet.ptr(), packet.size());
+		err = multiplayer->send_command(peer_id, packet.ptr(), packet.size());
 		ERR_FAIL_COND_V(err != OK, err);
 		// Insert into confirmed, but as false since it was not confirmed.
 		psc->confirmed_peers.insert(peer_id, false);
@@ -173,9 +167,10 @@ Error SceneCacheInterface::_send_confirm_path(Node *p_node, NodePath p_path, Pat
 	return err;
 }
 
-bool SceneCacheInterface::is_cache_confirmed(NodePath p_path, int p_peer) {
-	const PathSentCache *psc = path_send_cache.getptr(p_path);
-	ERR_FAIL_COND_V(!psc, false);
+bool SceneCacheInterface::is_cache_confirmed(Node *p_node, int p_peer) {
+	ERR_FAIL_NULL_V(p_node, false);
+	const PathSentCache *psc = path_send_cache.getptr(p_node->get_instance_id());
+	ERR_FAIL_NULL_V(psc, false);
 	HashMap<int, bool>::ConstIterator F = psc->confirmed_peers.find(p_peer);
 	ERR_FAIL_COND_V(!F, false); // Should never happen.
 	return F->value;
@@ -183,14 +178,14 @@ bool SceneCacheInterface::is_cache_confirmed(NodePath p_path, int p_peer) {
 
 int SceneCacheInterface::make_object_cache(Object *p_obj) {
 	Node *node = Object::cast_to<Node>(p_obj);
-	ERR_FAIL_COND_V(!node, -1);
-	NodePath for_path = multiplayer->get_root_path().rel_path_to(node->get_path());
+	ERR_FAIL_NULL_V(node, -1);
+	const ObjectID oid = node->get_instance_id();
 	// See if the path is cached.
-	PathSentCache *psc = path_send_cache.getptr(for_path);
+	PathSentCache *psc = path_send_cache.getptr(oid);
 	if (!psc) {
 		// Path is not cached, create.
-		path_send_cache[for_path] = PathSentCache();
-		psc = path_send_cache.getptr(for_path);
+		path_send_cache[oid] = PathSentCache();
+		psc = path_send_cache.getptr(oid);
 		psc->id = last_send_cache_id++;
 	}
 	return psc->id;
@@ -198,12 +193,17 @@ int SceneCacheInterface::make_object_cache(Object *p_obj) {
 
 bool SceneCacheInterface::send_object_cache(Object *p_obj, int p_peer_id, int &r_id) {
 	Node *node = Object::cast_to<Node>(p_obj);
-	ERR_FAIL_COND_V(!node, false);
-
-	r_id = make_object_cache(p_obj);
-	ERR_FAIL_COND_V(r_id < 0, false);
-	NodePath for_path = multiplayer->get_root_path().rel_path_to(node->get_path());
-	PathSentCache *psc = path_send_cache.getptr(for_path);
+	ERR_FAIL_NULL_V(node, false);
+	const ObjectID oid = node->get_instance_id();
+	// See if the path is cached.
+	PathSentCache *psc = path_send_cache.getptr(oid);
+	if (!psc) {
+		// Path is not cached, create.
+		path_send_cache[oid] = PathSentCache();
+		psc = path_send_cache.getptr(oid);
+		psc->id = last_send_cache_id++;
+	}
+	r_id = psc->id;
 
 	bool has_all_peers = true;
 	List<int> peers_to_add; // If one is missing, take note to add it.
@@ -235,7 +235,7 @@ bool SceneCacheInterface::send_object_cache(Object *p_obj, int p_peer_id, int &r
 	}
 
 	if (peers_to_add.size()) {
-		_send_confirm_path(node, for_path, psc, peers_to_add);
+		_send_confirm_path(node, psc, peers_to_add);
 	}
 
 	return has_all_peers;
@@ -243,7 +243,7 @@ bool SceneCacheInterface::send_object_cache(Object *p_obj, int p_peer_id, int &r
 
 Object *SceneCacheInterface::get_cached_object(int p_from, uint32_t p_cache_id) {
 	Node *root_node = SceneTree::get_singleton()->get_root()->get_node(multiplayer->get_root_path());
-	ERR_FAIL_COND_V(!root_node, nullptr);
+	ERR_FAIL_NULL_V(root_node, nullptr);
 	HashMap<int, PathGetCache>::Iterator E = path_get_cache.find(p_from);
 	ERR_FAIL_COND_V_MSG(!E, nullptr, vformat("No cache found for peer %d.", p_from));
 

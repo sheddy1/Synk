@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  file_dialog.h                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  file_dialog.h                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef FILE_DIALOG_H
 #define FILE_DIALOG_H
@@ -60,7 +60,6 @@ public:
 	typedef void (*RegisterFunc)(FileDialog *);
 
 	static GetIconFunc get_icon_func;
-	static GetIconFunc get_large_icon_func;
 	static RegisterFunc register_func;
 	static RegisterFunc unregister_func;
 
@@ -106,8 +105,28 @@ private:
 
 	static bool default_show_hidden_files;
 	bool show_hidden_files = false;
+	bool use_native_dialog = false;
 
-	bool invalidated = true;
+	bool is_invalidating = false;
+
+	struct ThemeCache {
+		Ref<Texture2D> parent_folder;
+		Ref<Texture2D> forward_folder;
+		Ref<Texture2D> back_folder;
+		Ref<Texture2D> reload;
+		Ref<Texture2D> toggle_hidden;
+		Ref<Texture2D> folder;
+		Ref<Texture2D> file;
+
+		Color folder_icon_color;
+		Color file_icon_color;
+		Color file_disabled_color;
+
+		Color icon_normal_color;
+		Color icon_hover_color;
+		Color icon_focus_color;
+		Color icon_pressed_color;
+	} theme_cache;
 
 	void update_dir();
 	void update_file_name();
@@ -136,19 +155,25 @@ private:
 	void _change_dir(const String &p_new_dir);
 	void _update_drives(bool p_select = true);
 
+	void _invalidate();
+
 	virtual void shortcut_input(const Ref<InputEvent> &p_event) override;
+
+	void _native_dialog_cb(bool p_ok, const Vector<String> &p_files, int p_filter);
 
 	bool _is_open_should_be_disabled();
 
 	virtual void _post_popup() override;
 
 protected:
-	void _theme_changed();
-
+	void _validate_property(PropertyInfo &p_property) const;
 	void _notification(int p_what);
 	static void _bind_methods();
-	//bind helpers
+
 public:
+	virtual void set_visible(bool p_visible) override;
+	virtual void popup(const Rect2i &p_rect = Rect2i()) override;
+
 	void popup_file_dialog();
 	void clear_filters();
 	void add_filter(const String &p_filter, const String &p_description = "");
@@ -170,6 +195,9 @@ public:
 
 	void set_mode_overrides_title(bool p_override);
 	bool is_mode_overriding_title() const;
+
+	void set_use_native_dialog(bool p_native);
+	bool get_use_native_dialog() const;
 
 	void set_file_mode(FileMode p_mode);
 	FileMode get_file_mode() const;

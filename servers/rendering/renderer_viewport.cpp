@@ -1,36 +1,37 @@
-/*************************************************************************/
-/*  renderer_viewport.cpp                                                */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  renderer_viewport.cpp                                                 */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "renderer_viewport.h"
 
 #include "core/config/project_settings.h"
+#include "core/object/worker_thread_pool.h"
 #include "renderer_canvas_cull.h"
 #include "renderer_scene_cull.h"
 #include "rendering_server_globals.h"
@@ -72,73 +73,156 @@ static Transform2D _canvas_get_transform(RendererViewport::Viewport *p_viewport,
 	return xf;
 }
 
+Vector<RendererViewport::Viewport *> RendererViewport::_sort_active_viewports() {
+	// We need to sort the viewports in a "topological order", children first and
+	// parents last. We also need to keep sibling viewports in the original order
+	// from top to bottom.
+
+	Vector<Viewport *> result;
+	List<Viewport *> nodes;
+
+	for (int i = active_viewports.size() - 1; i >= 0; --i) {
+		Viewport *viewport = active_viewports[i];
+		if (viewport->parent.is_valid()) {
+			continue;
+		}
+
+		nodes.push_back(viewport);
+		result.insert(0, viewport);
+	}
+
+	while (!nodes.is_empty()) {
+		const Viewport *node = nodes[0];
+		nodes.pop_front();
+
+		for (int i = active_viewports.size() - 1; i >= 0; --i) {
+			Viewport *child = active_viewports[i];
+			if (child->parent != node->self) {
+				continue;
+			}
+
+			if (!nodes.find(child)) {
+				nodes.push_back(child);
+				result.insert(0, child);
+			}
+		}
+	}
+
+	return result;
+}
+
 void RendererViewport::_configure_3d_render_buffers(Viewport *p_viewport) {
 	if (p_viewport->render_buffers.is_valid()) {
 		if (p_viewport->size.width == 0 || p_viewport->size.height == 0) {
-			RSG::scene->free(p_viewport->render_buffers);
-			p_viewport->render_buffers = RID();
+			p_viewport->render_buffers.unref();
 		} else {
-			const float scaling_3d_scale = p_viewport->scaling_3d_scale;
+			const float EPSILON = 0.0001;
+			float scaling_3d_scale = p_viewport->scaling_3d_scale;
 			RS::ViewportScaling3DMode scaling_3d_mode = p_viewport->scaling_3d_mode;
-			bool scaling_enabled = true;
+			bool upscaler_available = p_viewport->fsr_enabled;
 
-			if ((scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR) && (scaling_3d_scale > 1.0)) {
+			if ((!upscaler_available || scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_BILINEAR || scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR) && scaling_3d_scale >= (1.0 - EPSILON) && scaling_3d_scale <= (1.0 + EPSILON)) {
+				// No 3D scaling on bilinear or FSR? Ignore scaling mode, this just introduces overhead.
+				// - Mobile can't perform optimal path
+				// - FSR does an extra pass (or 2 extra passes if 2D-MSAA is enabled)
+				// Scaling = 1.0 on FSR2 has benefits
+				scaling_3d_scale = 1.0;
+				scaling_3d_mode = RS::VIEWPORT_SCALING_3D_MODE_OFF;
+			}
+
+			bool scaling_3d_is_fsr = (scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR) || (scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR2);
+			bool use_taa = p_viewport->use_taa;
+
+			if (scaling_3d_is_fsr && (scaling_3d_scale >= (1.0 + EPSILON))) {
 				// FSR is not designed for downsampling.
 				// Fall back to bilinear scaling.
+				WARN_PRINT_ONCE("FSR 3D resolution scaling is not designed for downsampling. Falling back to bilinear 3D resolution scaling.");
 				scaling_3d_mode = RS::VIEWPORT_SCALING_3D_MODE_BILINEAR;
 			}
 
-			if ((scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR) && !p_viewport->fsr_enabled) {
+			if (scaling_3d_is_fsr && !upscaler_available) {
 				// FSR is not actually available.
 				// Fall back to bilinear scaling.
-				WARN_PRINT_ONCE("FSR 1.0 3D resolution scaling is not available. Falling back to bilinear 3D resolution scaling.");
+				WARN_PRINT_ONCE("FSR 3D resolution scaling is not available. Falling back to bilinear 3D resolution scaling.");
 				scaling_3d_mode = RS::VIEWPORT_SCALING_3D_MODE_BILINEAR;
 			}
 
-			if (scaling_3d_scale == 1.0) {
-				scaling_enabled = false;
+			if (use_taa && scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR2) {
+				// FSR2 can't be used with TAA.
+				// Turn it off and prefer using FSR2.
+				WARN_PRINT_ONCE("FSR 2 is not compatible with TAA. Disabling TAA internally.");
+				use_taa = false;
 			}
 
-			int width;
-			int height;
+			int target_width;
+			int target_height;
 			int render_width;
 			int render_height;
 
-			if (scaling_enabled) {
-				switch (scaling_3d_mode) {
-					case RS::VIEWPORT_SCALING_3D_MODE_BILINEAR:
-						// Clamp 3D rendering resolution to reasonable values supported on most hardware.
-						// This prevents freezing the engine or outright crashing on lower-end GPUs.
-						width = CLAMP(p_viewport->size.width * scaling_3d_scale, 1, 16384);
-						height = CLAMP(p_viewport->size.height * scaling_3d_scale, 1, 16384);
-						render_width = width;
-						render_height = height;
-						break;
-					case RS::VIEWPORT_SCALING_3D_MODE_FSR:
-						width = p_viewport->size.width;
-						height = p_viewport->size.height;
-						render_width = MAX(width * scaling_3d_scale, 1.0); // width / (width * scaling)
-						render_height = MAX(height * scaling_3d_scale, 1.0);
-						break;
-					default:
-						// This is an unknown mode.
-						WARN_PRINT_ONCE(vformat("Unknown scaling mode: %d. Disabling 3D resolution scaling.", scaling_3d_mode));
-						width = p_viewport->size.width;
-						height = p_viewport->size.height;
-						render_width = width;
-						render_height = height;
-						break;
-				}
-			} else {
-				width = p_viewport->size.width;
-				height = p_viewport->size.height;
-				render_width = width;
-				render_height = height;
+			switch (scaling_3d_mode) {
+				case RS::VIEWPORT_SCALING_3D_MODE_BILINEAR:
+					// Clamp 3D rendering resolution to reasonable values supported on most hardware.
+					// This prevents freezing the engine or outright crashing on lower-end GPUs.
+					target_width = p_viewport->size.width;
+					target_height = p_viewport->size.height;
+					render_width = CLAMP(target_width * scaling_3d_scale, 1, 16384);
+					render_height = CLAMP(target_height * scaling_3d_scale, 1, 16384);
+					break;
+				case RS::VIEWPORT_SCALING_3D_MODE_FSR:
+				case RS::VIEWPORT_SCALING_3D_MODE_FSR2:
+					target_width = p_viewport->size.width;
+					target_height = p_viewport->size.height;
+					render_width = MAX(target_width * scaling_3d_scale, 1.0); // target_width / (target_width * scaling)
+					render_height = MAX(target_height * scaling_3d_scale, 1.0);
+					break;
+				case RS::VIEWPORT_SCALING_3D_MODE_OFF:
+					target_width = p_viewport->size.width;
+					target_height = p_viewport->size.height;
+					render_width = target_width;
+					render_height = target_height;
+					break;
+				default:
+					// This is an unknown mode.
+					WARN_PRINT_ONCE(vformat("Unknown scaling mode: %d. Disabling 3D resolution scaling.", scaling_3d_mode));
+					scaling_3d_mode = RS::VIEWPORT_SCALING_3D_MODE_OFF;
+					scaling_3d_scale = 1.0;
+					target_width = p_viewport->size.width;
+					target_height = p_viewport->size.height;
+					render_width = target_width;
+					render_height = target_height;
+					break;
+			}
+
+			uint32_t jitter_phase_count = 0;
+			if (scaling_3d_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR2) {
+				// Implementation has been copied from ffxFsr2GetJitterPhaseCount.
+				jitter_phase_count = uint32_t(8.0f * pow(float(target_width) / render_width, 2.0f));
+			} else if (use_taa) {
+				// Default jitter count for TAA.
+				jitter_phase_count = 16;
 			}
 
 			p_viewport->internal_size = Size2(render_width, render_height);
+			p_viewport->jitter_phase_count = jitter_phase_count;
 
-			RSG::scene->render_buffers_configure(p_viewport->render_buffers, p_viewport->render_target, render_width, render_height, width, height, p_viewport->fsr_sharpness, p_viewport->texture_mipmap_bias, p_viewport->msaa, p_viewport->screen_space_aa, p_viewport->use_taa, p_viewport->use_debanding, p_viewport->get_view_count());
+			// At resolution scales lower than 1.0, use negative texture mipmap bias
+			// to compensate for the loss of sharpness.
+			const float texture_mipmap_bias = log2f(MIN(scaling_3d_scale, 1.0)) + p_viewport->texture_mipmap_bias;
+
+			RenderSceneBuffersConfiguration rb_config;
+			rb_config.set_render_target(p_viewport->render_target);
+			rb_config.set_internal_size(Size2i(render_width, render_height));
+			rb_config.set_target_size(Size2(target_width, target_height));
+			rb_config.set_view_count(p_viewport->view_count);
+			rb_config.set_scaling_3d_mode(scaling_3d_mode);
+			rb_config.set_msaa_3d(p_viewport->msaa_3d);
+			rb_config.set_screen_space_aa(p_viewport->screen_space_aa);
+			rb_config.set_fsr_sharpness(p_viewport->fsr_sharpness);
+			rb_config.set_texture_mipmap_bias(texture_mipmap_bias);
+			rb_config.set_use_taa(use_taa);
+			rb_config.set_use_debanding(p_viewport->use_debanding);
+
+			p_viewport->render_buffers->configure(&rb_config);
 		}
 	}
 }
@@ -167,7 +251,7 @@ void RendererViewport::_draw_3d(Viewport *p_viewport) {
 	}
 
 	float screen_mesh_lod_threshold = p_viewport->mesh_lod_threshold / float(p_viewport->size.width);
-	RSG::scene->render_camera(p_viewport->render_buffers, p_viewport->camera, p_viewport->scenario, p_viewport->self, p_viewport->internal_size, p_viewport->use_taa, screen_mesh_lod_threshold, p_viewport->shadow_atlas, xr_interface, &p_viewport->render_info);
+	RSG::scene->render_camera(p_viewport->render_buffers, p_viewport->camera, p_viewport->scenario, p_viewport->self, p_viewport->internal_size, p_viewport->jitter_phase_count, screen_mesh_lod_threshold, p_viewport->shadow_atlas, xr_interface, &p_viewport->render_info);
 
 	RENDER_TIMESTAMP("< Render 3D Scene");
 }
@@ -179,15 +263,17 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		timestamp_vp_map[rt_id] = p_viewport->self;
 	}
 
-	if (OS::get_singleton()->get_current_rendering_driver_name() == "opengl3") {
+	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
 		// This is currently needed for GLES to keep the current window being rendered to up to date
 		DisplayServer::get_singleton()->gl_window_make_current(p_viewport->viewport_to_screen);
 	}
 
 	/* Camera should always be BEFORE any other 3D */
 
+	bool can_draw_2d = !p_viewport->disable_2d && p_viewport->view_count == 1; // Stereo rendering does not support 2D, no depth data
 	bool scenario_draw_canvas_bg = false; //draw canvas, or some layer of it, as BG for 3D instead of in front
 	int scenario_canvas_max_layer = 0;
+	bool force_clear_render_target = false;
 
 	for (int i = 0; i < RS::VIEWPORT_RENDER_INFO_TYPE_MAX; i++) {
 		for (int j = 0; j < RS::VIEWPORT_RENDER_INFO_MAX; j++) {
@@ -195,11 +281,16 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		}
 	}
 
-	if (!p_viewport->disable_2d && !p_viewport->disable_environment && RSG::scene->is_scenario(p_viewport->scenario)) {
+	if (RSG::scene->is_scenario(p_viewport->scenario)) {
 		RID environment = RSG::scene->scenario_get_environment(p_viewport->scenario);
 		if (RSG::scene->is_environment(environment)) {
-			scenario_draw_canvas_bg = RSG::scene->environment_get_background(environment) == RS::ENV_BG_CANVAS;
-			scenario_canvas_max_layer = RSG::scene->environment_get_canvas_max_layer(environment);
+			if (can_draw_2d && !viewport_is_environment_disabled(p_viewport)) {
+				scenario_draw_canvas_bg = RSG::scene->environment_get_background(environment) == RS::ENV_BG_CANVAS;
+				scenario_canvas_max_layer = RSG::scene->environment_get_canvas_max_layer(environment);
+			} else if (RSG::scene->environment_get_background(environment) == RS::ENV_BG_CANVAS) {
+				// The scene renderer will still copy over the last frame, so we need to clear the render target.
+				force_clear_render_target = true;
+			}
 		}
 	}
 
@@ -222,10 +313,13 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 	}
 
 	if (!scenario_draw_canvas_bg && can_draw_3d) {
+		if (force_clear_render_target) {
+			RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
+		}
 		_draw_3d(p_viewport);
 	}
 
-	if (!p_viewport->disable_2d) {
+	if (can_draw_2d) {
 		RBMap<Viewport::CanvasKey, Viewport::CanvasData *> canvas_map;
 
 		Rect2 clip_rect(0, 0, p_viewport->size.x, p_viewport->size.y);
@@ -298,7 +392,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 						Transform2D scale;
 						scale.scale(cl->rect_cache.size);
 						scale.columns[2] = cl->rect_cache.position;
-						cl->light_shader_xform = cl->xform * scale;
+						cl->light_shader_xform = xf * cl->xform * scale;
 						if (cl->use_shadow) {
 							cl->shadows_next_ptr = lights_with_shadow;
 							if (lights_with_shadow == nullptr) {
@@ -455,6 +549,9 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		}
 
 		if (scenario_draw_canvas_bg && canvas_map.begin() && canvas_map.begin()->key.get_layer() > scenario_canvas_max_layer) {
+			// There may be an outstanding clear request if a clear was requested, but no 2D elements were drawn.
+			// Clear now otherwise we copy over garbage from the render target.
+			RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
 			if (!can_draw_3d) {
 				RSG::scene->render_empty_scene(p_viewport->render_buffers, p_viewport->scenario, p_viewport->shadow_atlas);
 			} else {
@@ -489,12 +586,15 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 				ptr = ptr->filter_next_ptr;
 			}
 
-			RSG::canvas->render_canvas(p_viewport->render_target, canvas, xform, canvas_lights, canvas_directional_lights, clip_rect, p_viewport->texture_filter, p_viewport->texture_repeat, p_viewport->snap_2d_transforms_to_pixel, p_viewport->snap_2d_vertices_to_pixel);
+			RSG::canvas->render_canvas(p_viewport->render_target, canvas, xform, canvas_lights, canvas_directional_lights, clip_rect, p_viewport->texture_filter, p_viewport->texture_repeat, p_viewport->snap_2d_transforms_to_pixel, p_viewport->snap_2d_vertices_to_pixel, p_viewport->canvas_cull_mask, &p_viewport->render_info);
 			if (RSG::canvas->was_sdf_used()) {
 				p_viewport->sdf_active = true;
 			}
 
 			if (scenario_draw_canvas_bg && E.key.get_layer() >= scenario_canvas_max_layer) {
+				// There may be an outstanding clear request if a clear was requested, but no 2D elements were drawn.
+				// Clear now otherwise we copy over garbage from the render target.
+				RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
 				if (!can_draw_3d) {
 					RSG::scene->render_empty_scene(p_viewport->render_buffers, p_viewport->scenario, p_viewport->shadow_atlas);
 				} else {
@@ -506,6 +606,9 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		}
 
 		if (scenario_draw_canvas_bg) {
+			// There may be an outstanding clear request if a clear was requested, but no 2D elements were drawn.
+			// Clear now otherwise we copy over garbage from the render target.
+			RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
 			if (!can_draw_3d) {
 				RSG::scene->render_empty_scene(p_viewport->render_buffers, p_viewport->scenario, p_viewport->shadow_atlas);
 			} else {
@@ -519,6 +622,11 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 		RSG::texture_storage->render_target_do_clear_request(p_viewport->render_target);
 	}
 
+	if (RSG::texture_storage->render_target_get_msaa_needs_resolve(p_viewport->render_target)) {
+		WARN_PRINT_ONCE("2D MSAA is enabled while there is no 2D content. Disable 2D MSAA for better performance.");
+		RSG::texture_storage->render_target_do_msaa_resolve(p_viewport->render_target);
+	}
+
 	if (p_viewport->measure_render_time) {
 		String rt_id = "vp_end_" + itos(p_viewport->self.get_id());
 		RSG::utilities->capture_timestamp(rt_id);
@@ -526,7 +634,7 @@ void RendererViewport::_draw_viewport(Viewport *p_viewport) {
 	}
 }
 
-void RendererViewport::draw_viewports() {
+void RendererViewport::draw_viewports(bool p_swap_buffers) {
 	timestamp_vp_map.clear();
 
 	// get our xr interface in case we need it
@@ -544,8 +652,10 @@ void RendererViewport::draw_viewports() {
 		set_default_clear_color(GLOBAL_GET("rendering/environment/defaults/default_clear_color"));
 	}
 
-	//sort viewports
-	active_viewports.sort_custom<ViewportSort>();
+	if (sorted_active_viewports_dirty) {
+		sorted_active_viewports = _sort_active_viewports();
+		sorted_active_viewports_dirty = false;
+	}
 
 	HashMap<DisplayServer::WindowID, Vector<BlitToScreen>> blit_to_screen_list;
 	//draw viewports
@@ -554,9 +664,9 @@ void RendererViewport::draw_viewports() {
 	//determine what is visible
 	draw_viewports_pass++;
 
-	for (int i = active_viewports.size() - 1; i >= 0; i--) { //to compute parent dependency, must go in reverse draw order
+	for (int i = sorted_active_viewports.size() - 1; i >= 0; i--) { //to compute parent dependency, must go in reverse draw order
 
-		Viewport *vp = active_viewports[i];
+		Viewport *vp = sorted_active_viewports[i];
 
 		if (vp->update_mode == RS::VIEWPORT_UPDATE_DISABLED) {
 			continue;
@@ -571,38 +681,31 @@ void RendererViewport::draw_viewports() {
 
 		if (vp->use_xr) {
 			if (xr_interface.is_valid()) {
+				// Ignore update mode we have to commit frames to our XR interface
+				visible = true;
+
 				// Override our size, make sure it matches our required size and is created as a stereo target
 				Size2 xr_size = xr_interface->get_render_target_size();
-
-				// Would have been nice if we could call viewport_set_size here,
-				// but alas that takes our RID and we now have our pointer,
-				// also we only check if view_count changes in render_target_set_size so we need to call that for this to reliably change
-				vp->occlusion_buffer_dirty = vp->occlusion_buffer_dirty || (vp->size != xr_size);
-				vp->size = xr_size;
-				uint32_t view_count = xr_interface->get_view_count();
-				RSG::texture_storage->render_target_set_size(vp->render_target, vp->size.x, vp->size.y, view_count);
-
-				// Inform xr interface we're about to render its viewport, if this returns false we don't render
-				visible = xr_interface->pre_draw_viewport(vp->render_target);
+				_viewport_set_size(vp, xr_size.width, xr_size.height, xr_interface->get_view_count());
 			} else {
 				// don't render anything
 				visible = false;
 				vp->size = Size2();
 			}
-		}
-
-		if (vp->update_mode == RS::VIEWPORT_UPDATE_ALWAYS || vp->update_mode == RS::VIEWPORT_UPDATE_ONCE) {
-			visible = true;
-		}
-
-		if (vp->update_mode == RS::VIEWPORT_UPDATE_WHEN_VISIBLE && RSG::texture_storage->render_target_was_used(vp->render_target)) {
-			visible = true;
-		}
-
-		if (vp->update_mode == RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE) {
-			Viewport *parent = viewport_owner.get_or_null(vp->parent);
-			if (parent && parent->last_pass == draw_viewports_pass) {
+		} else {
+			if (vp->update_mode == RS::VIEWPORT_UPDATE_ALWAYS || vp->update_mode == RS::VIEWPORT_UPDATE_ONCE) {
 				visible = true;
+			}
+
+			if (vp->update_mode == RS::VIEWPORT_UPDATE_WHEN_VISIBLE && RSG::texture_storage->render_target_was_used(vp->render_target)) {
+				visible = true;
+			}
+
+			if (vp->update_mode == RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE) {
+				Viewport *parent = viewport_owner.get_or_null(vp->parent);
+				if (parent && parent->last_pass == draw_viewports_pass) {
+					visible = true;
+				}
 			}
 		}
 
@@ -617,8 +720,8 @@ void RendererViewport::draw_viewports() {
 	int objects_drawn = 0;
 	int draw_calls_used = 0;
 
-	for (int i = 0; i < active_viewports.size(); i++) {
-		Viewport *vp = active_viewports[i];
+	for (int i = 0; i < sorted_active_viewports.size(); i++) {
+		Viewport *vp = sorted_active_viewports[i];
 
 		if (vp->last_pass != draw_viewports_pass) {
 			continue; //should not draw
@@ -628,31 +731,43 @@ void RendererViewport::draw_viewports() {
 
 		RSG::texture_storage->render_target_set_as_unused(vp->render_target);
 		if (vp->use_xr && xr_interface.is_valid()) {
-			// check for an external texture destination (disabled for now, not yet supported)
-			// RSG::texture_storage->render_target_set_external_texture(vp->render_target, xr_interface->get_external_texture_for_eye(leftOrMono));
-			RSG::texture_storage->render_target_set_external_texture(vp->render_target, 0);
+			// Inform XR interface we're about to render its viewport,
+			// if this returns false we don't render.
+			// This usually is a result of the player taking off their headset and OpenXR telling us to skip
+			// rendering frames.
+			if (xr_interface->pre_draw_viewport(vp->render_target)) {
+				RSG::texture_storage->render_target_set_override(vp->render_target,
+						xr_interface->get_color_texture(),
+						xr_interface->get_depth_texture(),
+						xr_interface->get_velocity_texture());
 
-			// render...
-			RSG::scene->set_debug_draw_mode(vp->debug_draw);
+				// render...
+				RSG::scene->set_debug_draw_mode(vp->debug_draw);
 
-			// and draw viewport
-			_draw_viewport(vp);
+				// and draw viewport
+				_draw_viewport(vp);
 
-			// measure
+				// commit our eyes
+				Vector<BlitToScreen> blits = xr_interface->post_draw_viewport(vp->render_target, vp->viewport_to_screen_rect);
+				if (vp->viewport_to_screen != DisplayServer::INVALID_WINDOW_ID) {
+					if (OS::get_singleton()->get_current_rendering_driver_name().begins_with("opengl3")) {
+						if (blits.size() > 0) {
+							RSG::rasterizer->blit_render_targets_to_screen(vp->viewport_to_screen, blits.ptr(), blits.size());
+						}
+						RSG::rasterizer->end_frame(true);
+					} else if (blits.size() > 0) {
+						if (!blit_to_screen_list.has(vp->viewport_to_screen)) {
+							blit_to_screen_list[vp->viewport_to_screen] = Vector<BlitToScreen>();
+						}
 
-			// commit our eyes
-			Vector<BlitToScreen> blits = xr_interface->post_draw_viewport(vp->render_target, vp->viewport_to_screen_rect);
-			if (vp->viewport_to_screen != DisplayServer::INVALID_WINDOW_ID && blits.size() > 0) {
-				if (!blit_to_screen_list.has(vp->viewport_to_screen)) {
-					blit_to_screen_list[vp->viewport_to_screen] = Vector<BlitToScreen>();
-				}
-
-				for (int b = 0; b < blits.size(); b++) {
-					blit_to_screen_list[vp->viewport_to_screen].push_back(blits[b]);
+						for (int b = 0; b < blits.size(); b++) {
+							blit_to_screen_list[vp->viewport_to_screen].push_back(blits[b]);
+						}
+					}
 				}
 			}
 		} else {
-			RSG::texture_storage->render_target_set_external_texture(vp->render_target, 0);
+			RSG::texture_storage->render_target_set_override(vp->render_target, RID(), RID(), RID());
 
 			RSG::scene->set_debug_draw_mode(vp->debug_draw);
 
@@ -674,7 +789,14 @@ void RendererViewport::draw_viewports() {
 					blit_to_screen_list[vp->viewport_to_screen] = Vector<BlitToScreen>();
 				}
 
-				blit_to_screen_list[vp->viewport_to_screen].push_back(blit);
+				if (OS::get_singleton()->get_current_rendering_driver_name().begins_with("opengl3")) {
+					Vector<BlitToScreen> blit_to_screen_vec;
+					blit_to_screen_vec.push_back(blit);
+					RSG::rasterizer->blit_render_targets_to_screen(vp->viewport_to_screen, blit_to_screen_vec.ptr(), 1);
+					RSG::rasterizer->end_frame(true);
+				} else {
+					blit_to_screen_list[vp->viewport_to_screen].push_back(blit);
+				}
 			}
 		}
 
@@ -684,9 +806,14 @@ void RendererViewport::draw_viewports() {
 
 		RENDER_TIMESTAMP("< Render Viewport " + itos(i));
 
+		// 3D render info.
 		objects_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME] + vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME];
 		vertices_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME] + vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME];
 		draw_calls_used += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_VISIBLE][RS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME] + vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_SHADOW][RS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME];
+		// 2D render info.
+		objects_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_CANVAS][RS::VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME];
+		vertices_drawn += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_CANVAS][RS::VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME];
+		draw_calls_used += vp->render_info.info[RS::VIEWPORT_RENDER_INFO_TYPE_CANVAS][RS::VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME];
 	}
 	RSG::scene->set_debug_draw_mode(RS::VIEWPORT_DEBUG_DRAW_DISABLED);
 
@@ -695,11 +822,14 @@ void RendererViewport::draw_viewports() {
 	total_draw_calls_used = draw_calls_used;
 
 	RENDER_TIMESTAMP("< Render Viewports");
-	//this needs to be called to make screen swapping more efficient
-	RSG::rasterizer->prepare_for_blitting_render_targets();
 
-	for (const KeyValue<int, Vector<BlitToScreen>> &E : blit_to_screen_list) {
-		RSG::rasterizer->blit_render_targets_to_screen(E.key, E.value.ptr(), E.value.size());
+	if (p_swap_buffers) {
+		//this needs to be called to make screen swapping more efficient
+		RSG::rasterizer->prepare_for_blitting_render_targets();
+
+		for (const KeyValue<int, Vector<BlitToScreen>> &E : blit_to_screen_list) {
+			RSG::rasterizer->blit_render_targets_to_screen(E.key, E.value.ptr(), E.value.size());
+		}
 	}
 }
 
@@ -712,7 +842,7 @@ void RendererViewport::viewport_initialize(RID p_rid) {
 	Viewport *viewport = viewport_owner.get_or_null(p_rid);
 	viewport->self = p_rid;
 	viewport->render_target = RSG::texture_storage->render_target_create();
-	viewport->shadow_atlas = RSG::scene->shadow_atlas_create();
+	viewport->shadow_atlas = RSG::light_storage->shadow_atlas_create();
 	viewport->viewport_render_direct_to_screen = false;
 
 	viewport->fsr_enabled = !RSG::rasterizer->is_low_end() && !viewport->disable_3d;
@@ -720,27 +850,45 @@ void RendererViewport::viewport_initialize(RID p_rid) {
 
 void RendererViewport::viewport_set_use_xr(RID p_viewport, bool p_use_xr) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (viewport->use_xr == p_use_xr) {
 		return;
 	}
 
 	viewport->use_xr = p_use_xr;
-	_configure_3d_render_buffers(viewport);
+
+	// Re-configure the 3D render buffers when disabling XR. They'll get
+	// re-configured when enabling XR in draw_viewports().
+	if (!p_use_xr) {
+		viewport->view_count = 1;
+		_configure_3d_render_buffers(viewport);
+	}
 }
 
 void RendererViewport::viewport_set_scaling_3d_mode(RID p_viewport, RS::ViewportScaling3DMode p_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
+	ERR_FAIL_COND_EDMSG(p_mode == RS::VIEWPORT_SCALING_3D_MODE_FSR2 && OS::get_singleton()->get_current_rendering_method() != "forward_plus", "FSR2 is only available when using the Forward+ renderer.");
 
+	if (viewport->scaling_3d_mode == p_mode) {
+		return;
+	}
+
+	bool motion_vectors_before = _viewport_requires_motion_vectors(viewport);
 	viewport->scaling_3d_mode = p_mode;
+
+	bool motion_vectors_after = _viewport_requires_motion_vectors(viewport);
+	if (motion_vectors_before != motion_vectors_after) {
+		num_viewports_with_motion_vectors += motion_vectors_after ? 1 : -1;
+	}
+
 	_configure_3d_render_buffers(viewport);
 }
 
 void RendererViewport::viewport_set_fsr_sharpness(RID p_viewport, float p_sharpness) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->fsr_sharpness = p_sharpness;
 	_configure_3d_render_buffers(viewport);
@@ -748,7 +896,7 @@ void RendererViewport::viewport_set_fsr_sharpness(RID p_viewport, float p_sharpn
 
 void RendererViewport::viewport_set_texture_mipmap_bias(RID p_viewport, float p_mipmap_bias) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->texture_mipmap_bias = p_mipmap_bias;
 	_configure_3d_render_buffers(viewport);
@@ -756,7 +904,7 @@ void RendererViewport::viewport_set_texture_mipmap_bias(RID p_viewport, float p_
 
 void RendererViewport::viewport_set_scaling_3d_scale(RID p_viewport, float p_scaling_3d_scale) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	// Clamp to reasonable values that are actually useful.
 	// Values above 2.0 don't serve a practical purpose since the viewport
@@ -769,39 +917,36 @@ void RendererViewport::viewport_set_scaling_3d_scale(RID p_viewport, float p_sca
 	_configure_3d_render_buffers(viewport);
 }
 
-uint32_t RendererViewport::Viewport::get_view_count() {
-	uint32_t view_count = 1;
-
-	if (use_xr && XRServer::get_singleton() != nullptr) {
-		Ref<XRInterface> xr_interface;
-
-		xr_interface = XRServer::get_singleton()->get_primary_interface();
-		if (xr_interface.is_valid()) {
-			view_count = xr_interface->get_view_count();
-		}
-	}
-
-	return view_count;
-}
-
 void RendererViewport::viewport_set_size(RID p_viewport, int p_width, int p_height) {
-	ERR_FAIL_COND(p_width < 0 && p_height < 0);
+	ERR_FAIL_COND(p_width < 0 || p_height < 0);
 
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
+	ERR_FAIL_COND_MSG(viewport->use_xr, "Cannot set viewport size when using XR");
 
-	viewport->size = Size2(p_width, p_height);
+	_viewport_set_size(viewport, p_width, p_height, 1);
+}
 
-	uint32_t view_count = viewport->get_view_count();
-	RSG::texture_storage->render_target_set_size(viewport->render_target, p_width, p_height, view_count);
-	_configure_3d_render_buffers(viewport);
+void RendererViewport::_viewport_set_size(Viewport *p_viewport, int p_width, int p_height, uint32_t p_view_count) {
+	Size2i new_size(p_width, p_height);
+	if (p_viewport->size != new_size || p_viewport->view_count != p_view_count) {
+		p_viewport->size = new_size;
+		p_viewport->view_count = p_view_count;
 
-	viewport->occlusion_buffer_dirty = true;
+		RSG::texture_storage->render_target_set_size(p_viewport->render_target, p_width, p_height, p_view_count);
+		_configure_3d_render_buffers(p_viewport);
+
+		p_viewport->occlusion_buffer_dirty = true;
+	}
+}
+
+bool RendererViewport::_viewport_requires_motion_vectors(Viewport *p_viewport) {
+	return p_viewport->use_taa || p_viewport->scaling_3d_mode == RenderingServer::VIEWPORT_SCALING_3D_MODE_FSR2;
 }
 
 void RendererViewport::viewport_set_active(RID p_viewport, bool p_active) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (p_active) {
 		ERR_FAIL_COND_MSG(active_viewports.has(viewport), "Can't make active a Viewport that is already active.");
@@ -810,31 +955,33 @@ void RendererViewport::viewport_set_active(RID p_viewport, bool p_active) {
 	} else {
 		active_viewports.erase(viewport);
 	}
+
+	sorted_active_viewports_dirty = true;
 }
 
 void RendererViewport::viewport_set_parent_viewport(RID p_viewport, RID p_parent_viewport) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->parent = p_parent_viewport;
 }
 
 void RendererViewport::viewport_set_clear_mode(RID p_viewport, RS::ViewportClearMode p_clear_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->clear_mode = p_clear_mode;
 }
 
 void RendererViewport::viewport_attach_to_screen(RID p_viewport, const Rect2 &p_rect, DisplayServer::WindowID p_screen) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (p_screen != DisplayServer::INVALID_WINDOW_ID) {
 		// If using OpenGL we can optimize this operation by rendering directly to system_fbo
 		// instead of rendering to fbo and copying to system_fbo after
 		if (RSG::rasterizer->is_low_end() && viewport->viewport_render_direct_to_screen) {
-			RSG::texture_storage->render_target_set_size(viewport->render_target, p_rect.size.x, p_rect.size.y, viewport->get_view_count());
+			RSG::texture_storage->render_target_set_size(viewport->render_target, p_rect.size.x, p_rect.size.y, viewport->view_count);
 			RSG::texture_storage->render_target_set_position(viewport->render_target, p_rect.position.x, p_rect.position.y);
 		}
 
@@ -844,7 +991,7 @@ void RendererViewport::viewport_attach_to_screen(RID p_viewport, const Rect2 &p_
 		// if render_direct_to_screen was used, reset size and position
 		if (RSG::rasterizer->is_low_end() && viewport->viewport_render_direct_to_screen) {
 			RSG::texture_storage->render_target_set_position(viewport->render_target, 0, 0);
-			RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y, viewport->get_view_count());
+			RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y, viewport->view_count);
 		}
 
 		viewport->viewport_to_screen_rect = Rect2();
@@ -854,7 +1001,7 @@ void RendererViewport::viewport_attach_to_screen(RID p_viewport, const Rect2 &p_
 
 void RendererViewport::viewport_set_render_direct_to_screen(RID p_viewport, bool p_enable) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (p_enable == viewport->viewport_render_direct_to_screen) {
 		return;
@@ -863,7 +1010,7 @@ void RendererViewport::viewport_set_render_direct_to_screen(RID p_viewport, bool
 	// if disabled, reset render_target size and position
 	if (!p_enable) {
 		RSG::texture_storage->render_target_set_position(viewport->render_target, 0, 0);
-		RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y, viewport->get_view_count());
+		RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->size.x, viewport->size.y, viewport->view_count);
 	}
 
 	RSG::texture_storage->render_target_set_direct_to_screen(viewport->render_target, p_enable);
@@ -871,28 +1018,35 @@ void RendererViewport::viewport_set_render_direct_to_screen(RID p_viewport, bool
 
 	// if attached to screen already, setup screen size and position, this needs to happen after setting flag to avoid an unnecessary buffer allocation
 	if (RSG::rasterizer->is_low_end() && viewport->viewport_to_screen_rect != Rect2() && p_enable) {
-		RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->viewport_to_screen_rect.size.x, viewport->viewport_to_screen_rect.size.y, viewport->get_view_count());
+		RSG::texture_storage->render_target_set_size(viewport->render_target, viewport->viewport_to_screen_rect.size.x, viewport->viewport_to_screen_rect.size.y, viewport->view_count);
 		RSG::texture_storage->render_target_set_position(viewport->render_target, viewport->viewport_to_screen_rect.position.x, viewport->viewport_to_screen_rect.position.y);
 	}
 }
 
 void RendererViewport::viewport_set_update_mode(RID p_viewport, RS::ViewportUpdateMode p_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->update_mode = p_mode;
 }
 
+RID RendererViewport::viewport_get_render_target(RID p_viewport) const {
+	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL_V(viewport, RID());
+
+	return viewport->render_target;
+}
+
 RID RendererViewport::viewport_get_texture(RID p_viewport) const {
 	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND_V(!viewport, RID());
+	ERR_FAIL_NULL_V(viewport, RID());
 
 	return RSG::texture_storage->render_target_get_texture(viewport->render_target);
 }
 
 RID RendererViewport::viewport_get_occluder_debug_texture(RID p_viewport) const {
 	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND_V(!viewport, RID());
+	ERR_FAIL_NULL_V(viewport, RID());
 
 	if (viewport->use_occlusion_culling && viewport->debug_draw == RenderingServer::VIEWPORT_DEBUG_DRAW_OCCLUDERS) {
 		return RendererSceneOcclusionCull::get_singleton()->buffer_get_debug_texture(p_viewport);
@@ -902,7 +1056,7 @@ RID RendererViewport::viewport_get_occluder_debug_texture(RID p_viewport) const 
 
 void RendererViewport::viewport_set_prev_camera_data(RID p_viewport, const RendererSceneRender::CameraData *p_camera_data) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 	uint64_t frame = RSG::rasterizer->get_frame_number();
 	if (viewport->prev_camera_data_frame != frame) {
 		viewport->prev_camera_data = *p_camera_data;
@@ -912,41 +1066,51 @@ void RendererViewport::viewport_set_prev_camera_data(RID p_viewport, const Rende
 
 const RendererSceneRender::CameraData *RendererViewport::viewport_get_prev_camera_data(RID p_viewport) {
 	const Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND_V(!viewport, nullptr);
+	ERR_FAIL_NULL_V(viewport, nullptr);
 	return &viewport->prev_camera_data;
 }
 
 void RendererViewport::viewport_set_disable_2d(RID p_viewport, bool p_disable) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->disable_2d = p_disable;
 }
 
-void RendererViewport::viewport_set_disable_environment(RID p_viewport, bool p_disable) {
+void RendererViewport::viewport_set_environment_mode(RID p_viewport, RS::ViewportEnvironmentMode p_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
-	viewport->disable_environment = p_disable;
+	viewport->disable_environment = p_mode;
+}
+
+bool RendererViewport::viewport_is_environment_disabled(Viewport *viewport) {
+	ERR_FAIL_NULL_V(viewport, false);
+
+	if (viewport->parent.is_valid() && viewport->disable_environment == RS::VIEWPORT_ENVIRONMENT_INHERIT) {
+		Viewport *parent = viewport_owner.get_or_null(viewport->parent);
+		return viewport_is_environment_disabled(parent);
+	}
+	return viewport->disable_environment == RS::VIEWPORT_ENVIRONMENT_DISABLED;
 }
 
 void RendererViewport::viewport_set_disable_3d(RID p_viewport, bool p_disable) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->disable_3d = p_disable;
 }
 
 void RendererViewport::viewport_attach_camera(RID p_viewport, RID p_camera) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->camera = p_camera;
 }
 
 void RendererViewport::viewport_set_scenario(RID p_viewport, RID p_scenario) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (viewport->scenario.is_valid()) {
 		RSG::scene->scenario_remove_viewport_visibility_mask(viewport->scenario, p_viewport);
@@ -960,11 +1124,11 @@ void RendererViewport::viewport_set_scenario(RID p_viewport, RID p_scenario) {
 
 void RendererViewport::viewport_attach_canvas(RID p_viewport, RID p_canvas) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	ERR_FAIL_COND(viewport->canvas_map.has(p_canvas));
 	RendererCanvasCull::Canvas *canvas = RSG::canvas->canvas_owner.get_or_null(p_canvas);
-	ERR_FAIL_COND(!canvas);
+	ERR_FAIL_NULL(canvas);
 
 	canvas->viewports.insert(p_viewport);
 	viewport->canvas_map[p_canvas] = Viewport::CanvasData();
@@ -975,10 +1139,10 @@ void RendererViewport::viewport_attach_canvas(RID p_viewport, RID p_canvas) {
 
 void RendererViewport::viewport_remove_canvas(RID p_viewport, RID p_canvas) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	RendererCanvasCull::Canvas *canvas = RSG::canvas->canvas_owner.get_or_null(p_canvas);
-	ERR_FAIL_COND(!canvas);
+	ERR_FAIL_NULL(canvas);
 
 	viewport->canvas_map.erase(p_canvas);
 	canvas->viewports.erase(p_viewport);
@@ -986,7 +1150,7 @@ void RendererViewport::viewport_remove_canvas(RID p_viewport, RID p_canvas) {
 
 void RendererViewport::viewport_set_canvas_transform(RID p_viewport, RID p_canvas, const Transform2D &p_offset) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	ERR_FAIL_COND(!viewport->canvas_map.has(p_canvas));
 	viewport->canvas_map[p_canvas].transform = p_offset;
@@ -994,7 +1158,7 @@ void RendererViewport::viewport_set_canvas_transform(RID p_viewport, RID p_canva
 
 void RendererViewport::viewport_set_transparent_background(RID p_viewport, bool p_enabled) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	RSG::texture_storage->render_target_set_transparent(viewport->render_target, p_enabled);
 	viewport->transparent_bg = p_enabled;
@@ -1002,14 +1166,14 @@ void RendererViewport::viewport_set_transparent_background(RID p_viewport, bool 
 
 void RendererViewport::viewport_set_global_canvas_transform(RID p_viewport, const Transform2D &p_transform) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->global_transform = p_transform;
 }
 
 void RendererViewport::viewport_set_canvas_stacking(RID p_viewport, RID p_canvas, int p_layer, int p_sublayer) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	ERR_FAIL_COND(!viewport->canvas_map.has(p_canvas));
 	viewport->canvas_map[p_canvas].layer = p_layer;
@@ -1018,35 +1182,57 @@ void RendererViewport::viewport_set_canvas_stacking(RID p_viewport, RID p_canvas
 
 void RendererViewport::viewport_set_positional_shadow_atlas_size(RID p_viewport, int p_size, bool p_16_bits) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->shadow_atlas_size = p_size;
 	viewport->shadow_atlas_16_bits = p_16_bits;
 
-	RSG::scene->shadow_atlas_set_size(viewport->shadow_atlas, viewport->shadow_atlas_size, viewport->shadow_atlas_16_bits);
+	RSG::light_storage->shadow_atlas_set_size(viewport->shadow_atlas, viewport->shadow_atlas_size, viewport->shadow_atlas_16_bits);
 }
 
 void RendererViewport::viewport_set_positional_shadow_atlas_quadrant_subdivision(RID p_viewport, int p_quadrant, int p_subdiv) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
-	RSG::scene->shadow_atlas_set_quadrant_subdivision(viewport->shadow_atlas, p_quadrant, p_subdiv);
+	RSG::light_storage->shadow_atlas_set_quadrant_subdivision(viewport->shadow_atlas, p_quadrant, p_subdiv);
 }
 
-void RendererViewport::viewport_set_msaa(RID p_viewport, RS::ViewportMSAA p_msaa) {
+void RendererViewport::viewport_set_msaa_2d(RID p_viewport, RS::ViewportMSAA p_msaa) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
-	if (viewport->msaa == p_msaa) {
+	if (viewport->msaa_2d == p_msaa) {
 		return;
 	}
-	viewport->msaa = p_msaa;
+	viewport->msaa_2d = p_msaa;
+	RSG::texture_storage->render_target_set_msaa(viewport->render_target, p_msaa);
+}
+
+void RendererViewport::viewport_set_msaa_3d(RID p_viewport, RS::ViewportMSAA p_msaa) {
+	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL(viewport);
+
+	if (viewport->msaa_3d == p_msaa) {
+		return;
+	}
+	viewport->msaa_3d = p_msaa;
 	_configure_3d_render_buffers(viewport);
+}
+
+void RendererViewport::viewport_set_use_hdr_2d(RID p_viewport, bool p_use_hdr_2d) {
+	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL(viewport);
+
+	if (viewport->use_hdr_2d == p_use_hdr_2d) {
+		return;
+	}
+	viewport->use_hdr_2d = p_use_hdr_2d;
+	RSG::texture_storage->render_target_set_use_hdr(viewport->render_target, p_use_hdr_2d);
 }
 
 void RendererViewport::viewport_set_screen_space_aa(RID p_viewport, RS::ViewportScreenSpaceAA p_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (viewport->screen_space_aa == p_mode) {
 		return;
@@ -1057,18 +1243,27 @@ void RendererViewport::viewport_set_screen_space_aa(RID p_viewport, RS::Viewport
 
 void RendererViewport::viewport_set_use_taa(RID p_viewport, bool p_use_taa) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
+	ERR_FAIL_COND_EDMSG(OS::get_singleton()->get_current_rendering_method() != "forward_plus", "TAA is only available when using the Forward+ renderer.");
 
 	if (viewport->use_taa == p_use_taa) {
 		return;
 	}
+
+	bool motion_vectors_before = _viewport_requires_motion_vectors(viewport);
 	viewport->use_taa = p_use_taa;
+
+	bool motion_vectors_after = _viewport_requires_motion_vectors(viewport);
+	if (motion_vectors_before != motion_vectors_after) {
+		num_viewports_with_motion_vectors += motion_vectors_after ? 1 : -1;
+	}
+
 	_configure_3d_render_buffers(viewport);
 }
 
 void RendererViewport::viewport_set_use_debanding(RID p_viewport, bool p_use_debanding) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (viewport->use_debanding == p_use_debanding) {
 		return;
@@ -1079,7 +1274,7 @@ void RendererViewport::viewport_set_use_debanding(RID p_viewport, bool p_use_deb
 
 void RendererViewport::viewport_set_use_occlusion_culling(RID p_viewport, bool p_use_occlusion_culling) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	if (viewport->use_occlusion_culling == p_use_occlusion_culling) {
 		return;
@@ -1114,7 +1309,7 @@ void RendererViewport::viewport_set_occlusion_culling_build_quality(RS::Viewport
 
 void RendererViewport::viewport_set_mesh_lod_threshold(RID p_viewport, float p_pixels) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->mesh_lod_threshold = p_pixels;
 }
@@ -1133,62 +1328,62 @@ int RendererViewport::viewport_get_render_info(RID p_viewport, RS::ViewportRende
 
 void RendererViewport::viewport_set_debug_draw(RID p_viewport, RS::ViewportDebugDraw p_draw) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->debug_draw = p_draw;
 }
 
 void RendererViewport::viewport_set_measure_render_time(RID p_viewport, bool p_enable) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->measure_render_time = p_enable;
 }
 
 float RendererViewport::viewport_get_measured_render_time_cpu(RID p_viewport) const {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND_V(!viewport, 0);
+	ERR_FAIL_NULL_V(viewport, 0);
 
 	return double(viewport->time_cpu_end - viewport->time_cpu_begin) / 1000.0;
 }
 
 float RendererViewport::viewport_get_measured_render_time_gpu(RID p_viewport) const {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND_V(!viewport, 0);
+	ERR_FAIL_NULL_V(viewport, 0);
 
 	return double((viewport->time_gpu_end - viewport->time_gpu_begin) / 1000) / 1000.0;
 }
 
 void RendererViewport::viewport_set_snap_2d_transforms_to_pixel(RID p_viewport, bool p_enabled) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 	viewport->snap_2d_transforms_to_pixel = p_enabled;
 }
 
 void RendererViewport::viewport_set_snap_2d_vertices_to_pixel(RID p_viewport, bool p_enabled) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 	viewport->snap_2d_vertices_to_pixel = p_enabled;
 }
 
 void RendererViewport::viewport_set_default_canvas_item_texture_filter(RID p_viewport, RS::CanvasItemTextureFilter p_filter) {
 	ERR_FAIL_COND_MSG(p_filter == RS::CANVAS_ITEM_TEXTURE_FILTER_DEFAULT, "Viewport does not accept DEFAULT as texture filter (it's the topmost choice already).)");
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->texture_filter = p_filter;
 }
 void RendererViewport::viewport_set_default_canvas_item_texture_repeat(RID p_viewport, RS::CanvasItemTextureRepeat p_repeat) {
 	ERR_FAIL_COND_MSG(p_repeat == RS::CANVAS_ITEM_TEXTURE_REPEAT_DEFAULT, "Viewport does not accept DEFAULT as texture repeat (it's the topmost choice already).)");
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	viewport->texture_repeat = p_repeat;
 }
 
 void RendererViewport::viewport_set_sdf_oversize_and_scale(RID p_viewport, RS::ViewportSDFOversize p_size, RS::ViewportSDFScale p_scale) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	RSG::texture_storage->render_target_set_sdf_size_and_scale(viewport->render_target, p_size, p_scale);
 }
@@ -1196,7 +1391,7 @@ void RendererViewport::viewport_set_sdf_oversize_and_scale(RID p_viewport, RS::V
 RID RendererViewport::viewport_find_from_screen_attachment(DisplayServer::WindowID p_id) const {
 	RID *rids = nullptr;
 	uint32_t rid_count = viewport_owner.get_rid_count();
-	rids = (RID *)alloca(sizeof(RID *) * rid_count);
+	rids = (RID *)alloca(sizeof(RID) * rid_count);
 	viewport_owner.fill_owned_buffer(rids);
 	for (uint32_t i = 0; i < rid_count; i++) {
 		Viewport *viewport = viewport_owner.get_or_null(rids[i]);
@@ -1209,7 +1404,7 @@ RID RendererViewport::viewport_find_from_screen_attachment(DisplayServer::Window
 
 void RendererViewport::viewport_set_vrs_mode(RID p_viewport, RS::ViewportVRSMode p_mode) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	RSG::texture_storage->render_target_set_vrs_mode(viewport->render_target, p_mode);
 	_configure_3d_render_buffers(viewport);
@@ -1217,7 +1412,7 @@ void RendererViewport::viewport_set_vrs_mode(RID p_viewport, RS::ViewportVRSMode
 
 void RendererViewport::viewport_set_vrs_texture(RID p_viewport, RID p_texture) {
 	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
-	ERR_FAIL_COND(!viewport);
+	ERR_FAIL_NULL(viewport);
 
 	RSG::texture_storage->render_target_set_vrs_texture(viewport->render_target, p_texture);
 	_configure_3d_render_buffers(viewport);
@@ -1228,9 +1423,9 @@ bool RendererViewport::free(RID p_rid) {
 		Viewport *viewport = viewport_owner.get_or_null(p_rid);
 
 		RSG::texture_storage->render_target_free(viewport->render_target);
-		RSG::scene->free(viewport->shadow_atlas);
+		RSG::light_storage->shadow_atlas_free(viewport->shadow_atlas);
 		if (viewport->render_buffers.is_valid()) {
-			RSG::scene->free(viewport->render_buffers);
+			viewport->render_buffers.unref();
 		}
 
 		while (viewport->canvas_map.begin()) {
@@ -1239,9 +1434,14 @@ bool RendererViewport::free(RID p_rid) {
 
 		viewport_set_scenario(p_rid, RID());
 		active_viewports.erase(viewport);
+		sorted_active_viewports_dirty = true;
 
 		if (viewport->use_occlusion_culling) {
 			RendererSceneOcclusionCull::get_singleton()->remove_buffer(p_rid);
+		}
+
+		if (_viewport_requires_motion_vectors(viewport)) {
+			num_viewports_with_motion_vectors--;
 		}
 
 		viewport_owner.free(p_rid);
@@ -1278,6 +1478,12 @@ void RendererViewport::set_default_clear_color(const Color &p_color) {
 	RSG::texture_storage->set_default_clear_color(p_color);
 }
 
+void RendererViewport::viewport_set_canvas_cull_mask(RID p_viewport, uint32_t p_canvas_cull_mask) {
+	Viewport *viewport = viewport_owner.get_or_null(p_viewport);
+	ERR_FAIL_NULL(viewport);
+	viewport->canvas_cull_mask = p_canvas_cull_mask;
+}
+
 // Workaround for setting this on thread.
 void RendererViewport::call_set_vsync_mode(DisplayServer::VSyncMode p_mode, DisplayServer::WindowID p_window) {
 	DisplayServer::get_singleton()->window_set_vsync_mode(p_mode, p_window);
@@ -1286,11 +1492,15 @@ void RendererViewport::call_set_vsync_mode(DisplayServer::VSyncMode p_mode, Disp
 int RendererViewport::get_total_objects_drawn() const {
 	return total_objects_drawn;
 }
-int RendererViewport::get_total_vertices_drawn() const {
+int RendererViewport::get_total_primitives_drawn() const {
 	return total_vertices_drawn;
 }
 int RendererViewport::get_total_draw_calls_used() const {
 	return total_draw_calls_used;
+}
+
+int RendererViewport::get_num_viewports_with_motion_vectors() const {
+	return num_viewports_with_motion_vectors;
 }
 
 RendererViewport::RendererViewport() {

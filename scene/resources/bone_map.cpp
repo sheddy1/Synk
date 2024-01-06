@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  bone_map.cpp                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  bone_map.cpp                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "bone_map.h"
 
@@ -37,7 +37,7 @@ bool BoneMap::_set(const StringName &p_path, const Variant &p_value) {
 		set_skeleton_bone_name(which, p_value);
 		return true;
 	}
-	return true;
+	return false;
 }
 
 bool BoneMap::_get(const StringName &p_path, Variant &r_ret) const {
@@ -47,7 +47,7 @@ bool BoneMap::_get(const StringName &p_path, Variant &r_ret) const {
 		r_ret = get_skeleton_bone_name(which);
 		return true;
 	}
-	return true;
+	return false;
 }
 
 void BoneMap::_get_property_list(List<PropertyInfo> *p_list) const {
@@ -82,14 +82,18 @@ StringName BoneMap::get_skeleton_bone_name(StringName p_profile_bone_name) const
 	return bone_map.get(p_profile_bone_name);
 }
 
-void BoneMap::set_skeleton_bone_name(StringName p_profile_bone_name, const StringName p_skeleton_bone_name) {
+void BoneMap::_set_skeleton_bone_name(StringName p_profile_bone_name, const StringName p_skeleton_bone_name) {
 	ERR_FAIL_COND(!bone_map.has(p_profile_bone_name));
 	bone_map.insert(p_profile_bone_name, p_skeleton_bone_name);
+}
+
+void BoneMap::set_skeleton_bone_name(StringName p_profile_bone_name, const StringName p_skeleton_bone_name) {
+	_set_skeleton_bone_name(p_profile_bone_name, p_skeleton_bone_name);
 	emit_signal("bone_map_updated");
 }
 
 StringName BoneMap::find_profile_bone_name(StringName p_skeleton_bone_name) const {
-	StringName profile_bone_name = StringName();
+	StringName profile_bone_name;
 	HashMap<StringName, StringName>::ConstIterator E = bone_map.begin();
 	while (E) {
 		if (E->value == p_skeleton_bone_name) {
@@ -148,7 +152,6 @@ void BoneMap::_validate_bone_map() {
 	} else {
 		bone_map.clear();
 	}
-	emit_signal("retarget_option_updated");
 }
 
 void BoneMap::_bind_methods() {
@@ -168,7 +171,9 @@ void BoneMap::_bind_methods() {
 }
 
 void BoneMap::_validate_property(PropertyInfo &property) const {
-	//
+	if (property.name == "bonemap" || property.name == "profile") {
+		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
 }
 
 BoneMap::BoneMap() {

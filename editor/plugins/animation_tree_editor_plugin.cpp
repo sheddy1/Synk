@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  animation_tree_editor_plugin.cpp                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  animation_tree_editor_plugin.cpp                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "animation_tree_editor_plugin.h"
 
@@ -39,29 +39,44 @@
 #include "core/io/resource_loader.h"
 #include "core/math/delaunay_2d.h"
 #include "core/os/keyboard.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_scale.h"
+#include "editor/gui/editor_file_dialog.h"
 #include "scene/animation/animation_blend_tree.h"
 #include "scene/animation/animation_player.h"
+#include "scene/gui/button.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/panel.h"
+#include "scene/gui/scroll_container.h"
+#include "scene/gui/separator.h"
 #include "scene/main/window.h"
 #include "scene/scene_string_names.h"
 
 void AnimationTreeEditor::edit(AnimationTree *p_tree) {
+	if (p_tree && !p_tree->is_connected("animation_list_changed", callable_mp(this, &AnimationTreeEditor::_animation_list_changed))) {
+		p_tree->connect("animation_list_changed", callable_mp(this, &AnimationTreeEditor::_animation_list_changed), CONNECT_DEFERRED);
+	}
+
 	if (tree == p_tree) {
 		return;
+	}
+
+	if (tree && tree->is_connected("animation_list_changed", callable_mp(this, &AnimationTreeEditor::_animation_list_changed))) {
+		tree->disconnect("animation_list_changed", callable_mp(this, &AnimationTreeEditor::_animation_list_changed));
 	}
 
 	tree = p_tree;
 
 	Vector<String> path;
-	if (tree && tree->has_meta("_tree_edit_path")) {
-		path = tree->get_meta("_tree_edit_path");
+	if (tree) {
 		edit_path(path);
-	} else {
-		current_root = ObjectID();
+	}
+}
+
+void AnimationTreeEditor::_node_removed(Node *p_node) {
+	if (p_node == tree) {
+		tree = nullptr;
+		_clear_editors();
 	}
 }
 
@@ -69,6 +84,13 @@ void AnimationTreeEditor::_path_button_pressed(int p_path) {
 	edited_path.clear();
 	for (int i = 0; i <= p_path; i++) {
 		edited_path.push_back(button_path[i]);
+	}
+}
+
+void AnimationTreeEditor::_animation_list_changed() {
+	AnimationNodeBlendTreeEditor *bte = AnimationNodeBlendTreeEditor::get_singleton();
+	if (bte) {
+		bte->update_graph();
 	}
 }
 
@@ -103,7 +125,7 @@ void AnimationTreeEditor::_update_path() {
 void AnimationTreeEditor::edit_path(const Vector<String> &p_path) {
 	button_path.clear();
 
-	Ref<AnimationNode> node = tree->get_tree_root();
+	Ref<AnimationNode> node = tree->get_root_animation_node();
 
 	if (node.is_valid()) {
 		current_root = node->get_instance_id();
@@ -129,8 +151,23 @@ void AnimationTreeEditor::edit_path(const Vector<String> &p_path) {
 	} else {
 		current_root = ObjectID();
 		edited_path = button_path;
+		for (int i = 0; i < editors.size(); i++) {
+			editors[i]->edit(Ref<AnimationNode>());
+			editors[i]->hide();
+		}
 	}
 
+	_update_path();
+}
+
+void AnimationTreeEditor::_clear_editors() {
+	button_path.clear();
+	current_root = ObjectID();
+	edited_path = button_path;
+	for (int i = 0; i < editors.size(); i++) {
+		editors[i]->edit(Ref<AnimationNode>());
+		editors[i]->hide();
+	}
 	_update_path();
 }
 
@@ -146,10 +183,13 @@ void AnimationTreeEditor::enter_editor(const String &p_path) {
 
 void AnimationTreeEditor::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_ENTER_TREE: {
+			get_tree()->connect("node_removed", callable_mp(this, &AnimationTreeEditor::_node_removed));
+		} break;
 		case NOTIFICATION_PROCESS: {
 			ObjectID root;
-			if (tree && tree->get_tree_root().is_valid()) {
-				root = tree->get_tree_root()->get_instance_id();
+			if (tree && tree->get_root_animation_node().is_valid()) {
+				root = tree->get_root_animation_node()->get_instance_id();
 			}
 
 			if (root != current_root) {
@@ -159,6 +199,9 @@ void AnimationTreeEditor::_notification(int p_what) {
 			if (button_path.size() != edited_path.size()) {
 				edit_path(edited_path);
 			}
+		} break;
+		case NOTIFICATION_EXIT_TREE: {
+			get_tree()->disconnect("node_removed", callable_mp(this, &AnimationTreeEditor::_node_removed));
 		} break;
 	}
 }
@@ -201,23 +244,18 @@ bool AnimationTreeEditor::can_edit(const Ref<AnimationNode> &p_node) const {
 }
 
 Vector<String> AnimationTreeEditor::get_animation_list() {
-	if (!singleton->is_visible()) {
+	if (!singleton->tree || !singleton->is_visible()) {
+		// When tree is empty, singleton not in the main thread.
 		return Vector<String>();
 	}
 
 	AnimationTree *tree = singleton->tree;
-	if (!tree || !tree->has_node(tree->get_animation_player())) {
-		return Vector<String>();
-	}
-
-	AnimationPlayer *ap = Object::cast_to<AnimationPlayer>(tree->get_node(tree->get_animation_player()));
-
-	if (!ap) {
+	if (!tree) {
 		return Vector<String>();
 	}
 
 	List<StringName> anims;
-	ap->get_animation_list(&anims);
+	tree->get_animation_list(&anims);
 	Vector<String> ret;
 	for (const StringName &E : anims) {
 		ret.push_back(E);

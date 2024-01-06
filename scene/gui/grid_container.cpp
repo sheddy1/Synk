@@ -1,35 +1,37 @@
-/*************************************************************************/
-/*  grid_container.cpp                                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  grid_container.cpp                                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "grid_container.h"
+
 #include "core/templates/rb_set.h"
+#include "scene/theme/theme_db.h"
 
 void GridContainer::_notification(int p_what) {
 	switch (p_what) {
@@ -38,9 +40,6 @@ void GridContainer::_notification(int p_what) {
 			RBMap<int, int> row_minh; // Max of min_height of all controls in each row (indexed by row).
 			RBSet<int> col_expanded; // Columns which have the SIZE_EXPAND flag set.
 			RBSet<int> row_expanded; // Rows which have the SIZE_EXPAND flag set.
-
-			int hsep = get_theme_constant(SNAME("h_separation"));
-			int vsep = get_theme_constant(SNAME("v_separation"));
 
 			// Compute the per-column/per-row data.
 			int valid_controls_index = 0;
@@ -69,10 +68,10 @@ void GridContainer::_notification(int p_what) {
 					row_minh[row] = ms.height;
 				}
 
-				if (c->get_h_size_flags() & SIZE_EXPAND) {
+				if (c->get_h_size_flags().has_flag(SIZE_EXPAND)) {
 					col_expanded.insert(col);
 				}
-				if (c->get_v_size_flags() & SIZE_EXPAND) {
+				if (c->get_v_size_flags().has_flag(SIZE_EXPAND)) {
 					row_expanded.insert(row);
 				}
 			}
@@ -98,8 +97,8 @@ void GridContainer::_notification(int p_what) {
 					remaining_space.height -= E.value;
 				}
 			}
-			remaining_space.height -= vsep * MAX(max_row - 1, 0);
-			remaining_space.width -= hsep * MAX(max_col - 1, 0);
+			remaining_space.height -= theme_cache.v_separation * MAX(max_row - 1, 0);
+			remaining_space.width -= theme_cache.h_separation * MAX(max_col - 1, 0);
 
 			bool can_fit = false;
 			while (!can_fit && col_expanded.size() > 0) {
@@ -202,7 +201,7 @@ void GridContainer::_notification(int p_what) {
 						col_ofs = 0;
 					}
 					if (row > 0) {
-						row_ofs += (row_expanded.has(row - 1) ? row_expand : row_minh[row - 1]) + vsep;
+						row_ofs += (row_expanded.has(row - 1) ? row_expand : row_minh[row - 1]) + theme_cache.v_separation;
 
 						if (row_expanded.has(row - 1) && row - 1 < row_remaining_pixel_index) {
 							// Apply the remaining pixel of the previous row.
@@ -224,11 +223,11 @@ void GridContainer::_notification(int p_what) {
 				if (rtl) {
 					Point2 p(col_ofs - s.width, row_ofs);
 					fit_child_in_rect(c, Rect2(p, s));
-					col_ofs -= s.width + hsep;
+					col_ofs -= s.width + theme_cache.h_separation;
 				} else {
 					Point2 p(col_ofs, row_ofs);
 					fit_child_in_rect(c, Rect2(p, s));
-					col_ofs += s.width + hsep;
+					col_ofs += s.width + theme_cache.h_separation;
 				}
 			}
 		} break;
@@ -246,6 +245,11 @@ void GridContainer::_notification(int p_what) {
 
 void GridContainer::set_columns(int p_columns) {
 	ERR_FAIL_COND(p_columns < 1);
+
+	if (columns == p_columns) {
+		return;
+	}
+
 	columns = p_columns;
 	queue_sort();
 	update_minimum_size();
@@ -255,19 +259,23 @@ int GridContainer::get_columns() const {
 	return columns;
 }
 
+int GridContainer::get_h_separation() const {
+	return theme_cache.h_separation;
+}
+
 void GridContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_columns", "columns"), &GridContainer::set_columns);
 	ClassDB::bind_method(D_METHOD("get_columns"), &GridContainer::get_columns);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "columns", PROPERTY_HINT_RANGE, "1,1024,1"), "set_columns", "get_columns");
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, GridContainer, h_separation);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, GridContainer, v_separation);
 }
 
 Size2 GridContainer::get_minimum_size() const {
 	RBMap<int, int> col_minw;
 	RBMap<int, int> row_minh;
-
-	int hsep = get_theme_constant(SNAME("h_separation"));
-	int vsep = get_theme_constant(SNAME("v_separation"));
 
 	int max_row = 0;
 	int max_col = 0;
@@ -308,8 +316,8 @@ Size2 GridContainer::get_minimum_size() const {
 		ms.height += E.value;
 	}
 
-	ms.height += vsep * max_row;
-	ms.width += hsep * max_col;
+	ms.height += theme_cache.v_separation * max_row;
+	ms.width += theme_cache.h_separation * max_col;
 
 	return ms;
 }

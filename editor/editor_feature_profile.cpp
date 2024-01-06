@@ -1,43 +1,44 @@
-/*************************************************************************/
-/*  editor_feature_profile.cpp                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_feature_profile.cpp                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_feature_profile.h"
 
 #include "core/io/dir_access.h"
 #include "core/io/json.h"
-#include "editor/editor_file_dialog.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_property_name_processor.h"
 #include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
+#include "editor/editor_string_names.h"
+#include "editor/gui/editor_file_dialog.h"
 
 const char *EditorFeatureProfile::feature_names[FEATURE_MAX] = {
 	TTRC("3D Editor"),
@@ -47,6 +48,7 @@ const char *EditorFeatureProfile::feature_names[FEATURE_MAX] = {
 	TTRC("Node Dock"),
 	TTRC("FileSystem Dock"),
 	TTRC("Import Dock"),
+	TTRC("History Dock"),
 };
 
 const char *EditorFeatureProfile::feature_descriptions[FEATURE_MAX] = {
@@ -57,6 +59,7 @@ const char *EditorFeatureProfile::feature_descriptions[FEATURE_MAX] = {
 	TTRC("Allows to work with signals and groups of the node selected in the Scene dock."),
 	TTRC("Allows to browse the local file system via a dedicated dock."),
 	TTRC("Allows to configure import settings for individual assets. Requires the FileSystem dock to function."),
+	TTRC("Provides an overview of the editor's and each scene's undo history."),
 };
 
 const char *EditorFeatureProfile::feature_identifiers[FEATURE_MAX] = {
@@ -67,6 +70,7 @@ const char *EditorFeatureProfile::feature_identifiers[FEATURE_MAX] = {
 	"node_dock",
 	"filesystem_dock",
 	"import_dock",
+	"history_dock",
 };
 
 void EditorFeatureProfile::set_disable_class(const StringName &p_class, bool p_disabled) {
@@ -302,10 +306,15 @@ void EditorFeatureProfile::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEATURE_NODE_DOCK);
 	BIND_ENUM_CONSTANT(FEATURE_FILESYSTEM_DOCK);
 	BIND_ENUM_CONSTANT(FEATURE_IMPORT_DOCK);
+	BIND_ENUM_CONSTANT(FEATURE_HISTORY_DOCK);
 	BIND_ENUM_CONSTANT(FEATURE_MAX);
 }
 
-EditorFeatureProfile::EditorFeatureProfile() {}
+EditorFeatureProfile::EditorFeatureProfile() {
+	for (int i = 0; i < FEATURE_MAX; i++) {
+		features_disabled[i] = false;
+	}
+}
 
 //////////////////////////
 
@@ -315,7 +324,7 @@ void EditorFeatureProfileManager::_notification(int p_what) {
 			current_profile = EDITOR_GET("_default_feature_profile");
 			if (!current_profile.is_empty()) {
 				current.instantiate();
-				Error err = current->load_from_file(EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(current_profile + ".profile"));
+				Error err = current->load_from_file(EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(current_profile + ".profile"));
 				if (err != OK) {
 					ERR_PRINT("Error loading default feature profile: " + current_profile);
 					current_profile = String();
@@ -346,7 +355,7 @@ void EditorFeatureProfileManager::_update_profile_list(const String &p_select_pr
 	if (p_select_profile.is_empty()) { //default, keep
 		if (profile_list->get_selected() >= 0) {
 			selected_profile = profile_list->get_item_metadata(profile_list->get_selected());
-			if (!FileAccess::exists(EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(selected_profile + ".profile"))) {
+			if (!FileAccess::exists(EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(selected_profile + ".profile"))) {
 				selected_profile = String(); //does not exist
 			}
 		}
@@ -411,13 +420,7 @@ void EditorFeatureProfileManager::_update_profile_list(const String &p_select_pr
 void EditorFeatureProfileManager::_profile_action(int p_action) {
 	switch (p_action) {
 		case PROFILE_CLEAR: {
-			EditorSettings::get_singleton()->set("_default_feature_profile", "");
-			EditorSettings::get_singleton()->save();
-			current_profile = "";
-			current.unref();
-
-			_update_profile_list();
-			_emit_current_profile_changed();
+			set_current_profile("", false);
 		} break;
 		case PROFILE_SET: {
 			String selected = _get_selected_profile();
@@ -425,13 +428,7 @@ void EditorFeatureProfileManager::_profile_action(int p_action) {
 			if (selected == current_profile) {
 				return; // Nothing to do here.
 			}
-			EditorSettings::get_singleton()->set("_default_feature_profile", selected);
-			EditorSettings::get_singleton()->save();
-			current_profile = selected;
-			current = edited;
-
-			_update_profile_list();
-			_emit_current_profile_changed();
+			set_current_profile(selected, false);
 		} break;
 		case PROFILE_IMPORT: {
 			import_profiles->popup_file_dialog();
@@ -475,7 +472,7 @@ void EditorFeatureProfileManager::_create_new_profile() {
 		EditorNode::get_singleton()->show_warning(TTR("Profile must be a valid filename and must not contain '.'"));
 		return;
 	}
-	String file = EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(name + ".profile");
+	String file = EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(name + ".profile");
 	if (FileAccess::exists(file)) {
 		EditorNode::get_singleton()->show_warning(TTR("Profile with this name already exists."));
 		return;
@@ -499,14 +496,14 @@ void EditorFeatureProfileManager::_profile_selected(int p_what) {
 void EditorFeatureProfileManager::_fill_classes_from(TreeItem *p_parent, const String &p_class, const String &p_selected) {
 	TreeItem *class_item = class_list->create_item(p_parent);
 	class_item->set_cell_mode(0, TreeItem::CELL_MODE_CHECK);
-	class_item->set_icon(0, EditorNode::get_singleton()->get_class_icon(p_class, "Node"));
+	class_item->set_icon(0, EditorNode::get_singleton()->get_class_icon(p_class));
 	String text = p_class;
 
 	bool disabled = edited->is_class_disabled(p_class);
 	bool disabled_editor = edited->is_class_editor_disabled(p_class);
 	bool disabled_properties = edited->has_class_properties_disabled(p_class);
 	if (disabled) {
-		class_item->set_custom_color(0, class_list->get_theme_color(SNAME("disabled_font_color"), SNAME("Editor")));
+		class_item->set_custom_color(0, class_list->get_theme_color(SNAME("disabled_font_color"), EditorStringName(Editor)));
 	} else if (disabled_editor && disabled_properties) {
 		text += " " + TTR("(Editor Disabled, Properties Disabled)");
 	} else if (disabled_properties) {
@@ -526,11 +523,11 @@ void EditorFeatureProfileManager::_fill_classes_from(TreeItem *p_parent, const S
 		class_item->select(0);
 	}
 	if (disabled) {
-		//class disabled, do nothing else (do not show further)
+		// Class disabled, do nothing else (do not show further).
 		return;
 	}
 
-	class_item->set_checked(0, true); // if its not disabled, its checked
+	class_item->set_checked(0, true); // If it's not disabled, it's checked.
 
 	List<StringName> child_classes;
 	ClassDB::get_direct_inheriters_from_class(p_class, &child_classes);
@@ -558,21 +555,22 @@ void EditorFeatureProfileManager::_class_list_item_selected() {
 
 	Variant md = item->get_metadata(0);
 	if (md.get_type() == Variant::STRING || md.get_type() == Variant::STRING_NAME) {
-		String class_name = md;
-		String class_description;
-
-		DocTools *dd = EditorHelp::get_doc_data();
-		HashMap<String, DocData::ClassDoc>::Iterator E = dd->class_list.find(class_name);
-		if (E) {
-			class_description = DTR(E->value.brief_description);
+		String text = description_bit->get_class_description(md);
+		if (!text.is_empty()) {
+			// Display both class name and description, since the help bit may be displayed
+			// far away from the location (especially if the dialog was resized to be taller).
+			description_bit->set_text(vformat("[b]%s[/b]: %s", md, text));
+			description_bit->get_rich_text()->set_self_modulate(Color(1, 1, 1, 1));
+		} else {
+			// Use nested `vformat()` as translators shouldn't interfere with BBCode tags.
+			description_bit->set_text(vformat(TTR("No description available for %s."), vformat("[b]%s[/b]", md)));
+			description_bit->get_rich_text()->set_self_modulate(Color(1, 1, 1, 0.5));
 		}
-
-		description_bit->set_text(class_description);
 	} else if (md.get_type() == Variant::INT) {
-		int feature_id = md;
-		String feature_description = EditorFeatureProfile::get_feature_description(EditorFeatureProfile::Feature(feature_id));
+		String feature_description = EditorFeatureProfile::get_feature_description(EditorFeatureProfile::Feature((int)md));
+		description_bit->set_text(vformat("[b]%s[/b]: %s", TTR(item->get_text(0)), TTRGET(feature_description)));
+		description_bit->get_rich_text()->set_self_modulate(Color(1, 1, 1, 1));
 
-		description_bit->set_text(TTRGET(feature_description));
 		return;
 	} else {
 		return;
@@ -630,7 +628,7 @@ void EditorFeatureProfileManager::_class_list_item_selected() {
 			property->set_selectable(0, true);
 			property->set_checked(0, !edited->is_class_property_disabled(class_name, name));
 			property->set_text(0, text);
-			property->set_tooltip(0, tooltip);
+			property->set_tooltip_text(0, tooltip);
 			property->set_metadata(0, name);
 			String icon_type = Variant::get_type_name(E.type);
 			property->set_icon(0, EditorNode::get_singleton()->get_class_icon(icon_type));
@@ -742,6 +740,8 @@ void EditorFeatureProfileManager::_update_selected_profile() {
 	class_list->clear();
 
 	String profile = _get_selected_profile();
+	profile_actions[PROFILE_SET]->set_disabled(profile == current_profile);
+
 	if (profile.is_empty()) { //nothing selected, nothing edited
 		property_list->clear();
 		edited.unref();
@@ -754,8 +754,8 @@ void EditorFeatureProfileManager::_update_selected_profile() {
 	} else {
 		//reload edited, if different from current
 		edited.instantiate();
-		Error err = edited->load_from_file(EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(profile + ".profile"));
-		ERR_FAIL_COND_MSG(err != OK, "Error when loading editor feature profile from file '" + EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(profile + ".profile") + "'.");
+		Error err = edited->load_from_file(EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(profile + ".profile"));
+		ERR_FAIL_COND_MSG(err != OK, "Error when loading editor feature profile from file '" + EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(profile + ".profile") + "'.");
 	}
 
 	updating_features = true;
@@ -763,7 +763,7 @@ void EditorFeatureProfileManager::_update_selected_profile() {
 	TreeItem *root = class_list->create_item();
 
 	TreeItem *features = class_list->create_item(root);
-	TreeItem *last_feature;
+	TreeItem *last_feature = nullptr;
 	features->set_text(0, TTR("Main Features:"));
 	for (int i = 0; i < EditorFeatureProfile::FEATURE_MAX; i++) {
 		TreeItem *feature;
@@ -810,7 +810,7 @@ void EditorFeatureProfileManager::_import_profiles(const Vector<String> &p_paths
 			return;
 		}
 
-		String dst_file = EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(basefile);
+		String dst_file = EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(basefile);
 
 		if (FileAccess::exists(dst_file)) {
 			EditorNode::get_singleton()->show_warning(vformat(TTR("Profile '%s' already exists. Remove it first before importing, import aborted."), basefile.get_basename()));
@@ -825,7 +825,7 @@ void EditorFeatureProfileManager::_import_profiles(const Vector<String> &p_paths
 		Error err = profile->load_from_file(p_paths[i]);
 		ERR_CONTINUE(err != OK);
 		String basefile = p_paths[i].get_file();
-		String dst_file = EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(basefile);
+		String dst_file = EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(basefile);
 		profile->save_to_file(dst_file);
 	}
 
@@ -849,7 +849,7 @@ void EditorFeatureProfileManager::_save_and_update() {
 	ERR_FAIL_COND(edited_path.is_empty());
 	ERR_FAIL_COND(edited.is_null());
 
-	edited->save_to_file(EditorPaths::get_singleton()->get_feature_profiles_dir().plus_file(edited_path + ".profile"));
+	edited->save_to_file(EditorPaths::get_singleton()->get_feature_profiles_dir().path_join(edited_path + ".profile"));
 
 	if (edited == current) {
 		update_timer->start();
@@ -868,11 +868,45 @@ Ref<EditorFeatureProfile> EditorFeatureProfileManager::get_current_profile() {
 	return current;
 }
 
+String EditorFeatureProfileManager::get_current_profile_name() const {
+	return current_profile;
+}
+
+void EditorFeatureProfileManager::set_current_profile(const String &p_profile_name, bool p_validate_profile) {
+	if (p_validate_profile && !p_profile_name.is_empty()) {
+		// Profile may not exist.
+		Ref<DirAccess> da = DirAccess::open(EditorPaths::get_singleton()->get_feature_profiles_dir());
+		ERR_FAIL_COND_MSG(da.is_null(), "Cannot open directory '" + EditorPaths::get_singleton()->get_feature_profiles_dir() + "'.");
+		ERR_FAIL_COND_MSG(!da->file_exists(p_profile_name + ".profile"), "Feature profile '" + p_profile_name + "' does not exist.");
+
+		// Change profile selection to emulate the UI interaction. Otherwise, the wrong profile would get activated.
+		// FIXME: Ideally, _update_selected_profile() should not rely on the user interface state to function properly.
+		for (int i = 0; i < profile_list->get_item_count(); i++) {
+			if (profile_list->get_item_metadata(i) == p_profile_name) {
+				profile_list->select(i);
+				break;
+			}
+		}
+		_update_selected_profile();
+	}
+
+	// Store in editor settings.
+	EditorSettings::get_singleton()->set("_default_feature_profile", p_profile_name);
+	EditorSettings::get_singleton()->save();
+
+	current_profile = p_profile_name;
+	if (p_profile_name.is_empty()) {
+		current.unref();
+	} else {
+		current = edited;
+	}
+	_update_profile_list();
+	_emit_current_profile_changed();
+}
+
 EditorFeatureProfileManager *EditorFeatureProfileManager::singleton = nullptr;
 
 void EditorFeatureProfileManager::_bind_methods() {
-	ClassDB::bind_method("_update_selected_profile", &EditorFeatureProfileManager::_update_selected_profile);
-
 	ADD_SIGNAL(MethodInfo("current_feature_profile_changed"));
 }
 
@@ -898,6 +932,7 @@ EditorFeatureProfileManager::EditorFeatureProfileManager() {
 	HBoxContainer *profiles_hbc = memnew(HBoxContainer);
 	profile_list = memnew(OptionButton);
 	profile_list->set_h_size_flags(Control::SIZE_EXPAND_FILL);
+	profile_list->set_auto_translate(false);
 	profiles_hbc->add_child(profile_list);
 	profile_list->connect("item_selected", callable_mp(this, &EditorFeatureProfileManager::_profile_selected));
 
@@ -970,7 +1005,7 @@ EditorFeatureProfileManager::EditorFeatureProfileManager() {
 	no_profile_selected_help = memnew(Label(TTR("Create or import a profile to edit available classes and properties.")));
 	// Add some spacing above the help label.
 	Ref<StyleBoxEmpty> sb = memnew(StyleBoxEmpty);
-	sb->set_default_margin(SIDE_TOP, 20 * EDSCALE);
+	sb->set_content_margin(SIDE_TOP, 20 * EDSCALE);
 	no_profile_selected_help->add_theme_style_override("normal", sb);
 	no_profile_selected_help->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_CENTER);
 	no_profile_selected_help->set_v_size_flags(Control::SIZE_EXPAND_FILL);

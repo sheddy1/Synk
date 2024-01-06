@@ -1,46 +1,54 @@
-/*************************************************************************/
-/*  control_editor_plugin.h                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  control_editor_plugin.h                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef CONTROL_EDITOR_PLUGIN_H
 #define CONTROL_EDITOR_PLUGIN_H
 
+#include "editor/editor_inspector.h"
 #include "editor/editor_plugin.h"
 #include "scene/gui/box_container.h"
+#include "scene/gui/button.h"
 #include "scene/gui/check_box.h"
 #include "scene/gui/control.h"
 #include "scene/gui/label.h"
 #include "scene/gui/margin_container.h"
 #include "scene/gui/option_button.h"
 #include "scene/gui/panel_container.h"
+#include "scene/gui/popup.h"
+#include "scene/gui/separator.h"
 #include "scene/gui/texture_rect.h"
 
+class EditorSelection;
+class GridContainer;
+
+// Inspector controls.
 class ControlPositioningWarning : public MarginContainer {
 	GDCLASS(ControlPositioningWarning, MarginContainer);
 
@@ -122,105 +130,102 @@ class EditorInspectorPluginControl : public EditorInspectorPlugin {
 public:
 	virtual bool can_handle(Object *p_object) override;
 	virtual void parse_group(Object *p_object, const String &p_group) override;
-	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const uint32_t p_usage, const bool p_wide = false) override;
+	virtual bool parse_property(Object *p_object, const Variant::Type p_type, const String &p_path, const PropertyHint p_hint, const String &p_hint_text, const BitField<PropertyUsageFlags> p_usage, const bool p_wide = false) override;
+};
+
+// Toolbar controls.
+class ControlEditorPopupButton : public Button {
+	GDCLASS(ControlEditorPopupButton, Button);
+
+	Ref<Texture2D> arrow_icon;
+
+	PopupPanel *popup_panel = nullptr;
+	VBoxContainer *popup_vbox = nullptr;
+
+	void _popup_visibility_changed(bool p_visible);
+
+protected:
+	void _notification(int p_what);
+
+public:
+	virtual Size2 get_minimum_size() const override;
+	virtual void toggled(bool p_pressed) override;
+
+	VBoxContainer *get_popup_hbox() const { return popup_vbox; }
+
+	ControlEditorPopupButton();
+};
+
+class ControlEditorPresetPicker : public MarginContainer {
+	GDCLASS(ControlEditorPresetPicker, MarginContainer);
+
+	virtual void _preset_button_pressed(const int p_preset) {}
+
+protected:
+	static constexpr int grid_separation = 0;
+	HashMap<int, Button *> preset_buttons;
+
+	void _add_row_button(HBoxContainer *p_row, const int p_preset, const String &p_name);
+	void _add_separator(BoxContainer *p_box, Separator *p_separator);
+
+public:
+	ControlEditorPresetPicker() {}
+};
+
+class AnchorPresetPicker : public ControlEditorPresetPicker {
+	GDCLASS(AnchorPresetPicker, ControlEditorPresetPicker);
+
+	virtual void _preset_button_pressed(const int p_preset) override;
+
+protected:
+	void _notification(int p_notification);
+	static void _bind_methods();
+
+public:
+	AnchorPresetPicker();
+};
+
+class SizeFlagPresetPicker : public ControlEditorPresetPicker {
+	GDCLASS(SizeFlagPresetPicker, ControlEditorPresetPicker);
+
+	CheckBox *expand_button = nullptr;
+
+	bool vertical = false;
+
+	virtual void _preset_button_pressed(const int p_preset) override;
+
+protected:
+	void _notification(int p_notification);
+	static void _bind_methods();
+
+public:
+	void set_allowed_flags(Vector<SizeFlags> &p_flags);
+
+	SizeFlagPresetPicker(bool p_vertical);
 };
 
 class ControlEditorToolbar : public HBoxContainer {
 	GDCLASS(ControlEditorToolbar, HBoxContainer);
 
-	UndoRedo *undo_redo = nullptr;
 	EditorSelection *editor_selection = nullptr;
 
-	enum MenuOption {
-		ANCHORS_AND_OFFSETS_PRESET_TOP_LEFT,
-		ANCHORS_AND_OFFSETS_PRESET_TOP_RIGHT,
-		ANCHORS_AND_OFFSETS_PRESET_BOTTOM_LEFT,
-		ANCHORS_AND_OFFSETS_PRESET_BOTTOM_RIGHT,
-		ANCHORS_AND_OFFSETS_PRESET_CENTER_LEFT,
-		ANCHORS_AND_OFFSETS_PRESET_CENTER_RIGHT,
-		ANCHORS_AND_OFFSETS_PRESET_CENTER_TOP,
-		ANCHORS_AND_OFFSETS_PRESET_CENTER_BOTTOM,
-		ANCHORS_AND_OFFSETS_PRESET_CENTER,
-		ANCHORS_AND_OFFSETS_PRESET_TOP_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_LEFT_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_RIGHT_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_BOTTOM_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_VCENTER_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_HCENTER_WIDE,
-		ANCHORS_AND_OFFSETS_PRESET_FULL_RECT,
-
-		ANCHORS_AND_OFFSETS_PRESET_KEEP_RATIO,
-
-		ANCHORS_PRESET_TOP_LEFT,
-		ANCHORS_PRESET_TOP_RIGHT,
-		ANCHORS_PRESET_BOTTOM_LEFT,
-		ANCHORS_PRESET_BOTTOM_RIGHT,
-		ANCHORS_PRESET_CENTER_LEFT,
-		ANCHORS_PRESET_CENTER_RIGHT,
-		ANCHORS_PRESET_CENTER_TOP,
-		ANCHORS_PRESET_CENTER_BOTTOM,
-		ANCHORS_PRESET_CENTER,
-		ANCHORS_PRESET_TOP_WIDE,
-		ANCHORS_PRESET_LEFT_WIDE,
-		ANCHORS_PRESET_RIGHT_WIDE,
-		ANCHORS_PRESET_BOTTOM_WIDE,
-		ANCHORS_PRESET_VCENTER_WIDE,
-		ANCHORS_PRESET_HCENTER_WIDE,
-		ANCHORS_PRESET_FULL_RECT,
-
-		// Offsets Presets are not currently in use.
-		OFFSETS_PRESET_TOP_LEFT,
-		OFFSETS_PRESET_TOP_RIGHT,
-		OFFSETS_PRESET_BOTTOM_LEFT,
-		OFFSETS_PRESET_BOTTOM_RIGHT,
-		OFFSETS_PRESET_CENTER_LEFT,
-		OFFSETS_PRESET_CENTER_RIGHT,
-		OFFSETS_PRESET_CENTER_TOP,
-		OFFSETS_PRESET_CENTER_BOTTOM,
-		OFFSETS_PRESET_CENTER,
-		OFFSETS_PRESET_TOP_WIDE,
-		OFFSETS_PRESET_LEFT_WIDE,
-		OFFSETS_PRESET_RIGHT_WIDE,
-		OFFSETS_PRESET_BOTTOM_WIDE,
-		OFFSETS_PRESET_VCENTER_WIDE,
-		OFFSETS_PRESET_HCENTER_WIDE,
-		OFFSETS_PRESET_FULL_RECT,
-
-		CONTAINERS_H_PRESET_FILL,
-		CONTAINERS_H_PRESET_FILL_EXPAND,
-		CONTAINERS_H_PRESET_SHRINK_BEGIN,
-		CONTAINERS_H_PRESET_SHRINK_CENTER,
-		CONTAINERS_H_PRESET_SHRINK_END,
-		CONTAINERS_V_PRESET_FILL,
-		CONTAINERS_V_PRESET_FILL_EXPAND,
-		CONTAINERS_V_PRESET_SHRINK_BEGIN,
-		CONTAINERS_V_PRESET_SHRINK_CENTER,
-		CONTAINERS_V_PRESET_SHRINK_END,
-	};
-
-	MenuButton *anchor_presets_menu = nullptr;
-	PopupMenu *anchors_popup = nullptr;
-	MenuButton *container_h_presets_menu = nullptr;
-	MenuButton *container_v_presets_menu = nullptr;
-
+	ControlEditorPopupButton *anchors_button = nullptr;
+	ControlEditorPopupButton *containers_button = nullptr;
 	Button *anchor_mode_button = nullptr;
+
+	SizeFlagPresetPicker *container_h_picker = nullptr;
+	SizeFlagPresetPicker *container_v_picker = nullptr;
 
 	bool anchors_mode = false;
 
-	void _set_anchors_preset(Control::LayoutPreset p_preset);
-	void _set_anchors_and_offsets_preset(Control::LayoutPreset p_preset);
-	void _set_anchors_and_offsets_to_keep_ratio();
-	void _set_container_h_preset(Control::SizeFlags p_preset);
-	void _set_container_v_preset(Control::SizeFlags p_preset);
+	void _anchors_preset_selected(int p_preset);
+	void _anchors_to_current_ratio();
+	void _anchor_mode_toggled(bool p_status);
+	void _container_flags_selected(int p_flags, bool p_vertical);
 
-	Vector2 _anchor_to_position(const Control *p_control, Vector2 anchor);
 	Vector2 _position_to_anchor(const Control *p_control, Vector2 position);
-
-	void _button_toggle_anchor_mode(bool p_status);
-
 	bool _is_node_locked(const Node *p_node);
-	List<Control *> _get_edited_controls(bool retrieve_locked = false, bool remove_controls_if_parent_in_selection = true);
-	void _popup_callback(int p_op);
+	List<Control *> _get_edited_controls();
 	void _selection_changed();
 
 protected:
@@ -236,6 +241,7 @@ public:
 	ControlEditorToolbar();
 };
 
+// Editor plugin.
 class ControlEditorPlugin : public EditorPlugin {
 	GDCLASS(ControlEditorPlugin, EditorPlugin);
 

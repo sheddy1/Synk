@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  file_access_android.cpp                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  file_access_android.cpp                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "file_access_android.h"
 
@@ -42,7 +42,7 @@ String FileAccessAndroid::get_path_absolute() const {
 	return absolute_path;
 }
 
-Error FileAccessAndroid::_open(const String &p_path, int p_mode_flags) {
+Error FileAccessAndroid::open_internal(const String &p_path, int p_mode_flags) {
 	_close();
 
 	path_src = p_path;
@@ -121,6 +121,75 @@ uint8_t FileAccessAndroid::get_8() const {
 	return byte;
 }
 
+uint16_t FileAccessAndroid::get_16() const {
+	if (pos >= len) {
+		eof = true;
+		return 0;
+	}
+
+	uint16_t bytes = 0;
+	int r = AAsset_read(asset, &bytes, 2);
+
+	if (r >= 0) {
+		pos += r;
+		if (pos >= len) {
+			eof = true;
+		}
+	}
+
+	if (big_endian) {
+		bytes = BSWAP16(bytes);
+	}
+
+	return bytes;
+}
+
+uint32_t FileAccessAndroid::get_32() const {
+	if (pos >= len) {
+		eof = true;
+		return 0;
+	}
+
+	uint32_t bytes = 0;
+	int r = AAsset_read(asset, &bytes, 4);
+
+	if (r >= 0) {
+		pos += r;
+		if (pos >= len) {
+			eof = true;
+		}
+	}
+
+	if (big_endian) {
+		bytes = BSWAP32(bytes);
+	}
+
+	return bytes;
+}
+
+uint64_t FileAccessAndroid::get_64() const {
+	if (pos >= len) {
+		eof = true;
+		return 0;
+	}
+
+	uint64_t bytes = 0;
+	int r = AAsset_read(asset, &bytes, 8);
+
+	if (r >= 0) {
+		pos += r;
+		if (pos >= len) {
+			eof = true;
+		}
+	}
+
+	if (big_endian) {
+		bytes = BSWAP64(bytes);
+	}
+
+	return bytes;
+}
+
 uint64_t FileAccessAndroid::get_buffer(uint8_t *p_dst, uint64_t p_length) const {
 	ERR_FAIL_COND_V(!p_dst && p_length > 0, -1);
 
@@ -151,6 +220,18 @@ void FileAccessAndroid::store_8(uint8_t p_dest) {
 	ERR_FAIL();
 }
 
+void FileAccessAndroid::store_16(uint16_t p_dest) {
+	ERR_FAIL();
+}
+
+void FileAccessAndroid::store_32(uint32_t p_dest) {
+	ERR_FAIL();
+}
+
+void FileAccessAndroid::store_64(uint64_t p_dest) {
+	ERR_FAIL();
+}
+
 bool FileAccessAndroid::file_exists(const String &p_path) {
 	String path = fix_path(p_path).simplify_path();
 	if (path.begins_with("/")) {
@@ -167,6 +248,10 @@ bool FileAccessAndroid::file_exists(const String &p_path) {
 
 	AAsset_close(at);
 	return true;
+}
+
+void FileAccessAndroid::close() {
+	_close();
 }
 
 FileAccessAndroid::~FileAccessAndroid() {

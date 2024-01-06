@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_modification_2d_physicalbones.cpp                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_modification_2d_physicalbones.cpp                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_modification_2d_physicalbones.h"
 #include "scene/2d/physical_bone_2d.h"
@@ -55,10 +55,10 @@ bool SkeletonModification2DPhysicalBones::_set(const StringName &p_path, const V
 
 		if (what == "nodepath") {
 			set_physical_bone_node(which, p_value);
+			return true;
 		}
-		return true;
 	}
-	return true;
+	return false;
 }
 
 bool SkeletonModification2DPhysicalBones::_get(const StringName &p_path, Variant &r_ret) const {
@@ -79,10 +79,10 @@ bool SkeletonModification2DPhysicalBones::_get(const StringName &p_path, Variant
 
 		if (what == "nodepath") {
 			r_ret = get_physical_bone_node(which);
+			return true;
 		}
-		return true;
 	}
-	return true;
+	return false;
 }
 
 void SkeletonModification2DPhysicalBones::_get_property_list(List<PropertyInfo> *p_list) const {
@@ -185,8 +185,8 @@ void SkeletonModification2DPhysicalBones::set_physical_bone_chain_length(int p_l
 }
 
 void SkeletonModification2DPhysicalBones::fetch_physical_bones() {
-	ERR_FAIL_COND_MSG(!stack, "No modification stack found! Cannot fetch physical bones!");
-	ERR_FAIL_COND_MSG(!stack->skeleton, "No skeleton found! Cannot fetch physical bones!");
+	ERR_FAIL_NULL_MSG(stack, "No modification stack found! Cannot fetch physical bones!");
+	ERR_FAIL_NULL_MSG(stack->skeleton, "No skeleton found! Cannot fetch physical bones!");
 
 	physical_bone_chain.clear();
 

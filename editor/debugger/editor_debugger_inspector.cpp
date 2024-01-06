@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  editor_debugger_inspector.cpp                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  editor_debugger_inspector.cpp                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "editor_debugger_inspector.h"
 
@@ -36,7 +36,7 @@
 #include "scene/debugger/scene_debugger.h"
 
 bool EditorDebuggerRemoteObject::_set(const StringName &p_name, const Variant &p_value) {
-	if (!editable || !prop_values.has(p_name) || String(p_name).begins_with("Constants/")) {
+	if (!prop_values.has(p_name) || String(p_name).begins_with("Constants/")) {
 		return false;
 	}
 
@@ -91,7 +91,6 @@ void EditorDebuggerRemoteObject::_bind_methods() {
 
 EditorDebuggerInspector::EditorDebuggerInspector() {
 	variables = memnew(EditorDebuggerRemoteObject);
-	variables->editable = false;
 }
 
 EditorDebuggerInspector::~EditorDebuggerInspector() {
@@ -167,11 +166,11 @@ ObjectID EditorDebuggerInspector::add_object(const Array &p_arr) {
 				if (pinfo.hint_string == "Script") {
 					if (debug_obj->get_script() != var) {
 						debug_obj->set_script(Ref<RefCounted>());
-						Ref<Script> script(var);
-						if (!script.is_null()) {
-							ScriptInstance *script_instance = script->placeholder_instance_create(debug_obj);
-							if (script_instance) {
-								debug_obj->set_script_and_instance(var, script_instance);
+						Ref<Script> scr(var);
+						if (!scr.is_null()) {
+							ScriptInstance *scr_instance = scr->placeholder_instance_create(debug_obj);
+							if (scr_instance) {
+								debug_obj->set_script_and_instance(var, scr_instance);
 							}
 						}
 					}
@@ -231,9 +230,9 @@ void EditorDebuggerInspector::add_stack_variable(const Array &p_array) {
 	Variant v = var.value;
 
 	PropertyHint h = PROPERTY_HINT_NONE;
-	String hs = String();
+	String hs;
 
-	if (v.get_type() == Variant::OBJECT) {
+	if (var.var_type == Variant::OBJECT && v) {
 		v = Object::cast_to<EncodedObjectAsID>(v)->get_object_id();
 		h = PROPERTY_HINT_OBJECT_ID;
 		hs = "Object";

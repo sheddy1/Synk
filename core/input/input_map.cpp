@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  input_map.cpp                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  input_map.cpp                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "input_map.h"
 
@@ -34,6 +34,7 @@
 #include "core/input/input.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
+#include "core/variant/typed_array.h"
 
 InputMap *InputMap::singleton = nullptr;
 
@@ -99,8 +100,8 @@ void InputMap::erase_action(const StringName &p_action) {
 	input_map.erase(p_action);
 }
 
-Array InputMap::_get_actions() {
-	Array ret;
+TypedArray<StringName> InputMap::_get_actions() {
+	TypedArray<StringName> ret;
 	List<StringName> actions = get_actions();
 	if (actions.is_empty()) {
 		return ret;
@@ -126,16 +127,21 @@ List<StringName> InputMap::get_actions() const {
 	return actions;
 }
 
-List<Ref<InputEvent>>::Element *InputMap::_find_event(Action &p_action, const Ref<InputEvent> &p_event, bool p_exact_match, bool *r_pressed, float *r_strength, float *r_raw_strength) const {
+List<Ref<InputEvent>>::Element *InputMap::_find_event(Action &p_action, const Ref<InputEvent> &p_event, bool p_exact_match, bool *r_pressed, float *r_strength, float *r_raw_strength, int *r_event_index) const {
 	ERR_FAIL_COND_V(!p_event.is_valid(), nullptr);
 
+	int i = 0;
 	for (List<Ref<InputEvent>>::Element *E = p_action.inputs.front(); E; E = E->next()) {
 		int device = E->get()->get_device();
 		if (device == ALL_DEVICES || device == p_event->get_device()) {
 			if (E->get()->action_match(p_event, p_exact_match, p_action.deadzone, r_pressed, r_strength, r_raw_strength)) {
+				if (r_event_index) {
+					*r_event_index = i;
+				}
 				return E;
 			}
 		}
+		i++;
 	}
 
 	return nullptr;
@@ -178,6 +184,7 @@ void InputMap::action_erase_event(const StringName &p_action, const Ref<InputEve
 	List<Ref<InputEvent>>::Element *E = _find_event(input_map[p_action], p_event, true);
 	if (E) {
 		input_map[p_action].inputs.erase(E);
+
 		if (Input::get_singleton()->is_action_pressed(p_action)) {
 			Input::get_singleton()->action_release(p_action);
 		}
@@ -190,8 +197,8 @@ void InputMap::action_erase_events(const StringName &p_action) {
 	input_map[p_action].inputs.clear();
 }
 
-Array InputMap::_action_get_events(const StringName &p_action) {
-	Array ret;
+TypedArray<InputEvent> InputMap::_action_get_events(const StringName &p_action) {
+	TypedArray<InputEvent> ret;
 	const List<Ref<InputEvent>> *al = action_get_events(p_action);
 	if (al) {
 		for (const List<Ref<InputEvent>>::Element *E = al->front(); E; E = E->next()) {
@@ -215,7 +222,13 @@ bool InputMap::event_is_action(const Ref<InputEvent> &p_event, const StringName 
 	return event_get_action_status(p_event, p_action, p_exact_match);
 }
 
-bool InputMap::event_get_action_status(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match, bool *r_pressed, float *r_strength, float *r_raw_strength) const {
+int InputMap::event_get_index(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match) const {
+	int index = -1;
+	event_get_action_status(p_event, p_action, p_exact_match, nullptr, nullptr, nullptr, &index);
+	return index;
+}
+
+bool InputMap::event_get_action_status(const Ref<InputEvent> &p_event, const StringName &p_action, bool p_exact_match, bool *r_pressed, float *r_strength, float *r_raw_strength, int *r_event_index) const {
 	HashMap<StringName, Action>::Iterator E = input_map.find(p_action);
 	ERR_FAIL_COND_V_MSG(!E, false, suggest_actions(p_action));
 
@@ -235,7 +248,7 @@ bool InputMap::event_get_action_status(const Ref<InputEvent> &p_event, const Str
 		return input_event_action->get_action() == p_action;
 	}
 
-	List<Ref<InputEvent>>::Element *event = _find_event(E->value, p_event, p_exact_match, r_pressed, r_strength, r_raw_strength);
+	List<Ref<InputEvent>>::Element *event = _find_event(E->value, p_event, p_exact_match, r_pressed, r_strength, r_raw_strength, r_event_index);
 	return event != nullptr;
 }
 
@@ -256,7 +269,7 @@ void InputMap::load_from_project_settings() {
 
 		String name = pi.name.substr(pi.name.find("/") + 1, pi.name.length());
 
-		Dictionary action = ProjectSettings::get_singleton()->get(pi.name);
+		Dictionary action = GLOBAL_GET(pi.name);
 		float deadzone = action.has("deadzone") ? (float)action["deadzone"] : 0.5f;
 		Array events = action["events"];
 
@@ -330,14 +343,20 @@ static const _BuiltinActionDisplayName _builtin_action_display_names[] = {
     { "ui_text_caret_document_start.macos",            TTRC("Caret Document Start") },
     { "ui_text_caret_document_end",                    TTRC("Caret Document End") },
     { "ui_text_caret_document_end.macos",              TTRC("Caret Document End") },
+    { "ui_text_caret_add_below",                       TTRC("Caret Add Below") },
+    { "ui_text_caret_add_below.macos",                 TTRC("Caret Add Below") },
+    { "ui_text_caret_add_above",                       TTRC("Caret Add Above") },
+    { "ui_text_caret_add_above.macos",                 TTRC("Caret Add Above") },
     { "ui_text_scroll_up",                             TTRC("Scroll Up") },
     { "ui_text_scroll_up.macos",                       TTRC("Scroll Up") },
     { "ui_text_scroll_down",                           TTRC("Scroll Down") },
     { "ui_text_scroll_down.macos",                     TTRC("Scroll Down") },
     { "ui_text_select_all",                            TTRC("Select All") },
     { "ui_text_select_word_under_caret",               TTRC("Select Word Under Caret") },
+    { "ui_text_add_selection_for_next_occurrence",     TTRC("Add Selection for Next Occurrence") },
+    { "ui_text_clear_carets_and_selection",            TTRC("Clear Carets and Selection") },
     { "ui_text_toggle_insert_mode",                    TTRC("Toggle Insert Mode") },
-    { "ui_text_submit",                                TTRC("Text Submitted") },
+    { "ui_text_submit",                                TTRC("Submit Text") },
     { "ui_graph_duplicate",                            TTRC("Duplicate Nodes") },
     { "ui_graph_delete",                               TTRC("Delete Nodes") },
     { "ui_filedialog_up_one_level",                    TTRC("Go Up One Level") },
@@ -392,21 +411,25 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::LEFT));
 	inputs.push_back(InputEventJoypadButton::create_reference(JoyButton::DPAD_LEFT));
+	inputs.push_back(InputEventJoypadMotion::create_reference(JoyAxis::LEFT_X, -1.0));
 	default_builtin_cache.insert("ui_left", inputs);
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::RIGHT));
 	inputs.push_back(InputEventJoypadButton::create_reference(JoyButton::DPAD_RIGHT));
+	inputs.push_back(InputEventJoypadMotion::create_reference(JoyAxis::LEFT_X, 1.0));
 	default_builtin_cache.insert("ui_right", inputs);
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::UP));
 	inputs.push_back(InputEventJoypadButton::create_reference(JoyButton::DPAD_UP));
+	inputs.push_back(InputEventJoypadMotion::create_reference(JoyAxis::LEFT_Y, -1.0));
 	default_builtin_cache.insert("ui_up", inputs);
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::DOWN));
 	inputs.push_back(InputEventJoypadButton::create_reference(JoyButton::DPAD_DOWN));
+	inputs.push_back(InputEventJoypadMotion::create_reference(JoyAxis::LEFT_Y, 1.0));
 	default_builtin_cache.insert("ui_down", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -428,27 +451,27 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	// ///// UI basic Shortcuts /////
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::X | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::X | KeyModifierMask::CMD_OR_CTRL));
 	inputs.push_back(InputEventKey::create_reference(Key::KEY_DELETE | KeyModifierMask::SHIFT));
 	default_builtin_cache.insert("ui_cut", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::C | KeyModifierMask::CMD));
-	inputs.push_back(InputEventKey::create_reference(Key::INSERT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::C | KeyModifierMask::CMD_OR_CTRL));
+	inputs.push_back(InputEventKey::create_reference(Key::INSERT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_copy", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::V | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::V | KeyModifierMask::CMD_OR_CTRL));
 	inputs.push_back(InputEventKey::create_reference(Key::INSERT | KeyModifierMask::SHIFT));
 	default_builtin_cache.insert("ui_paste", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::Z | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::Z | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_undo", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::Z | KeyModifierMask::CMD | KeyModifierMask::SHIFT));
-	inputs.push_back(InputEventKey::create_reference(Key::Y | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::Z | KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT));
+	inputs.push_back(InputEventKey::create_reference(Key::Y | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_redo", inputs);
 
 	// ///// UI Text Input Shortcuts /////
@@ -473,13 +496,13 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 
 	inputs = List<Ref<InputEvent>>();
 
-	inputs.push_back(InputEventKey::create_reference(Key::ENTER | KeyModifierMask::CMD));
-	inputs.push_back(InputEventKey::create_reference(Key::KP_ENTER | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::ENTER | KeyModifierMask::CMD_OR_CTRL));
+	inputs.push_back(InputEventKey::create_reference(Key::KP_ENTER | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_newline_blank", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::ENTER | KeyModifierMask::SHIFT | KeyModifierMask::CMD));
-	inputs.push_back(InputEventKey::create_reference(Key::KP_ENTER | KeyModifierMask::SHIFT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::ENTER | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
+	inputs.push_back(InputEventKey::create_reference(Key::KP_ENTER | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_newline_above", inputs);
 
 	// Indentation
@@ -498,7 +521,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_backspace", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::BACKSPACE | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::BACKSPACE | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_backspace_word", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -509,7 +532,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_backspace_all_to_left", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::BACKSPACE | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::BACKSPACE | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_backspace_all_to_left.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -517,7 +540,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_delete", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::KEY_DELETE | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::KEY_DELETE | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_delete_word", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -528,7 +551,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_delete_all_to_right", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::KEY_DELETE | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::KEY_DELETE | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_delete_all_to_right.macos", inputs);
 
 	// Text Caret Movement Left/Right
@@ -538,7 +561,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_caret_left", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::LEFT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::LEFT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_word_left", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -550,7 +573,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_text_caret_right", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::RIGHT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::RIGHT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_word_right", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -575,7 +598,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::A | KeyModifierMask::CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::LEFT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::LEFT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_line_start.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -584,7 +607,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::E | KeyModifierMask::CTRL));
-	inputs.push_back(InputEventKey::create_reference(Key::RIGHT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::RIGHT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_line_end.macos", inputs);
 
 	// Text Caret Movement Page Up/Down
@@ -600,48 +623,78 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	// Text Caret Movement Document Start/End
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::HOME | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::HOME | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_start", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_start.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::END | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::END | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_end", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_caret_document_end.macos", inputs);
+
+	// Text Caret Addition Below/Above
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
+	default_builtin_cache.insert("ui_text_caret_add_below", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::L | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
+	default_builtin_cache.insert("ui_text_caret_add_below.macos", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
+	default_builtin_cache.insert("ui_text_caret_add_above", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::O | KeyModifierMask::SHIFT | KeyModifierMask::CMD_OR_CTRL));
+	default_builtin_cache.insert("ui_text_caret_add_above.macos", inputs);
 
 	// Text Scrolling
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_scroll_up", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD | KeyModifierMask::ALT));
+	inputs.push_back(InputEventKey::create_reference(Key::UP | KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::ALT));
 	default_builtin_cache.insert("ui_text_scroll_up.macos", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_scroll_down", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD | KeyModifierMask::ALT));
+	inputs.push_back(InputEventKey::create_reference(Key::DOWN | KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::ALT));
 	default_builtin_cache.insert("ui_text_scroll_down.macos", inputs);
 
 	// Text Misc
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::A | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::A | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_text_select_all", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::G | KeyModifierMask::ALT));
 	default_builtin_cache.insert("ui_text_select_word_under_caret", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::G | KeyModifierMask::CTRL | KeyModifierMask::META));
+	default_builtin_cache.insert("ui_text_select_word_under_caret.macos", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD_OR_CTRL));
+	default_builtin_cache.insert("ui_text_add_selection_for_next_occurrence", inputs);
+
+	inputs = List<Ref<InputEvent>>();
+	inputs.push_back(InputEventKey::create_reference(Key::ESCAPE));
+	default_builtin_cache.insert("ui_text_clear_carets_and_selection", inputs);
 
 	inputs = List<Ref<InputEvent>>();
 	inputs.push_back(InputEventKey::create_reference(Key::INSERT));
@@ -659,7 +712,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	// ///// UI Graph Shortcuts /////
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::D | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_graph_duplicate", inputs);
 
 	inputs = List<Ref<InputEvent>>();
@@ -680,7 +733,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins() {
 	default_builtin_cache.insert("ui_filedialog_show_hidden", inputs);
 
 	inputs = List<Ref<InputEvent>>();
-	inputs.push_back(InputEventKey::create_reference(Key::QUOTELEFT | KeyModifierMask::CMD));
+	inputs.push_back(InputEventKey::create_reference(Key::QUOTELEFT | KeyModifierMask::CMD_OR_CTRL));
 	default_builtin_cache.insert("ui_swap_input_direction", inputs);
 
 	return default_builtin_cache;
@@ -701,7 +754,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins_with_featur
 		String fullname = E.key;
 
 		Vector<String> split = fullname.split(".");
-		String name = split[0];
+		const String &name = split[0];
 		String override_for = split.size() > 1 ? split[1] : String();
 
 		if (!override_for.is_empty() && OS::get_singleton()->has_feature(override_for)) {
@@ -713,7 +766,7 @@ const HashMap<String, List<Ref<InputEvent>>> &InputMap::get_builtins_with_featur
 		String fullname = E.key;
 
 		Vector<String> split = fullname.split(".");
-		String name = split[0];
+		const String &name = split[0];
 		String override_for = split.size() > 1 ? split[1] : String();
 
 		if (builtins_with_overrides.has(name) && override_for.is_empty()) {

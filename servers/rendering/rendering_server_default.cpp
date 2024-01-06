@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  rendering_server_default.cpp                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rendering_server_default.cpp                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "rendering_server_default.h"
 
@@ -88,10 +88,13 @@ void RenderingServerDefault::_draw(bool p_swap_buffers, double frame_step) {
 
 	RSG::scene->render_probes();
 
-	RSG::viewport->draw_viewports();
+	RSG::viewport->draw_viewports(p_swap_buffers);
 	RSG::canvas_render->update();
 
-	RSG::rasterizer->end_frame(p_swap_buffers);
+	if (!OS::get_singleton()->get_current_rendering_driver_name().begins_with("opengl3")) {
+		// Already called for gl_compatibility renderer.
+		RSG::rasterizer->end_frame(p_swap_buffers);
+	}
 
 	XRServer *xr_server = XRServer::get_singleton();
 	if (xr_server != nullptr) {
@@ -234,7 +237,9 @@ void RenderingServerDefault::init() {
 void RenderingServerDefault::finish() {
 	if (create_thread) {
 		command_queue.push(this, &RenderingServerDefault::_thread_exit);
-		thread.wait_to_finish();
+		if (thread.is_started()) {
+			thread.wait_to_finish();
+		}
 	} else {
 		_finish();
 	}
@@ -246,27 +251,15 @@ uint64_t RenderingServerDefault::get_rendering_info(RenderingInfo p_info) {
 	if (p_info == RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME) {
 		return RSG::viewport->get_total_objects_drawn();
 	} else if (p_info == RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME) {
-		return RSG::viewport->get_total_vertices_drawn();
+		return RSG::viewport->get_total_primitives_drawn();
 	} else if (p_info == RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME) {
 		return RSG::viewport->get_total_draw_calls_used();
 	}
 	return RSG::utilities->get_rendering_info(p_info);
 }
 
-String RenderingServerDefault::get_video_adapter_name() const {
-	return RSG::utilities->get_video_adapter_name();
-}
-
-String RenderingServerDefault::get_video_adapter_vendor() const {
-	return RSG::utilities->get_video_adapter_vendor();
-}
-
 RenderingDevice::DeviceType RenderingServerDefault::get_video_adapter_type() const {
 	return RSG::utilities->get_video_adapter_type();
-}
-
-String RenderingServerDefault::get_video_adapter_api_version() const {
-	return RSG::utilities->get_video_adapter_api_version();
 }
 
 void RenderingServerDefault::set_frame_profiling_enabled(bool p_enable) {
@@ -286,6 +279,10 @@ Vector<RenderingServer::FrameProfileArea> RenderingServerDefault::get_frame_prof
 void RenderingServerDefault::set_boot_image(const Ref<Image> &p_image, const Color &p_color, bool p_scale, bool p_use_filter) {
 	redraw_request();
 	RSG::rasterizer->set_boot_image(p_image, p_color, p_scale, p_use_filter);
+}
+
+Color RenderingServerDefault::get_default_clear_color() {
+	return RSG::texture_storage->get_default_clear_color();
 }
 
 void RenderingServerDefault::set_default_clear_color(const Color &p_color) {
@@ -326,6 +323,14 @@ void RenderingServerDefault::set_debug_generate_wireframes(bool p_generate) {
 
 bool RenderingServerDefault::is_low_end() const {
 	return RendererCompositor::is_low_end();
+}
+
+Size2i RenderingServerDefault::get_maximum_viewport_size() const {
+	if (RSG::utilities) {
+		return RSG::utilities->get_maximum_viewport_size();
+	} else {
+		return Size2i();
+	}
 }
 
 void RenderingServerDefault::_thread_exit() {
@@ -374,11 +379,16 @@ void RenderingServerDefault::sync() {
 }
 
 void RenderingServerDefault::draw(bool p_swap_buffers, double frame_step) {
+	ERR_FAIL_COND_MSG(!Thread::is_main_thread(), "Manually triggering the draw function from the RenderingServer can only be done on the main thread. Call this function from the main thread or use call_deferred().");
 	if (create_thread) {
 		command_queue.push(this, &RenderingServerDefault::_thread_draw, p_swap_buffers, frame_step);
 	} else {
 		_draw(p_swap_buffers, frame_step);
 	}
+}
+
+void RenderingServerDefault::_call_on_render_thread(const Callable &p_callable) {
+	p_callable.call();
 }
 
 RenderingServerDefault::RenderingServerDefault(bool p_create_thread) :
@@ -397,6 +407,7 @@ RenderingServerDefault::RenderingServerDefault(bool p_create_thread) :
 	RSG::canvas = memnew(RendererCanvasCull);
 	RSG::viewport = memnew(RendererViewport);
 	RendererSceneCull *sr = memnew(RendererSceneCull);
+	RSG::camera_attributes = memnew(RendererCameraAttributes);
 	RSG::scene = sr;
 	RSG::rasterizer = RendererCompositor::create();
 	RSG::utilities = RSG::rasterizer->get_utilities();
@@ -418,4 +429,5 @@ RenderingServerDefault::~RenderingServerDefault() {
 	memdelete(RSG::viewport);
 	memdelete(RSG::rasterizer);
 	memdelete(RSG::scene);
+	memdelete(RSG::camera_attributes);
 }

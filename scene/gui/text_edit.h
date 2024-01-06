@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  text_edit.h                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  text_edit.h                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef TEXT_EDIT_H
 #define TEXT_EDIT_H
@@ -42,6 +42,14 @@ class TextEdit : public Control {
 	GDCLASS(TextEdit, Control);
 
 public:
+	/* Edit Actions. */
+	enum EditAction {
+		ACTION_NONE,
+		ACTION_TYPING,
+		ACTION_BACKSPACE,
+		ACTION_DELETE,
+	};
+
 	/* Caret. */
 	enum CaretType {
 		CARET_TYPE_LINE,
@@ -79,11 +87,13 @@ public:
 		MENU_SELECT_ALL,
 		MENU_UNDO,
 		MENU_REDO,
+		MENU_SUBMENU_TEXT_DIR,
 		MENU_DIR_INHERITED,
 		MENU_DIR_AUTO,
 		MENU_DIR_LTR,
 		MENU_DIR_RTL,
 		MENU_DISPLAY_UCC,
+		MENU_SUBMENU_INSERT_UCC,
 		MENU_INSERT_LRM,
 		MENU_INSERT_RLM,
 		MENU_INSERT_LRE,
@@ -162,6 +172,7 @@ private:
 
 		String language;
 		TextServer::Direction direction = TextServer::DIRECTION_AUTO;
+		BitField<TextServer::LineBreakFlag> brk_flags = TextServer::BREAK_MANDATORY;
 		bool draw_control_chars = false;
 
 		int line_height = -1;
@@ -188,6 +199,8 @@ private:
 
 		void set_width(float p_width);
 		float get_width() const;
+		void set_brk_flags(BitField<TextServer::LineBreakFlag> p_flags);
+		BitField<TextServer::LineBreakFlag> get_brk_flags() const;
 		int get_line_wrap_amount(int p_line) const;
 
 		Vector<Vector2i> get_line_wrap_ranges(int p_line) const;
@@ -195,6 +208,9 @@ private:
 
 		void set(int p_line, const String &p_text, const Array &p_bidi_override);
 		void set_hidden(int p_line, bool p_hidden) {
+			if (text[p_line].hidden == p_hidden) {
+				return;
+			}
 			text.write[p_line].hidden = p_hidden;
 			if (!p_hidden && text[p_line].width > max_width) {
 				max_width = text[p_line].width;
@@ -263,7 +279,7 @@ private:
 
 	void _update_placeholder();
 
-	/* Initialise to opposite first, so we get past the early-out in set_editable. */
+	/* Initialize to opposite first, so we get past the early-out in set_editable. */
 	bool editable = false;
 
 	TextDirection text_direction = TEXT_DIRECTION_AUTO;
@@ -292,16 +308,20 @@ private:
 	PopupMenu *menu_dir = nullptr;
 	PopupMenu *menu_ctl = nullptr;
 
-	void _generate_context_menu();
 	Key _get_menu_action_accelerator(const String &p_action);
+	void _generate_context_menu();
+	void _update_context_menu();
 
 	/* Versioning */
+	struct Caret;
 	struct TextOperation {
 		enum Type {
 			TYPE_NONE,
 			TYPE_INSERT,
 			TYPE_REMOVE
 		};
+		Vector<Caret> start_carets;
+		Vector<Caret> end_carets;
 
 		Type type = TYPE_NONE;
 		int from_line = 0;
@@ -317,6 +337,10 @@ private:
 
 	bool undo_enabled = true;
 	int undo_stack_max_size = 50;
+
+	EditAction current_action = EditAction::ACTION_NONE;
+	bool pending_action_end = false;
+	bool in_action = false;
 
 	int complex_operation_count = 0;
 	bool next_operation_is_complex = false;
@@ -335,9 +359,6 @@ private:
 	void _clear_redo();
 
 	/* Search */
-	Color search_result_color = Color(1, 1, 1);
-	Color search_result_border_color = Color(1, 1, 1);
-
 	String search_text = "";
 	uint32_t search_flags = 0;
 
@@ -358,33 +379,53 @@ private:
 	int _get_char_pos_for_line(int p_px, int p_line, int p_wrap_index = 0) const;
 
 	/* Caret. */
+	struct Selection {
+		bool active = false;
+		bool shiftclick_left = false;
+
+		int selecting_line = 0;
+		int selecting_column = 0;
+		int selected_word_beg = 0;
+		int selected_word_end = 0;
+		int selected_word_origin = 0;
+
+		int from_line = 0;
+		int from_column = 0;
+		int to_line = 0;
+		int to_column = 0;
+	};
+
 	struct Caret {
+		Selection selection;
+
 		Point2 draw_pos;
 		bool visible = false;
 		int last_fit_x = 0;
 		int line = 0;
 		int column = 0;
-		int x_ofs = 0;
-		int line_ofs = 0;
-		int wrap_ofs = 0;
-	} caret;
+	};
+
+	// Vector containing all the carets, index '0' is the "main caret" and should never be removed.
+	Vector<Caret> carets;
+	Vector<int> caret_index_edit_order;
 
 	bool setting_caret_line = false;
 	bool caret_pos_dirty = false;
-
-	Color caret_color = Color(1, 1, 1);
-	Color caret_background_color = Color(0, 0, 0);
+	bool caret_index_edit_dirty = true;
 
 	CaretType caret_type = CaretType::CARET_TYPE_LINE;
 
 	bool draw_caret = true;
+	bool draw_caret_when_editable_disabled = false;
 
 	bool caret_blink_enabled = false;
 	Timer *caret_blink_timer = nullptr;
 
 	bool move_caret_on_right_click = true;
 
-	bool caret_mid_grapheme_enabled = true;
+	bool caret_mid_grapheme_enabled = false;
+
+	bool multi_carets_enabled = true;
 
 	bool drag_action = false;
 	bool drag_caret_force_displayed = false;
@@ -394,37 +435,18 @@ private:
 	void _reset_caret_blink_timer();
 	void _toggle_draw_caret();
 
-	int _get_column_x_offset_for_line(int p_char, int p_line) const;
+	int _get_column_x_offset_for_line(int p_char, int p_line, int p_column) const;
 
 	/* Selection. */
-	struct Selection {
-		SelectionMode selecting_mode = SelectionMode::SELECTION_MODE_NONE;
-		int selecting_line = 0;
-		int selecting_column = 0;
-		int selected_word_beg = 0;
-		int selected_word_end = 0;
-		int selected_word_origin = 0;
-		bool selecting_text = false;
-
-		bool active = false;
-
-		int from_line = 0;
-		int from_column = 0;
-		int to_line = 0;
-		int to_column = 0;
-
-		bool shiftclick_left = false;
-		bool drag_attempt = false;
-	} selection;
+	SelectionMode selecting_mode = SelectionMode::SELECTION_MODE_NONE;
 
 	bool selecting_enabled = true;
 	bool deselect_on_focus_loss_enabled = true;
 	bool drag_and_drop_selection_enabled = true;
 
-	Color font_selected_color = Color(1, 1, 1);
-	Color selection_color = Color(1, 1, 1);
-	bool override_selected_font_color = false;
+	bool use_selected_font_color = false;
 
+	bool selection_drag_attempt = false;
 	bool dragging_selection = false;
 
 	Timer *click_select_held = nullptr;
@@ -436,18 +458,17 @@ private:
 	void _update_selection_mode_word();
 	void _update_selection_mode_line();
 
-	void _pre_shift_selection();
-	void _post_shift_selection();
+	void _pre_shift_selection(int p_caret);
+	void _post_shift_selection(int p_caret);
 
 	/* Line wrapping. */
 	LineWrappingMode line_wrapping_mode = LineWrappingMode::LINE_WRAPPING_NONE;
+	TextServer::AutowrapMode autowrap_mode = TextServer::AUTOWRAP_WORD_SMART;
 
 	int wrap_at_column = 0;
 	int wrap_right_offset = 10;
 
 	void _update_wrap_at_column(bool p_force = false);
-
-	void _update_caret_wrap_offset();
 
 	/* Viewport. */
 	HScrollBar *h_scroll = nullptr;
@@ -463,6 +484,10 @@ private:
 	float v_scroll_speed = 80.0;
 
 	// Scrolling.
+	int first_visible_line = 0;
+	int first_visible_line_wrap_ofs = 0;
+	int first_visible_col = 0;
+
 	bool scrolling = false;
 	bool updating_scrolls = false;
 
@@ -475,8 +500,8 @@ private:
 	double _get_visible_lines_offset() const;
 	double _get_v_scroll_offset() const;
 
-	void _scroll_up(real_t p_delta);
-	void _scroll_down(real_t p_delta);
+	void _scroll_up(real_t p_delta, bool p_animate);
+	void _scroll_down(real_t p_delta, bool p_animate);
 
 	void _scroll_lines_up();
 	void _scroll_lines_down();
@@ -515,27 +540,45 @@ private:
 	Dictionary _get_line_syntax_highlighting(int p_line);
 
 	/* Visual. */
-	Ref<StyleBox> style_normal;
-	Ref<StyleBox> style_focus;
-	Ref<StyleBox> style_readonly;
+	struct ThemeCache {
+		float base_scale = 1.0;
 
-	Ref<Texture2D> tab_icon;
-	Ref<Texture2D> space_icon;
+		/* Search */
+		Color search_result_color = Color(1, 1, 1);
+		Color search_result_border_color = Color(1, 1, 1);
 
-	Ref<Font> font;
-	int font_size = 16;
-	Color font_color = Color(1, 1, 1);
-	Color font_readonly_color = Color(1, 1, 1);
-	Color font_placeholder_color = Color(1, 1, 1, 0.6);
+		/* Caret */
+		int caret_width = 1;
+		Color caret_color = Color(1, 1, 1);
+		Color caret_background_color = Color(0, 0, 0);
 
-	int outline_size = 0;
-	Color outline_color = Color(1, 1, 1);
+		/* Selection */
+		Color font_selected_color = Color(0, 0, 0, 0);
+		Color selection_color = Color(1, 1, 1);
 
-	int line_spacing = 1;
+		/* Other visuals */
+		Ref<StyleBox> style_normal;
+		Ref<StyleBox> style_focus;
+		Ref<StyleBox> style_readonly;
 
-	Color background_color = Color(1, 1, 1);
-	Color current_line_color = Color(1, 1, 1);
-	Color word_highlighted_color = Color(1, 1, 1);
+		Ref<Texture2D> tab_icon;
+		Ref<Texture2D> space_icon;
+
+		Ref<Font> font;
+		int font_size = 16;
+		Color font_color = Color(1, 1, 1);
+		Color font_readonly_color = Color(1, 1, 1);
+		Color font_placeholder_color = Color(1, 1, 1, 0.6);
+
+		int outline_size = 0;
+		Color outline_color = Color(1, 1, 1);
+
+		int line_spacing = 1;
+
+		Color background_color = Color(1, 1, 1);
+		Color current_line_color = Color(1, 1, 1);
+		Color word_highlighted_color = Color(1, 1, 1);
+	} theme_cache;
 
 	bool window_has_focus = true;
 	bool first_draw = true;
@@ -572,21 +615,33 @@ private:
 	void _delete(bool p_word = false, bool p_all_to_right = false);
 	void _move_caret_document_start(bool p_select);
 	void _move_caret_document_end(bool p_select);
+	bool _clear_carets_and_selection();
+
+	// Used in add_caret_at_carets
+	void _get_above_below_caret_line_column(int p_old_line, int p_old_wrap_index, int p_old_column, bool p_below, int &p_new_line, int &p_new_column, int p_last_fit_x = -1) const;
 
 protected:
 	void _notification(int p_what);
-
 	static void _bind_methods();
 
+	virtual void _update_theme_item_cache() override;
+
 	/* Internal API for CodeEdit, pending public API. */
-	// brace matching
+	// Brace matching.
+	struct BraceMatchingData {
+		int open_match_line = -1;
+		int open_match_column = -1;
+		bool open_matching = false;
+		bool open_mismatch = false;
+		int close_match_line = -1;
+		int close_match_column = -1;
+		bool close_matching = false;
+		bool close_mismatch = false;
+	};
+
 	bool highlight_matching_braces_enabled = false;
-	Color brace_mismatch_color;
 
 	// Line hiding.
-	Color code_folding_color = Color(1, 1, 1);
-	Ref<Texture2D> folded_eol_icon;
-
 	bool hiding_enabled = false;
 
 	void _set_hiding_enabled(bool p_enabled);
@@ -601,23 +656,28 @@ protected:
 	String lookup_symbol_word;
 	void _set_symbol_lookup_word(const String &p_symbol);
 
+	// Theme items.
+	virtual Color _get_brace_mismatch_color() const { return Color(); };
+	virtual Color _get_code_folding_color() const { return Color(); };
+	virtual Ref<Texture2D> _get_folded_eol_icon() const { return Ref<Texture2D>(); };
+
 	/* Text manipulation */
 
 	// Overridable actions
-	virtual void _handle_unicode_input_internal(const uint32_t p_unicode);
-	virtual void _backspace_internal();
+	virtual void _handle_unicode_input_internal(const uint32_t p_unicode, int p_caret);
+	virtual void _backspace_internal(int p_caret);
 
-	virtual void _cut_internal();
-	virtual void _copy_internal();
-	virtual void _paste_internal();
-	virtual void _paste_primary_clipboard_internal();
+	virtual void _cut_internal(int p_caret);
+	virtual void _copy_internal(int p_caret);
+	virtual void _paste_internal(int p_caret);
+	virtual void _paste_primary_clipboard_internal(int p_caret);
 
-	GDVIRTUAL1(_handle_unicode_input, int)
-	GDVIRTUAL0(_backspace)
-	GDVIRTUAL0(_cut)
-	GDVIRTUAL0(_copy)
-	GDVIRTUAL0(_paste)
-	GDVIRTUAL0(_paste_primary_clipboard)
+	GDVIRTUAL2(_handle_unicode_input, int, int)
+	GDVIRTUAL1(_backspace, int)
+	GDVIRTUAL1(_cut, int)
+	GDVIRTUAL1(_copy, int)
+	GDVIRTUAL1(_paste, int)
+	GDVIRTUAL1(_paste_primary_clipboard, int)
 
 public:
 	/* General overrides. */
@@ -693,7 +753,7 @@ public:
 	void swap_lines(int p_from_line, int p_to_line);
 
 	void insert_line_at(int p_at, const String &p_text);
-	void insert_text_at_caret(const String &p_text);
+	void insert_text_at_caret(const String &p_text, int p_caret = -1);
 
 	void remove_text(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
 
@@ -702,13 +762,13 @@ public:
 	Point2i get_next_visible_line_index_offset_from(int p_line_from, int p_wrap_index_from, int p_visible_amount) const;
 
 	// Overridable actions
-	void handle_unicode_input(const uint32_t p_unicode);
-	void backspace();
+	void handle_unicode_input(const uint32_t p_unicode, int p_caret = -1);
+	void backspace(int p_caret = -1);
 
-	void cut();
-	void copy();
-	void paste();
-	void paste_primary_clipboard();
+	void cut(int p_caret = -1);
+	void copy(int p_caret = -1);
+	void paste(int p_caret = -1);
+	void paste_primary_clipboard(int p_caret = -1);
 
 	// Context menu.
 	PopupMenu *get_menu() const;
@@ -716,6 +776,10 @@ public:
 	void menu_option(int p_option);
 
 	/* Versioning */
+	void start_action(EditAction p_action);
+	void end_action();
+	EditAction get_current_action() const;
+
 	void begin_complex_operation();
 	void end_complex_operation();
 
@@ -750,7 +814,7 @@ public:
 	int get_minimap_line_at_pos(const Point2i &p_pos) const;
 
 	bool is_dragging_cursor() const;
-	bool is_mouse_over_selection(bool p_edges = true) const;
+	bool is_mouse_over_selection(bool p_edges = true, int p_caret = -1) const;
 
 	/* Caret */
 	void set_caret_type(CaretType p_type);
@@ -759,8 +823,11 @@ public:
 	void set_caret_blink_enabled(const bool p_enabled);
 	bool is_caret_blink_enabled() const;
 
-	void set_caret_blink_speed(const float p_speed);
-	float get_caret_blink_speed() const;
+	void set_caret_blink_interval(const float p_interval);
+	float get_caret_blink_interval() const;
+
+	void set_draw_caret_when_editable_disabled(bool p_enable);
+	bool is_drawing_caret_when_editable_disabled() const;
 
 	void set_move_caret_on_right_click_enabled(const bool p_enabled);
 	bool is_move_caret_on_right_click_enabled() const;
@@ -768,18 +835,31 @@ public:
 	void set_caret_mid_grapheme_enabled(const bool p_enabled);
 	bool is_caret_mid_grapheme_enabled() const;
 
-	bool is_caret_visible() const;
-	Point2 get_caret_draw_pos() const;
+	void set_multiple_carets_enabled(bool p_enabled);
+	bool is_multiple_carets_enabled() const;
 
-	void set_caret_line(int p_line, bool p_adjust_viewport = true, bool p_can_be_hidden = true, int p_wrap_index = 0);
-	int get_caret_line() const;
+	int add_caret(int p_line, int p_col);
+	void remove_caret(int p_caret);
+	void remove_secondary_carets();
+	void merge_overlapping_carets();
+	int get_caret_count() const;
+	void add_caret_at_carets(bool p_below);
 
-	void set_caret_column(int p_col, bool p_adjust_viewport = true);
-	int get_caret_column() const;
+	Vector<int> get_caret_index_edit_order();
+	void adjust_carets_after_edit(int p_caret, int p_from_line, int p_from_col, int p_to_line, int p_to_col);
 
-	int get_caret_wrap_index() const;
+	bool is_caret_visible(int p_caret = 0) const;
+	Point2 get_caret_draw_pos(int p_caret = 0) const;
 
-	String get_word_under_caret() const;
+	void set_caret_line(int p_line, bool p_adjust_viewport = true, bool p_can_be_hidden = true, int p_wrap_index = 0, int p_caret = 0);
+	int get_caret_line(int p_caret = 0) const;
+
+	void set_caret_column(int p_col, bool p_adjust_viewport = true, int p_caret = 0);
+	int get_caret_column(int p_caret = 0) const;
+
+	int get_caret_wrap_index(int p_caret = 0) const;
+
+	String get_word_under_caret(int p_caret = -1) const;
 
 	/* Selection. */
 	void set_selecting_enabled(const bool p_enabled);
@@ -791,34 +871,35 @@ public:
 	void set_drag_and_drop_selection_enabled(const bool p_enabled);
 	bool is_drag_and_drop_selection_enabled() const;
 
-	void set_override_selected_font_color(bool p_override_selected_font_color);
-	bool is_overriding_selected_font_color() const;
-
-	void set_selection_mode(SelectionMode p_mode, int p_line = -1, int p_column = -1);
+	void set_selection_mode(SelectionMode p_mode, int p_line = -1, int p_column = -1, int p_caret = 0);
 	SelectionMode get_selection_mode() const;
 
 	void select_all();
-	void select_word_under_caret();
-	void select(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
+	void select_word_under_caret(int p_caret = -1);
+	void add_selection_for_next_occurrence();
+	void select(int p_from_line, int p_from_column, int p_to_line, int p_to_column, int p_caret = 0);
 
-	bool has_selection() const;
+	bool has_selection(int p_caret = -1) const;
 
-	String get_selected_text() const;
+	String get_selected_text(int p_caret = -1);
 
-	int get_selection_line() const;
-	int get_selection_column() const;
+	int get_selection_line(int p_caret = 0) const;
+	int get_selection_column(int p_caret = 0) const;
 
-	int get_selection_from_line() const;
-	int get_selection_from_column() const;
-	int get_selection_to_line() const;
-	int get_selection_to_column() const;
+	int get_selection_from_line(int p_caret = 0) const;
+	int get_selection_from_column(int p_caret = 0) const;
+	int get_selection_to_line(int p_caret = 0) const;
+	int get_selection_to_column(int p_caret = 0) const;
 
-	void deselect();
-	void delete_selection();
+	void deselect(int p_caret = -1);
+	void delete_selection(int p_caret = -1);
 
 	/* Line wrapping. */
 	void set_line_wrapping_mode(LineWrappingMode p_wrapping_mode);
 	LineWrappingMode get_line_wrapping_mode() const;
+
+	void set_autowrap_mode(TextServer::AutowrapMode p_mode);
+	TextServer::AutowrapMode get_autowrap_mode() const;
 
 	bool is_line_wrapped(int p_line) const;
 	int get_line_wrap_count(int p_line) const;
@@ -833,6 +914,9 @@ public:
 
 	void set_scroll_past_end_of_file_enabled(const bool p_enabled);
 	bool is_scroll_past_end_of_file_enabled() const;
+
+	VScrollBar *get_v_scroll_bar() const;
+	HScrollBar *get_h_scroll_bar() const;
 
 	void set_v_scroll(double p_scroll);
 	double get_v_scroll() const;
@@ -863,8 +947,8 @@ public:
 	int get_total_visible_line_count() const;
 
 	// Auto Adjust
-	void adjust_viewport_to_caret();
-	void center_viewport_to_caret();
+	void adjust_viewport_to_caret(int p_caret = 0);
+	void center_viewport_to_caret(int p_caret = 0);
 
 	// Minimap
 	void set_draw_minimap(bool p_enabled);
@@ -943,9 +1027,12 @@ public:
 	void set_draw_spaces(bool p_enabled);
 	bool is_drawing_spaces() const;
 
+	Color get_font_color() const;
+
 	TextEdit(const String &p_placeholder = String());
 };
 
+VARIANT_ENUM_CAST(TextEdit::EditAction);
 VARIANT_ENUM_CAST(TextEdit::CaretType);
 VARIANT_ENUM_CAST(TextEdit::LineWrappingMode);
 VARIANT_ENUM_CAST(TextEdit::SelectionMode);

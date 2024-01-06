@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_modification_2d_ccdik.cpp                                   */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_modification_2d_ccdik.cpp                                    */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_modification_2d_ccdik.h"
 #include "scene/2d/skeleton_2d.h"
@@ -52,29 +52,31 @@ bool SkeletonModification2DCCDIK::_set(const StringName &p_path, const Variant &
 		} else if (what == "enable_constraint") {
 			set_ccdik_joint_enable_constraint(which, p_value);
 		} else if (what == "constraint_angle_min") {
-			set_ccdik_joint_constraint_angle_min(which, Math::deg2rad(float(p_value)));
+			set_ccdik_joint_constraint_angle_min(which, Math::deg_to_rad(float(p_value)));
 		} else if (what == "constraint_angle_max") {
-			set_ccdik_joint_constraint_angle_max(which, Math::deg2rad(float(p_value)));
+			set_ccdik_joint_constraint_angle_max(which, Math::deg_to_rad(float(p_value)));
 		} else if (what == "constraint_angle_invert") {
 			set_ccdik_joint_constraint_angle_invert(which, p_value);
 		} else if (what == "constraint_in_localspace") {
 			set_ccdik_joint_constraint_in_localspace(which, p_value);
 		}
-
 #ifdef TOOLS_ENABLED
-		if (what.begins_with("editor_draw_gizmo")) {
+		else if (what.begins_with("editor_draw_gizmo")) {
 			set_ccdik_joint_editor_draw_gizmo(which, p_value);
 		}
 #endif // TOOLS_ENABLED
-
-		return true;
+		else {
+			return false;
+		}
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor/draw_gizmo")) {
+	else if (path.begins_with("editor/draw_gizmo")) {
 		set_editor_draw_gizmo(p_value);
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }
@@ -96,29 +98,31 @@ bool SkeletonModification2DCCDIK::_get(const StringName &p_path, Variant &r_ret)
 		} else if (what == "enable_constraint") {
 			r_ret = get_ccdik_joint_enable_constraint(which);
 		} else if (what == "constraint_angle_min") {
-			r_ret = Math::rad2deg(get_ccdik_joint_constraint_angle_min(which));
+			r_ret = Math::rad_to_deg(get_ccdik_joint_constraint_angle_min(which));
 		} else if (what == "constraint_angle_max") {
-			r_ret = Math::rad2deg(get_ccdik_joint_constraint_angle_max(which));
+			r_ret = Math::rad_to_deg(get_ccdik_joint_constraint_angle_max(which));
 		} else if (what == "constraint_angle_invert") {
 			r_ret = get_ccdik_joint_constraint_angle_invert(which);
 		} else if (what == "constraint_in_localspace") {
 			r_ret = get_ccdik_joint_constraint_in_localspace(which);
 		}
-
 #ifdef TOOLS_ENABLED
-		if (what.begins_with("editor_draw_gizmo")) {
+		else if (what.begins_with("editor_draw_gizmo")) {
 			r_ret = get_ccdik_joint_editor_draw_gizmo(which);
 		}
 #endif // TOOLS_ENABLED
-
-		return true;
+		else {
+			return false;
+		}
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor/draw_gizmo")) {
+	else if (path.begins_with("editor/draw_gizmo")) {
 		r_ret = get_editor_draw_gizmo();
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }

@@ -1,37 +1,38 @@
-/*************************************************************************/
-/*  config_file.cpp                                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  config_file.cpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "config_file.h"
 
 #include "core/io/file_access_encrypted.h"
 #include "core/os/keyboard.h"
+#include "core/string/string_builder.h"
 #include "core/variant/variant_parser.h"
 
 PackedStringArray ConfigFile::_get_sections() const {
@@ -130,6 +131,28 @@ void ConfigFile::erase_section_key(const String &p_section, const String &p_key)
 	}
 }
 
+String ConfigFile::encode_to_text() const {
+	StringBuilder sb;
+	bool first = true;
+	for (const KeyValue<String, HashMap<String, Variant>> &E : values) {
+		if (first) {
+			first = false;
+		} else {
+			sb.append("\n");
+		}
+		if (!E.key.is_empty()) {
+			sb.append("[" + E.key + "]\n\n");
+		}
+
+		for (const KeyValue<String, Variant> &F : E.value) {
+			String vstr;
+			VariantWriter::write_to_string(F.value, vstr);
+			sb.append(F.key.property_name_encode() + "=" + vstr + "\n");
+		}
+	}
+	return sb.as_string();
+}
+
 Error ConfigFile::save(const String &p_path) {
 	Error err;
 	Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE, &err);
@@ -185,7 +208,7 @@ Error ConfigFile::_internal_save(Ref<FileAccess> file) {
 			file->store_string("\n");
 		}
 		if (!E.key.is_empty()) {
-			file->store_string("[" + E.key + "]\n\n");
+			file->store_string("[" + E.key.replace("]", "\\]") + "]\n\n");
 		}
 
 		for (const KeyValue<String, Variant> &F : E.value) {
@@ -285,7 +308,7 @@ Error ConfigFile::_parse(const String &p_path, VariantParser::Stream *p_stream) 
 		if (!assign.is_empty()) {
 			set_value(section, assign, value);
 		} else if (!next_tag.name.is_empty()) {
-			section = next_tag.name;
+			section = next_tag.name.replace("\\]", "]");
 		}
 	}
 
@@ -295,6 +318,7 @@ Error ConfigFile::_parse(const String &p_path, VariantParser::Stream *p_stream) 
 void ConfigFile::clear() {
 	values.clear();
 }
+
 void ConfigFile::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_value", "section", "key", "value"), &ConfigFile::set_value);
 	ClassDB::bind_method(D_METHOD("get_value", "section", "key", "default"), &ConfigFile::get_value, DEFVAL(Variant()));
@@ -311,6 +335,8 @@ void ConfigFile::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("load", "path"), &ConfigFile::load);
 	ClassDB::bind_method(D_METHOD("parse", "data"), &ConfigFile::parse);
 	ClassDB::bind_method(D_METHOD("save", "path"), &ConfigFile::save);
+
+	ClassDB::bind_method(D_METHOD("encode_to_text"), &ConfigFile::encode_to_text);
 
 	BIND_METHOD_ERR_RETURN_DOC("load", ERR_FILE_CANT_OPEN);
 

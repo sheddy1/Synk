@@ -1,50 +1,55 @@
-/*************************************************************************/
-/*  canvas_item_editor_plugin.h                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  canvas_item_editor_plugin.h                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef CANVAS_ITEM_EDITOR_PLUGIN_H
 #define CANVAS_ITEM_EDITOR_PLUGIN_H
 
 #include "editor/editor_plugin.h"
-#include "editor/editor_zoom_widget.h"
+#include "scene/gui/base_button.h"
 #include "scene/gui/box_container.h"
-#include "scene/gui/check_box.h"
-#include "scene/gui/label.h"
-#include "scene/gui/panel_container.h"
-#include "scene/gui/spin_box.h"
-#include "scene/gui/split_container.h"
-#include "scene/gui/texture_rect.h"
-#include "scene/main/canvas_item.h"
 
-class EditorData;
+class AcceptDialog;
 class CanvasItemEditorViewport;
+class ConfirmationDialog;
+class EditorData;
+class EditorSelection;
+class EditorZoomWidget;
+class HScrollBar;
+class HSplitContainer;
+class MenuButton;
+class PanelContainer;
+class StyleBoxTexture;
 class ViewPanner;
+class VScrollBar;
+class VSeparator;
+class VSplitContainer;
 
 class CanvasItemEditorSelectedItem : public Object {
 	GDCLASS(CanvasItemEditorSelectedItem, Object);
@@ -121,7 +126,9 @@ private:
 		SHOW_GUIDES,
 		SHOW_ORIGIN,
 		SHOW_VIEWPORT,
-		SHOW_EDIT_LOCKS,
+		SHOW_POSITION_GIZMOS,
+		SHOW_LOCK_GIZMOS,
+		SHOW_GROUP_GIZMOS,
 		SHOW_TRANSFORMATION_GIZMOS,
 		LOCK_SELECTED,
 		UNLOCK_SELECTED,
@@ -188,10 +195,14 @@ private:
 
 	HScrollBar *h_scroll = nullptr;
 	VScrollBar *v_scroll = nullptr;
+
 	// Used for secondary menu items which are displayed depending on the currently selected node
 	// (such as MeshInstance's "Mesh" menu).
-	PanelContainer *context_menu_panel = nullptr;
-	HBoxContainer *context_menu_hbox = nullptr;
+	PanelContainer *context_toolbar_panel = nullptr;
+	HBoxContainer *context_toolbar_hbox = nullptr;
+	HashMap<Control *, VSeparator *> context_toolbar_separators;
+
+	void _update_context_toolbar();
 
 	Transform2D transform;
 	GridVisibility grid_visibility = GRID_VISIBILITY_SHOW_WHEN_SNAPPING;
@@ -200,7 +211,9 @@ private:
 	bool show_origin = true;
 	bool show_viewport = true;
 	bool show_helpers = false;
-	bool show_edit_locks = true;
+	bool show_position_gizmos = true;
+	bool show_lock_gizmos = true;
+	bool show_group_gizmos = true;
 	bool show_transformation_gizmos = true;
 
 	real_t zoom = 1.0;
@@ -209,14 +222,15 @@ private:
 
 	bool selected_from_canvas = false;
 
+	// Defaults are defined in clear().
 	Point2 grid_offset;
-	Point2 grid_step = Point2(8, 8); // A power-of-two value works better as a default.
-	int primary_grid_steps = 8;
+	Point2 grid_step;
+	Vector2i primary_grid_step;
 	int grid_step_multiplier = 0;
 
-	real_t snap_rotation_step = Math::deg2rad(15.0);
+	real_t snap_rotation_step = 0.0;
 	real_t snap_rotation_offset = 0.0;
-	real_t snap_scale_step = 0.1f;
+	real_t snap_scale_step = 0.0;
 	bool smart_snap_active = false;
 	bool grid_snap_active = false;
 
@@ -254,6 +268,7 @@ private:
 		}
 	};
 	Vector<_SelectResult> selection_results;
+	Vector<_SelectResult> selection_results_menu;
 
 	struct _HoverResult {
 		Point2 position;
@@ -319,6 +334,8 @@ private:
 	Button *override_camera_button = nullptr;
 	MenuButton *view_menu = nullptr;
 	PopupMenu *grid_menu = nullptr;
+	PopupMenu *theme_menu = nullptr;
+	PopupMenu *gizmos_menu = nullptr;
 	HBoxContainer *animation_hb = nullptr;
 	MenuButton *animation_menu = nullptr;
 
@@ -336,12 +353,12 @@ private:
 
 	Point2 drag_start_origin;
 	DragType drag_type = DRAG_NONE;
-	Point2 drag_from = Vector2();
-	Point2 drag_to = Vector2();
+	Point2 drag_from;
+	Point2 drag_to;
 	Point2 drag_rotation_center;
 	List<CanvasItem *> drag_selection;
 	int dragged_guide_index = -1;
-	Point2 dragged_guide_pos = Point2();
+	Point2 dragged_guide_pos;
 	bool is_hovering_h_guide = false;
 	bool is_hovering_v_guide = false;
 
@@ -361,12 +378,10 @@ private:
 
 	Ref<ViewPanner> panner;
 	bool warped_panning = true;
-	int pan_speed = 20;
-	void _scroll_callback(Vector2 p_scroll_vec, bool p_alt);
-	void _pan_callback(Vector2 p_scroll_vec);
-	void _zoom_callback(Vector2 p_scroll_vec, Vector2 p_origin, bool p_alt);
+	void _pan_callback(Vector2 p_scroll_vec, Ref<InputEvent> p_event);
+	void _zoom_callback(float p_zoom_factor, Vector2 p_origin, Ref<InputEvent> p_event);
 
-	bool _is_node_locked(const Node *p_node);
+	bool _is_node_locked(const Node *p_node) const;
 	bool _is_node_movable(const Node *p_node, bool p_popup_warning = false);
 	void _find_canvas_items_at_pos(const Point2 &p_pos, Node *p_node, Vector<_SelectResult> &r_items, const Transform2D &p_parent_xform = Transform2D(), const Transform2D &p_canvas_xform = Transform2D());
 	void _get_canvas_items_at_pos(const Point2 &p_pos, Vector<_SelectResult> &r_items, bool p_allow_locked = false);
@@ -400,9 +415,20 @@ private:
 	void _prepare_grid_menu();
 	void _on_grid_menu_id_pressed(int p_id);
 
-	UndoRedo *undo_redo = nullptr;
+public:
+	enum ThemePreviewMode {
+		THEME_PREVIEW_PROJECT,
+		THEME_PREVIEW_EDITOR,
+		THEME_PREVIEW_DEFAULT,
 
-	List<CanvasItem *> _get_edited_canvas_items(bool retrieve_locked = false, bool remove_canvas_item_if_parent_in_selection = true);
+		THEME_PREVIEW_MAX // The number of options for enumerating.
+	};
+
+private:
+	ThemePreviewMode theme_preview = THEME_PREVIEW_PROJECT;
+	void _switch_theme_preview(int p_mode);
+
+	List<CanvasItem *> _get_edited_canvas_items(bool retrieve_locked = false, bool remove_canvas_item_if_parent_in_selection = true) const;
 	Rect2 _get_encompassing_rect_from_list(List<CanvasItem *> p_list);
 	void _expand_encompassing_rect_using_children(Rect2 &r_rect, const Node *p_node, bool &r_first, const Transform2D &p_parent_xform = Transform2D(), const Transform2D &p_canvas_xform = Transform2D(), bool include_locked_nodes = true);
 	Rect2 _get_encompassing_rect(const Node *p_node);
@@ -478,6 +504,7 @@ private:
 			const Node *p_current);
 
 	VBoxContainer *controls_vb = nullptr;
+	Button *button_center_view = nullptr;
 	EditorZoomWidget *zoom_widget = nullptr;
 	void _update_zoom(real_t p_zoom);
 	void _shortcut_zoom_set(real_t p_zoom);
@@ -526,6 +553,7 @@ public:
 	static CanvasItemEditor *get_singleton() { return singleton; }
 	Dictionary get_state() const;
 	void set_state(const Dictionary &p_state);
+	void clear();
 
 	void add_control_to_menu_panel(Control *p_control);
 	void remove_control_from_menu_panel(Control *p_control);
@@ -547,10 +575,14 @@ public:
 	Tool get_current_tool() { return tool; }
 	void set_current_tool(Tool p_tool);
 
-	void set_undo_redo(UndoRedo *p_undo_redo) { undo_redo = p_undo_redo; }
 	void edit(CanvasItem *p_canvas_item);
 
 	void focus_selection();
+	void center_at(const Point2 &p_pos);
+
+	virtual CursorShape get_cursor_shape(const Point2 &p_pos) const override;
+
+	ThemePreviewMode get_theme_preview() const { return theme_preview; }
 
 	EditorSelection *editor_selection = nullptr;
 
@@ -562,6 +594,9 @@ class CanvasItemEditorPlugin : public EditorPlugin {
 
 	CanvasItemEditor *canvas_item_editor = nullptr;
 
+protected:
+	void _notification(int p_what);
+
 public:
 	virtual String get_name() const override { return "2D"; }
 	bool has_main_screen() const override { return true; }
@@ -570,6 +605,7 @@ public:
 	virtual void make_visible(bool p_visible) override;
 	virtual Dictionary get_state() const override;
 	virtual void set_state(const Dictionary &p_state) override;
+	virtual void clear() override;
 
 	CanvasItemEditor *get_canvas_item_editor() { return canvas_item_editor; }
 
@@ -589,7 +625,6 @@ class CanvasItemEditorViewport : public Control {
 	Node *target_node = nullptr;
 	Point2 drop_pos;
 
-	EditorData *editor_data = nullptr;
 	CanvasItemEditor *canvas_item_editor = nullptr;
 	Control *preview_node = nullptr;
 	AcceptDialog *accept = nullptr;
@@ -604,7 +639,6 @@ class CanvasItemEditorViewport : public Control {
 	void _on_select_type(Object *selected);
 	void _on_change_type_confirmed();
 	void _on_change_type_closed();
-	Node *_make_texture_node_type(String texture_node_type);
 
 	void _create_preview(const Vector<String> &files) const;
 	void _remove_preview();
@@ -616,8 +650,6 @@ class CanvasItemEditorViewport : public Control {
 	void _perform_drop_data();
 	void _show_resource_type_selector();
 	void _update_theme();
-
-	static void _bind_methods();
 
 protected:
 	void _notification(int p_what);

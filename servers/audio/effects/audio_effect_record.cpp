@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  audio_effect_record.cpp                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  audio_effect_record.cpp                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "audio_effect_record.h"
 
@@ -72,13 +72,7 @@ bool AudioEffectRecordInstance::process_silence() const {
 
 void AudioEffectRecordInstance::_io_thread_process() {
 	while (is_recording) {
-		//Check: The current recording has been requested to stop
-		if (!base->recording_active) {
-			is_recording = false;
-		}
-
 		_update_buffer();
-
 		if (is_recording) {
 			//Wait to avoid too much busy-wait
 			OS::get_singleton()->delay_usec(500);
@@ -116,29 +110,19 @@ void AudioEffectRecordInstance::init() {
 	recording_data.clear(); //Clear data completely and reset length
 	is_recording = true;
 
-#ifdef NO_THREADS
-	AudioServer::get_singleton()->add_update_callback(&AudioEffectRecordInstance::_update, this);
-#else
 	io_thread.start(_thread_callback, this);
-#endif
 }
 
 void AudioEffectRecordInstance::finish() {
-#ifdef NO_THREADS
-	AudioServer::get_singleton()->remove_update_callback(&AudioEffectRecordInstance::_update, this);
-#else
-	io_thread.wait_to_finish();
-#endif
-}
-
-AudioEffectRecordInstance::~AudioEffectRecordInstance() {
-	finish();
+	is_recording = false;
+	if (io_thread.is_started()) {
+		io_thread.wait_to_finish();
+	}
 }
 
 Ref<AudioEffectInstance> AudioEffectRecord::instantiate() {
 	Ref<AudioEffectRecordInstance> ins;
 	ins.instantiate();
-	ins->base = Ref<AudioEffectRecord>(this);
 	ins->is_recording = false;
 
 	//Re-using the buffer size calculations from audio_effect_delay.cpp
@@ -164,16 +148,19 @@ Ref<AudioEffectInstance> AudioEffectRecord::instantiate() {
 	ins->ring_buffer_read_pos = 0;
 
 	ensure_thread_stopped();
-	current_instance = ins;
-	if (recording_active) {
+	bool is_currently_recording = false;
+	if (current_instance != nullptr) {
+		is_currently_recording = current_instance->is_recording;
+	}
+	if (is_currently_recording) {
 		ins->init();
 	}
+	current_instance = ins;
 
 	return ins;
 }
 
 void AudioEffectRecord::ensure_thread_stopped() {
-	recording_active = false;
 	if (current_instance != nullptr) {
 		current_instance->finish();
 	}
@@ -183,20 +170,23 @@ void AudioEffectRecord::set_recording_active(bool p_record) {
 	if (p_record) {
 		if (current_instance == nullptr) {
 			WARN_PRINT("Recording should not be set as active before Godot has initialized.");
-			recording_active = false;
 			return;
 		}
-
 		ensure_thread_stopped();
-		recording_active = true;
 		current_instance->init();
 	} else {
-		recording_active = false;
+		if (current_instance != nullptr) {
+			current_instance->is_recording = false;
+		}
 	}
 }
 
 bool AudioEffectRecord::is_recording_active() const {
-	return recording_active;
+	if (current_instance == nullptr) {
+		return false;
+	} else {
+		return current_instance->is_recording;
+	}
 }
 
 void AudioEffectRecord::set_format(AudioStreamWAV::Format p_format) {
@@ -298,5 +288,8 @@ void AudioEffectRecord::_bind_methods() {
 
 AudioEffectRecord::AudioEffectRecord() {
 	format = AudioStreamWAV::FORMAT_16_BITS;
-	recording_active = false;
+}
+
+AudioEffectRecord::~AudioEffectRecord() {
+	ensure_thread_stopped();
 }

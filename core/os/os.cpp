@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  os.cpp                                                               */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  os.cpp                                                                */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "os.h"
 
@@ -34,10 +34,20 @@
 #include "core/input/input.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
+#include "core/io/json.h"
 #include "core/os/midi_driver.h"
 #include "core/version_generated.gen.h"
 
 #include <stdarg.h>
+
+#ifdef MINGW_ENABLED
+#define MINGW_STDTHREAD_REDUNDANCY_WARNING
+#include "thirdparty/mingw-std-threads/mingw.thread.h"
+#define THREADING_NAMESPACE mingw_stdthread
+#else
+#include <thread>
+#define THREADING_NAMESPACE std
+#endif
 
 OS *OS::singleton = nullptr;
 uint64_t OS::target_ticks = 0;
@@ -52,10 +62,6 @@ uint64_t OS::get_ticks_msec() const {
 
 double OS::get_unix_time() const {
 	return 0;
-}
-
-void OS::debug_break() {
-	// something
 }
 
 void OS::_set_logger(CompositeLogger *p_logger) {
@@ -73,6 +79,10 @@ void OS::add_logger(Logger *p_logger) {
 	} else {
 		_logger->add_logger(p_logger);
 	}
+}
+
+String OS::get_identifier() const {
+	return get_name().to_lower();
 }
 
 void OS::print_error(const char *p_function, const char *p_file, int p_line, const char *p_code, const char *p_rationale, bool p_editor_notify, Logger::ErrorType p_type) {
@@ -150,6 +160,14 @@ int OS::get_low_processor_usage_mode_sleep_usec() const {
 	return low_processor_usage_mode_sleep_usec;
 }
 
+void OS::set_delta_smoothing(bool p_enabled) {
+	_delta_smoothing_enabled = p_enabled;
+}
+
+bool OS::is_delta_smoothing_enabled() const {
+	return _delta_smoothing_enabled;
+}
+
 String OS::get_executable_path() const {
 	return _execpath;
 }
@@ -158,16 +176,8 @@ int OS::get_process_id() const {
 	return -1;
 }
 
-void OS::vibrate_handheld(int p_duration_ms) {
-	WARN_PRINT("vibrate_handheld() only works with Android, iOS and HTML5");
-}
-
 bool OS::is_stdout_verbose() const {
 	return _verbose_stdout;
-}
-
-bool OS::is_single_window() const {
-	return _single_window;
 }
 
 bool OS::is_stdout_debug_enabled() const {
@@ -188,50 +198,6 @@ void OS::set_stdout_enabled(bool p_enabled) {
 
 void OS::set_stderr_enabled(bool p_enabled) {
 	_stderr_enabled = p_enabled;
-}
-
-void OS::dump_memory_to_file(const char *p_file) {
-	//Memory::dump_static_mem_to_file(p_file);
-}
-
-static Ref<FileAccess> _OSPRF;
-
-static void _OS_printres(Object *p_obj) {
-	Resource *res = Object::cast_to<Resource>(p_obj);
-	if (!res) {
-		return;
-	}
-
-	String str = vformat("%s - %s - %s", res->to_string(), res->get_name(), res->get_path());
-	if (_OSPRF.is_valid()) {
-		_OSPRF->store_line(str);
-	} else {
-		print_line(str);
-	}
-}
-
-void OS::print_all_resources(String p_to_file) {
-	ERR_FAIL_COND(!p_to_file.is_empty() && _OSPRF.is_valid());
-	if (!p_to_file.is_empty()) {
-		Error err;
-		_OSPRF = FileAccess::open(p_to_file, FileAccess::WRITE, &err);
-		if (err != OK) {
-			_OSPRF.unref();
-			ERR_FAIL_MSG("Can't print all resources to file: " + String(p_to_file) + ".");
-		}
-	}
-
-	ObjectDB::debug_objects(_OS_printres);
-
-	_OSPRF.unref();
-}
-
-void OS::print_resources_in_use(bool p_short) {
-	ResourceCache::dump(nullptr, p_short);
-}
-
-void OS::dump_resources_to_file(const char *p_file) {
-	ResourceCache::dump(p_file);
 }
 
 int OS::get_exit_code() const {
@@ -258,16 +224,26 @@ uint64_t OS::get_embedded_pck_offset() const {
 }
 
 // Helper function to ensure that a dir name/path will be valid on the OS
-String OS::get_safe_dir_name(const String &p_dir_name, bool p_allow_dir_separator) const {
+String OS::get_safe_dir_name(const String &p_dir_name, bool p_allow_paths) const {
+	String safe_dir_name = p_dir_name;
 	Vector<String> invalid_chars = String(": * ? \" < > |").split(" ");
-	if (p_allow_dir_separator) {
+	if (p_allow_paths) {
 		// Dir separators are allowed, but disallow ".." to avoid going up the filesystem
 		invalid_chars.push_back("..");
+		safe_dir_name = safe_dir_name.replace("\\", "/").strip_edges();
 	} else {
 		invalid_chars.push_back("/");
+		invalid_chars.push_back("\\");
+		safe_dir_name = safe_dir_name.strip_edges();
+
+		// These directory names are invalid.
+		if (safe_dir_name == ".") {
+			safe_dir_name = "dot";
+		} else if (safe_dir_name == "..") {
+			safe_dir_name = "twodots";
+		}
 	}
 
-	String safe_dir_name = p_dir_name.replace("\\", "/").strip_edges();
 	for (int i = 0; i < invalid_chars.size(); i++) {
 		safe_dir_name = safe_dir_name.replace(invalid_chars[i], "-");
 	}
@@ -326,6 +302,17 @@ Error OS::shell_open(String p_uri) {
 	return ERR_UNAVAILABLE;
 }
 
+Error OS::shell_show_in_file_manager(String p_path, bool p_open_folder) {
+	p_path = p_path.trim_prefix("file://");
+
+	if (!DirAccess::dir_exists_absolute(p_path)) {
+		p_path = p_path.get_base_dir();
+	}
+
+	p_path = String("file://") + p_path;
+
+	return shell_open(p_path);
+}
 // implement these with the canvas?
 
 uint64_t OS::get_static_memory_usage() const {
@@ -340,8 +327,15 @@ Error OS::set_cwd(const String &p_cwd) {
 	return ERR_CANT_OPEN;
 }
 
-uint64_t OS::get_free_static_memory() const {
-	return Memory::get_mem_available();
+Dictionary OS::get_memory_info() const {
+	Dictionary meminfo;
+
+	meminfo["physical"] = -1;
+	meminfo["free"] = -1;
+	meminfo["available"] = -1;
+	meminfo["stack"] = -1;
+
+	return meminfo;
 }
 
 void OS::yield() {
@@ -369,23 +363,15 @@ void OS::set_cmdline(const char *p_execpath, const List<String> &p_args, const L
 }
 
 String OS::get_unique_id() const {
-	ERR_FAIL_V("");
+	return "";
 }
 
 int OS::get_processor_count() const {
-	return 1;
+	return THREADING_NAMESPACE::thread::hardware_concurrency();
 }
 
 String OS::get_processor_name() const {
 	return "";
-}
-
-bool OS::can_use_threads() const {
-#ifdef NO_THREADS
-	return false;
-#else
-	return true;
-#endif
 }
 
 void OS::set_has_server_feature_callback(HasServerFeatureCallback p_callback) {
@@ -394,13 +380,7 @@ void OS::set_has_server_feature_callback(HasServerFeatureCallback p_callback) {
 
 bool OS::has_feature(const String &p_feature) {
 	// Feature tags are always lowercase for consistency.
-	if (p_feature == get_name().to_lower()) {
-		return true;
-	}
-
-	// Catch-all `linuxbsd` feature tag that matches on both Linux and BSD.
-	// This is the one exposed in the project settings dialog.
-	if (p_feature == "linuxbsd" && (get_name() == "Linux" || get_name() == "FreeBSD" || get_name() == "NetBSD" || get_name() == "OpenBSD" || get_name() == "BSD")) {
+	if (p_feature == get_identifier()) {
 		return true;
 	}
 
@@ -412,20 +392,36 @@ bool OS::has_feature(const String &p_feature) {
 	if (p_feature == "debug") {
 		return true;
 	}
-#else
-	if (p_feature == "release") {
-		return true;
-	}
-#endif
+#endif // DEBUG_ENABLED
+
 #ifdef TOOLS_ENABLED
 	if (p_feature == "editor") {
 		return true;
 	}
 #else
-	if (p_feature == "standalone") {
+	if (p_feature == "template") {
 		return true;
 	}
-#endif
+#ifdef DEBUG_ENABLED
+	if (p_feature == "template_debug") {
+		return true;
+	}
+#else
+	if (p_feature == "template_release" || p_feature == "release") {
+		return true;
+	}
+#endif // DEBUG_ENABLED
+#endif // TOOLS_ENABLED
+
+#ifdef REAL_T_IS_DOUBLE
+	if (p_feature == "double") {
+		return true;
+	}
+#else
+	if (p_feature == "single") {
+		return true;
+	}
+#endif // REAL_T_IS_DOUBLE
 
 	if (sizeof(void *) == 8 && p_feature == "64") {
 		return true;
@@ -502,6 +498,12 @@ bool OS::has_feature(const String &p_feature) {
 	}
 #endif
 
+#if defined(IOS_SIMULATOR)
+	if (p_feature == "simulator") {
+		return true;
+	}
+#endif
+
 	if (_check_internal_feature_support(p_feature)) {
 		return true;
 	}
@@ -514,6 +516,10 @@ bool OS::has_feature(const String &p_feature) {
 		return true;
 	}
 
+	return false;
+}
+
+bool OS::is_sandboxed() const {
 	return false;
 }
 
@@ -571,10 +577,10 @@ void OS::add_frame_delay(bool p_can_draw) {
 	if (is_in_low_processor_usage_mode() || !p_can_draw) {
 		dynamic_delay = get_low_processor_usage_mode_sleep_usec();
 	}
-	const int target_fps = Engine::get_singleton()->get_target_fps();
-	if (target_fps > 0 && !Engine::get_singleton()->is_editor_hint()) {
+	const int max_fps = Engine::get_singleton()->get_max_fps();
+	if (max_fps > 0 && !Engine::get_singleton()->is_editor_hint()) {
 		// Override the low processor usage mode sleep delay if the target FPS is lower.
-		dynamic_delay = MAX(dynamic_delay, (uint64_t)(1000000 / target_fps));
+		dynamic_delay = MAX(dynamic_delay, (uint64_t)(1000000 / max_fps));
 	}
 
 	if (dynamic_delay > 0) {
@@ -588,6 +594,92 @@ void OS::add_frame_delay(bool p_can_draw) {
 		current_ticks = get_ticks_usec();
 		target_ticks = MIN(MAX(target_ticks, current_ticks - dynamic_delay), current_ticks + dynamic_delay);
 	}
+}
+
+Error OS::setup_remote_filesystem(const String &p_server_host, int p_port, const String &p_password, String &r_project_path) {
+	return default_rfs.synchronize_with_server(p_server_host, p_port, p_password, r_project_path);
+}
+
+OS::PreferredTextureFormat OS::get_preferred_texture_format() const {
+#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM) || defined(_M_ARM64)
+	return PREFERRED_TEXTURE_FORMAT_ETC2_ASTC; // By rule, ARM hardware uses ETC texture compression.
+#elif defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
+	return PREFERRED_TEXTURE_FORMAT_S3TC_BPTC; // By rule, X86 hardware prefers S3TC and derivatives.
+#else
+	return PREFERRED_TEXTURE_FORMAT_S3TC_BPTC; // Override in platform if needed.
+#endif
+}
+
+void OS::set_use_benchmark(bool p_use_benchmark) {
+	use_benchmark = p_use_benchmark;
+}
+
+bool OS::is_use_benchmark_set() {
+	return use_benchmark;
+}
+
+void OS::set_benchmark_file(const String &p_benchmark_file) {
+	benchmark_file = p_benchmark_file;
+}
+
+String OS::get_benchmark_file() {
+	return benchmark_file;
+}
+
+void OS::benchmark_begin_measure(const String &p_context, const String &p_what) {
+#ifdef TOOLS_ENABLED
+	Pair<String, String> mark_key(p_context, p_what);
+	ERR_FAIL_COND_MSG(benchmark_marks_from.has(mark_key), vformat("Benchmark key '%s:%s' already exists.", p_context, p_what));
+
+	benchmark_marks_from[mark_key] = OS::get_singleton()->get_ticks_usec();
+#endif
+}
+void OS::benchmark_end_measure(const String &p_context, const String &p_what) {
+#ifdef TOOLS_ENABLED
+	Pair<String, String> mark_key(p_context, p_what);
+	ERR_FAIL_COND_MSG(!benchmark_marks_from.has(mark_key), vformat("Benchmark key '%s:%s' doesn't exist.", p_context, p_what));
+
+	uint64_t total = OS::get_singleton()->get_ticks_usec() - benchmark_marks_from[mark_key];
+	double total_f = double(total) / double(1000000);
+	benchmark_marks_final[mark_key] = total_f;
+#endif
+}
+
+void OS::benchmark_dump() {
+#ifdef TOOLS_ENABLED
+	if (!use_benchmark) {
+		return;
+	}
+
+	if (!benchmark_file.is_empty()) {
+		Ref<FileAccess> f = FileAccess::open(benchmark_file, FileAccess::WRITE);
+		if (f.is_valid()) {
+			Dictionary benchmark_marks;
+			for (const KeyValue<Pair<String, String>, double> &E : benchmark_marks_final) {
+				const String mark_key = vformat("[%s] %s", E.key.first, E.key.second);
+				benchmark_marks[mark_key] = E.value;
+			}
+
+			Ref<JSON> json;
+			json.instantiate();
+			f->store_string(json->stringify(benchmark_marks, "\t", false, true));
+		}
+	} else {
+		HashMap<String, String> results;
+		for (const KeyValue<Pair<String, String>, double> &E : benchmark_marks_final) {
+			if (E.key.first == "Startup" && !results.has(E.key.first)) {
+				results.insert(E.key.first, "", true); // Hack to make sure "Startup" always comes first.
+			}
+
+			results[E.key.first] += vformat("\t\t- %s: %.3f msec.\n", E.key.second, (E.value * 1000));
+		}
+
+		print_line("BENCHMARK:");
+		for (const KeyValue<String, String> &E : results) {
+			print_line(vformat("\t[%s]\n%s", E.key, E.value));
+		}
+	}
+#endif
 }
 
 OS::OS() {

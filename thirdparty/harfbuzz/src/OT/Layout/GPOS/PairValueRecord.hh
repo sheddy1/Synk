@@ -22,7 +22,7 @@ struct PairValueRecord
   ValueRecord   values;                 /* Positioning data for the first glyph
                                          * followed by for second glyph */
   public:
-  DEFINE_SIZE_ARRAY (Types::size, values);
+  DEFINE_SIZE_ARRAY (Types::HBGlyphID::static_size, values);
 
   int cmp (hb_codepoint_t k) const
   { return secondGlyph.cmp (k); }
@@ -34,7 +34,7 @@ struct PairValueRecord
     const ValueFormat   *newFormats;
     unsigned            len1; /* valueFormats[0].get_len() */
     const hb_map_t      *glyph_map;
-    const hb_map_t      *layout_variation_idx_map;
+    const hb_hashmap_t<unsigned, hb_pair_t<unsigned, int>> *layout_variation_idx_delta_map;
   };
 
   bool subset (hb_subset_context_t *c,
@@ -50,12 +50,12 @@ struct PairValueRecord
     closure->valueFormats[0].copy_values (s,
                                           closure->newFormats[0],
                                           closure->base, &values[0],
-                                          closure->layout_variation_idx_map);
+                                          closure->layout_variation_idx_delta_map);
     closure->valueFormats[1].copy_values (s,
                                           closure->newFormats[1],
                                           closure->base,
                                           &values[closure->len1],
-                                          closure->layout_variation_idx_map);
+                                          closure->layout_variation_idx_delta_map);
 
     return_trace (true);
   }

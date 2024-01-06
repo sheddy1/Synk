@@ -1,38 +1,55 @@
-/*************************************************************************/
-/*  option_button.cpp                                                    */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  option_button.cpp                                                     */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "option_button.h"
 
+#include "core/os/keyboard.h"
 #include "core/string/print_string.h"
+#include "scene/theme/theme_db.h"
 
 static const int NONE_SELECTED = -1;
+
+void OptionButton::shortcut_input(const Ref<InputEvent> &p_event) {
+	ERR_FAIL_COND(p_event.is_null());
+
+	if (disable_shortcuts) {
+		return;
+	}
+
+	if (p_event->is_pressed() && !p_event->is_echo() && !is_disabled() && is_visible_in_tree() && popup->activate_item_by_event(p_event, false)) {
+		accept_event();
+		return;
+	}
+
+	Button::shortcut_input(p_event);
+}
 
 Size2 OptionButton::get_minimum_size() const {
 	Size2 minsize;
@@ -43,11 +60,11 @@ Size2 OptionButton::get_minimum_size() const {
 	}
 
 	if (has_theme_icon(SNAME("arrow"))) {
-		const Size2 padding = get_theme_stylebox(SNAME("normal"))->get_minimum_size();
-		const Size2 arrow_size = Control::get_theme_icon(SNAME("arrow"))->get_size();
+		const Size2 padding = theme_cache.normal->get_minimum_size();
+		const Size2 arrow_size = theme_cache.arrow_icon->get_size();
 
 		Size2 content_size = minsize - padding;
-		content_size.width += arrow_size.width + get_theme_constant(SNAME("h_separation"));
+		content_size.width += arrow_size.width + MAX(0, theme_cache.h_separation);
 		content_size.height = MAX(content_size.height, arrow_size.height);
 
 		minsize = content_size + padding;
@@ -58,30 +75,43 @@ Size2 OptionButton::get_minimum_size() const {
 
 void OptionButton::_notification(int p_what) {
 	switch (p_what) {
+		case NOTIFICATION_POSTINITIALIZE: {
+			_refresh_size_cache();
+			if (has_theme_icon(SNAME("arrow"))) {
+				if (is_layout_rtl()) {
+					_set_internal_margin(SIDE_LEFT, theme_cache.arrow_icon->get_width());
+				} else {
+					_set_internal_margin(SIDE_RIGHT, theme_cache.arrow_icon->get_width());
+				}
+			}
+		} break;
+
 		case NOTIFICATION_DRAW: {
 			if (!has_theme_icon(SNAME("arrow"))) {
 				return;
 			}
 
 			RID ci = get_canvas_item();
-			Ref<Texture2D> arrow = Control::get_theme_icon(SNAME("arrow"));
 			Color clr = Color(1, 1, 1);
-			if (get_theme_constant(SNAME("modulate_arrow"))) {
+			if (theme_cache.modulate_arrow) {
 				switch (get_draw_mode()) {
 					case DRAW_PRESSED:
-						clr = get_theme_color(SNAME("font_pressed_color"));
+						clr = theme_cache.font_pressed_color;
 						break;
 					case DRAW_HOVER:
-						clr = get_theme_color(SNAME("font_hover_color"));
+						clr = theme_cache.font_hover_color;
+						break;
+					case DRAW_HOVER_PRESSED:
+						clr = theme_cache.font_hover_pressed_color;
 						break;
 					case DRAW_DISABLED:
-						clr = get_theme_color(SNAME("font_disabled_color"));
+						clr = theme_cache.font_disabled_color;
 						break;
 					default:
 						if (has_focus()) {
-							clr = get_theme_color(SNAME("font_focus_color"));
+							clr = theme_cache.font_focus_color;
 						} else {
-							clr = get_theme_color(SNAME("font_color"));
+							clr = theme_cache.font_color;
 						}
 				}
 			}
@@ -90,14 +120,17 @@ void OptionButton::_notification(int p_what) {
 
 			Point2 ofs;
 			if (is_layout_rtl()) {
-				ofs = Point2(get_theme_constant(SNAME("arrow_margin")), int(Math::abs((size.height - arrow->get_height()) / 2)));
+				ofs = Point2(theme_cache.arrow_margin, int(Math::abs((size.height - theme_cache.arrow_icon->get_height()) / 2)));
 			} else {
-				ofs = Point2(size.width - arrow->get_width() - get_theme_constant(SNAME("arrow_margin")), int(Math::abs((size.height - arrow->get_height()) / 2)));
+				ofs = Point2(size.width - theme_cache.arrow_icon->get_width() - theme_cache.arrow_margin, int(Math::abs((size.height - theme_cache.arrow_icon->get_height()) / 2)));
 			}
-			arrow->draw(ci, ofs, clr);
+			theme_cache.arrow_icon->draw(ci, ofs, clr);
 		} break;
 
-		case NOTIFICATION_TRANSLATION_CHANGED:
+		case NOTIFICATION_TRANSLATION_CHANGED: {
+			popup->set_auto_translate(is_auto_translating());
+			[[fallthrough]];
+		}
 		case NOTIFICATION_LAYOUT_DIRECTION_CHANGED: {
 			popup->set_layout_direction((Window::LayoutDirection)get_layout_direction());
 			[[fallthrough]];
@@ -105,11 +138,11 @@ void OptionButton::_notification(int p_what) {
 		case NOTIFICATION_THEME_CHANGED: {
 			if (has_theme_icon(SNAME("arrow"))) {
 				if (is_layout_rtl()) {
-					_set_internal_margin(SIDE_LEFT, Control::get_theme_icon(SNAME("arrow"))->get_width());
+					_set_internal_margin(SIDE_LEFT, theme_cache.arrow_icon->get_width());
 					_set_internal_margin(SIDE_RIGHT, 0.f);
 				} else {
 					_set_internal_margin(SIDE_LEFT, 0.f);
-					_set_internal_margin(SIDE_RIGHT, Control::get_theme_icon(SNAME("arrow"))->get_width());
+					_set_internal_margin(SIDE_RIGHT, theme_cache.arrow_icon->get_width());
 				}
 			}
 			_refresh_size_cache();
@@ -126,7 +159,7 @@ void OptionButton::_notification(int p_what) {
 bool OptionButton::_set(const StringName &p_name, const Variant &p_value) {
 	Vector<String> components = String(p_name).split("/", true, 2);
 	if (components.size() >= 2 && components[0] == "popup") {
-		String property = components[2];
+		const String &property = components[2];
 		if (property != "text" && property != "icon" && property != "id" && property != "disabled" && property != "separator") {
 			return false;
 		}
@@ -142,7 +175,7 @@ bool OptionButton::_set(const StringName &p_name, const Variant &p_value) {
 		}
 
 		if (property == "text" || property == "icon") {
-			_queue_refresh_cache();
+			_queue_update_size_cache();
 		}
 
 		return valid;
@@ -153,7 +186,7 @@ bool OptionButton::_set(const StringName &p_name, const Variant &p_value) {
 bool OptionButton::_get(const StringName &p_name, Variant &r_ret) const {
 	Vector<String> components = String(p_name).split("/", true, 2);
 	if (components.size() >= 2 && components[0] == "popup") {
-		String property = components[2];
+		const String &property = components[2];
 		if (property != "text" && property != "icon" && property != "id" && property != "disabled" && property != "separator") {
 			return false;
 		}
@@ -195,21 +228,12 @@ void OptionButton::_selected(int p_which) {
 }
 
 void OptionButton::pressed() {
-	Size2 size = get_size() * get_viewport()->get_canvas_transform().get_scale();
-	popup->set_position(get_screen_position() + Size2(0, size.height * get_global_transform().get_scale().y));
-	popup->set_size(Size2(size.width, 0));
-
-	// If not triggered by the mouse, start the popup with the checked item selected.
-	if (popup->get_item_count() > 0) {
-		if ((get_action_mode() == ActionMode::ACTION_MODE_BUTTON_PRESS && Input::get_singleton()->is_action_just_pressed("ui_accept")) ||
-				(get_action_mode() == ActionMode::ACTION_MODE_BUTTON_RELEASE && Input::get_singleton()->is_action_just_released("ui_accept"))) {
-			popup->set_current_index(current > -1 ? current : 0);
-		} else {
-			popup->scroll_to_item(current > -1 ? current : 0);
-		}
+	if (popup->is_visible()) {
+		popup->hide();
+		return;
 	}
 
-	popup->popup();
+	show_popup();
 }
 
 void OptionButton::add_icon_item(const Ref<Texture2D> &p_icon, const String &p_label, int p_id) {
@@ -218,7 +242,7 @@ void OptionButton::add_icon_item(const Ref<Texture2D> &p_icon, const String &p_l
 	if (first_selectable) {
 		select(get_item_count() - 1);
 	}
-	_queue_refresh_cache();
+	_queue_update_size_cache();
 }
 
 void OptionButton::add_item(const String &p_label, int p_id) {
@@ -227,7 +251,7 @@ void OptionButton::add_item(const String &p_label, int p_id) {
 	if (first_selectable) {
 		select(get_item_count() - 1);
 	}
-	_queue_refresh_cache();
+	_queue_update_size_cache();
 }
 
 void OptionButton::set_item_text(int p_idx, const String &p_text) {
@@ -236,7 +260,7 @@ void OptionButton::set_item_text(int p_idx, const String &p_text) {
 	if (current == p_idx) {
 		set_text(p_text);
 	}
-	_queue_refresh_cache();
+	_queue_update_size_cache();
 }
 
 void OptionButton::set_item_icon(int p_idx, const Ref<Texture2D> &p_icon) {
@@ -245,7 +269,7 @@ void OptionButton::set_item_icon(int p_idx, const Ref<Texture2D> &p_icon) {
 	if (current == p_idx) {
 		set_icon(p_icon);
 	}
-	_queue_refresh_cache();
+	_queue_update_size_cache();
 }
 
 void OptionButton::set_item_id(int p_idx, int p_id) {
@@ -361,6 +385,14 @@ bool OptionButton::is_fit_to_longest_item() const {
 	return fit_to_longest_item;
 }
 
+void OptionButton::set_allow_reselect(bool p_allow) {
+	allow_reselect = p_allow;
+}
+
+bool OptionButton::get_allow_reselect() const {
+	return allow_reselect;
+}
+
 void OptionButton::add_separator(const String &p_text) {
 	popup->add_separator(p_text);
 }
@@ -373,7 +405,7 @@ void OptionButton::clear() {
 }
 
 void OptionButton::_select(int p_which, bool p_emit) {
-	if (p_which == current) {
+	if (p_which == current && !allow_reselect) {
 		return;
 	}
 
@@ -412,24 +444,22 @@ void OptionButton::_select_int(int p_which) {
 void OptionButton::_refresh_size_cache() {
 	cache_refresh_pending = false;
 
-	if (!fit_to_longest_item) {
-		return;
-	}
-
-	_cached_size = Vector2();
-	for (int i = 0; i < get_item_count(); i++) {
-		_cached_size = _cached_size.max(get_minimum_size_for_text_and_icon(get_item_text(i), get_item_icon(i)));
+	if (fit_to_longest_item) {
+		_cached_size = theme_cache.normal->get_minimum_size();
+		for (int i = 0; i < get_item_count(); i++) {
+			_cached_size = _cached_size.max(get_minimum_size_for_text_and_icon(popup->get_item_xl_text(i), get_item_icon(i)));
+		}
 	}
 	update_minimum_size();
 }
 
-void OptionButton::_queue_refresh_cache() {
+void OptionButton::_queue_update_size_cache() {
 	if (cache_refresh_pending) {
 		return;
 	}
 	cache_refresh_pending = true;
 
-	callable_mp(this, &OptionButton::_refresh_size_cache).call_deferredp(nullptr, 0);
+	callable_mp(this, &OptionButton::_refresh_size_cache).call_deferred();
 }
 
 void OptionButton::select(int p_idx) {
@@ -457,20 +487,51 @@ void OptionButton::remove_item(int p_idx) {
 	if (current == p_idx) {
 		_select(NONE_SELECTED);
 	}
-	_queue_refresh_cache();
+	_queue_update_size_cache();
 }
 
 PopupMenu *OptionButton::get_popup() const {
 	return popup;
 }
 
-void OptionButton::get_translatable_strings(List<String> *p_strings) const {
-	popup->get_translatable_strings(p_strings);
+void OptionButton::show_popup() {
+	if (!get_viewport()) {
+		return;
+	}
+
+	Rect2 rect = get_screen_rect();
+	rect.position.y += rect.size.height;
+	rect.size.height = 0;
+	popup->set_position(rect.position);
+	popup->set_size(rect.size);
+
+	// If not triggered by the mouse, start the popup with the checked item (or the first enabled one) focused.
+	if (current != NONE_SELECTED && !popup->is_item_disabled(current)) {
+		if (!_was_pressed_by_mouse()) {
+			popup->set_focused_item(current);
+		} else {
+			popup->scroll_to_item(current);
+		}
+	} else {
+		for (int i = 0; i < popup->get_item_count(); i++) {
+			if (!popup->is_item_disabled(i)) {
+				if (!_was_pressed_by_mouse()) {
+					popup->set_focused_item(i);
+				} else {
+					popup->scroll_to_item(i);
+				}
+
+				break;
+			}
+		}
+	}
+
+	popup->popup();
 }
 
-void OptionButton::_validate_property(PropertyInfo &property) const {
-	if (property.name == "text" || property.name == "icon") {
-		property.usage = PROPERTY_USAGE_NONE;
+void OptionButton::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "text" || p_property.name == "icon") {
+		p_property.usage = PROPERTY_USAGE_NONE;
 	}
 }
 
@@ -501,6 +562,7 @@ void OptionButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_select_int", "idx"), &OptionButton::_select_int);
 
 	ClassDB::bind_method(D_METHOD("get_popup"), &OptionButton::get_popup);
+	ClassDB::bind_method(D_METHOD("show_popup"), &OptionButton::show_popup);
 
 	ClassDB::bind_method(D_METHOD("set_item_count", "count"), &OptionButton::set_item_count);
 	ClassDB::bind_method(D_METHOD("get_item_count"), &OptionButton::get_item_count);
@@ -508,28 +570,44 @@ void OptionButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_selectable_item", "from_last"), &OptionButton::get_selectable_item, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("set_fit_to_longest_item", "fit"), &OptionButton::set_fit_to_longest_item);
 	ClassDB::bind_method(D_METHOD("is_fit_to_longest_item"), &OptionButton::is_fit_to_longest_item);
+	ClassDB::bind_method(D_METHOD("set_allow_reselect", "allow"), &OptionButton::set_allow_reselect);
+	ClassDB::bind_method(D_METHOD("get_allow_reselect"), &OptionButton::get_allow_reselect);
+	ClassDB::bind_method(D_METHOD("set_disable_shortcuts", "disabled"), &OptionButton::set_disable_shortcuts);
 
 	// "selected" property must come after "item_count", otherwise GH-10213 occurs.
 	ADD_ARRAY_COUNT("Items", "item_count", "set_item_count", "get_item_count", "popup/item_");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "selected"), "_select_int", "get_selected");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "fit_to_longest_item"), "set_fit_to_longest_item", "is_fit_to_longest_item");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "allow_reselect"), "set_allow_reselect", "get_allow_reselect");
+
 	ADD_SIGNAL(MethodInfo("item_selected", PropertyInfo(Variant::INT, "index")));
 	ADD_SIGNAL(MethodInfo("item_focused", PropertyInfo(Variant::INT, "index")));
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_STYLEBOX, OptionButton, normal);
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_focus_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_pressed_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_hover_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_hover_pressed_color);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_COLOR, OptionButton, font_disabled_color);
+
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, OptionButton, h_separation);
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, OptionButton, arrow_icon, "arrow");
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, OptionButton, arrow_margin);
+	BIND_THEME_ITEM(Theme::DATA_TYPE_CONSTANT, OptionButton, modulate_arrow);
+}
+
+void OptionButton::set_disable_shortcuts(bool p_disabled) {
+	disable_shortcuts = p_disabled;
 }
 
 OptionButton::OptionButton(const String &p_text) :
 		Button(p_text) {
 	set_toggle_mode(true);
+	set_process_shortcut_input(true);
 	set_text_alignment(HORIZONTAL_ALIGNMENT_LEFT);
-	if (is_layout_rtl()) {
-		if (has_theme_icon(SNAME("arrow"))) {
-			_set_internal_margin(SIDE_LEFT, Control::get_theme_icon(SNAME("arrow"))->get_width());
-		}
-	} else {
-		if (has_theme_icon(SNAME("arrow"))) {
-			_set_internal_margin(SIDE_RIGHT, Control::get_theme_icon(SNAME("arrow"))->get_width());
-		}
-	}
 	set_action_mode(ACTION_MODE_BUTTON_PRESS);
 
 	popup = memnew(PopupMenu);
@@ -538,7 +616,6 @@ OptionButton::OptionButton(const String &p_text) :
 	popup->connect("index_pressed", callable_mp(this, &OptionButton::_selected));
 	popup->connect("id_focused", callable_mp(this, &OptionButton::_focused));
 	popup->connect("popup_hide", callable_mp((BaseButton *)this, &BaseButton::set_pressed).bind(false));
-	_refresh_size_cache();
 }
 
 OptionButton::~OptionButton() {

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  physics_server_3d.h                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  physics_server_3d.h                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef PHYSICS_SERVER_3D_H
 #define PHYSICS_SERVER_3D_H
@@ -34,10 +34,11 @@
 #include "core/io/resource.h"
 #include "core/object/class_db.h"
 #include "core/object/gdvirtual.gen.inc"
-#include "core/object/script_language.h"
 #include "core/variant/native_ptr.h"
 
 class PhysicsDirectSpaceState3D;
+template <typename T>
+class TypedArray;
 
 class PhysicsDirectBodyState3D : public Object {
 	GDCLASS(PhysicsDirectBodyState3D, Object);
@@ -93,8 +94,9 @@ public:
 
 	virtual Vector3 get_contact_local_position(int p_contact_idx) const = 0;
 	virtual Vector3 get_contact_local_normal(int p_contact_idx) const = 0;
-	virtual real_t get_contact_impulse(int p_contact_idx) const = 0;
+	virtual Vector3 get_contact_impulse(int p_contact_idx) const = 0;
 	virtual int get_contact_local_shape(int p_contact_idx) const = 0;
+	virtual Vector3 get_contact_local_velocity_at_position(int p_contact_idx) const = 0;
 
 	virtual RID get_contact_collider(int p_contact_idx) const = 0;
 	virtual Vector3 get_contact_collider_position(int p_contact_idx) const = 0;
@@ -120,10 +122,10 @@ class PhysicsDirectSpaceState3D : public Object {
 
 private:
 	Dictionary _intersect_ray(const Ref<PhysicsRayQueryParameters3D> &p_ray_query);
-	Array _intersect_point(const Ref<PhysicsPointQueryParameters3D> &p_point_query, int p_max_results = 32);
-	Array _intersect_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
-	Array _cast_motion(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query);
-	Array _collide_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
+	TypedArray<Dictionary> _intersect_point(const Ref<PhysicsPointQueryParameters3D> &p_point_query, int p_max_results = 32);
+	TypedArray<Dictionary> _intersect_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
+	Vector<real_t> _cast_motion(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query);
+	TypedArray<Vector3> _collide_shape(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query, int p_max_results = 32);
 	Dictionary _get_rest_info(const Ref<PhysicsShapeQueryParameters3D> &p_shape_query);
 
 protected:
@@ -152,6 +154,7 @@ public:
 		ObjectID collider_id;
 		Object *collider = nullptr;
 		int shape = 0;
+		int face_index = -1;
 	};
 
 	virtual bool intersect_ray(const RayParameters &p_parameters, RayResult &r_result) = 0;
@@ -208,15 +211,15 @@ public:
 class PhysicsServer3DRenderingServerHandler : public Object {
 	GDCLASS(PhysicsServer3DRenderingServerHandler, Object)
 protected:
-	GDVIRTUAL2(_set_vertex, int, GDNativeConstPtr<void>)
-	GDVIRTUAL2(_set_normal, int, GDNativeConstPtr<void>)
+	GDVIRTUAL2(_set_vertex, int, const Vector3 &)
+	GDVIRTUAL2(_set_normal, int, const Vector3 &)
 	GDVIRTUAL1(_set_aabb, const AABB &)
 
 	static void _bind_methods();
 
 public:
-	virtual void set_vertex(int p_vertex_id, const void *p_vector3);
-	virtual void set_normal(int p_vertex_id, const void *p_vector3);
+	virtual void set_vertex(int p_vertex_id, const Vector3 &p_vertex);
+	virtual void set_normal(int p_vertex_id, const Vector3 &p_normal);
 	virtual void set_aabb(const AABB &p_aabb);
 
 	virtual ~PhysicsServer3DRenderingServerHandler() {}
@@ -314,8 +317,7 @@ public:
 		AREA_PARAM_GRAVITY,
 		AREA_PARAM_GRAVITY_VECTOR,
 		AREA_PARAM_GRAVITY_IS_POINT,
-		AREA_PARAM_GRAVITY_DISTANCE_SCALE,
-		AREA_PARAM_GRAVITY_POINT_ATTENUATION,
+		AREA_PARAM_GRAVITY_POINT_UNIT_DISTANCE,
 		AREA_PARAM_LINEAR_DAMP_OVERRIDE_MODE,
 		AREA_PARAM_LINEAR_DAMP,
 		AREA_PARAM_ANGULAR_DAMP_OVERRIDE_MODE,
@@ -362,8 +364,11 @@ public:
 	virtual Variant area_get_param(RID p_parea, AreaParameter p_param) const = 0;
 	virtual Transform3D area_get_transform(RID p_area) const = 0;
 
-	virtual void area_set_collision_mask(RID p_area, uint32_t p_mask) = 0;
 	virtual void area_set_collision_layer(RID p_area, uint32_t p_layer) = 0;
+	virtual uint32_t area_get_collision_layer(RID p_area) const = 0;
+
+	virtual void area_set_collision_mask(RID p_area, uint32_t p_mask) = 0;
+	virtual uint32_t area_get_collision_mask(RID p_area) const = 0;
 
 	virtual void area_set_monitorable(RID p_area, bool p_monitorable) = 0;
 
@@ -379,8 +384,8 @@ public:
 	enum BodyMode {
 		BODY_MODE_STATIC,
 		BODY_MODE_KINEMATIC,
-		BODY_MODE_DYNAMIC,
-		BODY_MODE_DYNAMIC_LINEAR,
+		BODY_MODE_RIGID,
+		BODY_MODE_RIGID_LINEAR,
 	};
 
 	enum BodyDampMode {
@@ -420,6 +425,9 @@ public:
 
 	virtual void body_set_collision_mask(RID p_body, uint32_t p_mask) = 0;
 	virtual uint32_t body_get_collision_mask(RID p_body) const = 0;
+
+	virtual void body_set_collision_priority(RID p_body, real_t p_priority) = 0;
+	virtual real_t body_get_collision_priority(RID p_body) const = 0;
 
 	virtual void body_set_user_flags(RID p_body, uint32_t p_flags) = 0;
 	virtual uint32_t body_get_user_flags(RID p_body) const = 0;
@@ -503,10 +511,7 @@ public:
 	virtual void body_set_omit_force_integration(RID p_body, bool p_omit) = 0;
 	virtual bool body_is_omitting_force_integration(RID p_body) const = 0;
 
-	// Callback for C++ use only.
-	typedef void (*BodyStateCallback)(void *p_instance, PhysicsDirectBodyState3D *p_state);
-	virtual void body_set_state_sync_callback(RID p_body, void *p_instance, BodyStateCallback p_callback) = 0;
-
+	virtual void body_set_state_sync_callback(RID p_body, const Callable &p_callable) = 0;
 	virtual void body_set_force_integration_callback(RID p_body, const Callable &p_callable, const Variant &p_udata = Variant()) = 0;
 
 	virtual void body_set_ray_pickable(RID p_body, bool p_enable) = 0;
@@ -536,6 +541,7 @@ public:
 		Vector3 position;
 		Vector3 normal;
 		Vector3 collider_velocity;
+		Vector3 collider_angular_velocity;
 		real_t depth = 0.0;
 		int local_shape = 0;
 		ObjectID collider_id;
@@ -550,6 +556,7 @@ public:
 	struct MotionResult {
 		Vector3 travel;
 		Vector3 remainder;
+		real_t collision_depth = 0.0;
 		real_t collision_safe_fraction = 0.0;
 		real_t collision_unsafe_fraction = 0.0;
 
@@ -680,7 +687,7 @@ public:
 	virtual void hinge_joint_set_param(RID p_joint, HingeJointParam p_param, real_t p_value) = 0;
 	virtual real_t hinge_joint_get_param(RID p_joint, HingeJointParam p_param) const = 0;
 
-	virtual void hinge_joint_set_flag(RID p_joint, HingeJointFlag p_flag, bool p_value) = 0;
+	virtual void hinge_joint_set_flag(RID p_joint, HingeJointFlag p_flag, bool p_enabled) = 0;
 	virtual bool hinge_joint_get_flag(RID p_joint, HingeJointFlag p_flag) const = 0;
 
 	enum SliderJointParam {
@@ -816,7 +823,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	static Ref<PhysicsRayQueryParameters3D> create(Vector3 p_from, Vector3 p_to, uint32_t p_mask, const Vector<RID> &p_exclude);
+	static Ref<PhysicsRayQueryParameters3D> create(Vector3 p_from, Vector3 p_to, uint32_t p_mask, const TypedArray<RID> &p_exclude);
 	const PhysicsDirectSpaceState3D::RayParameters &get_parameters() const { return parameters; }
 
 	void set_from(const Vector3 &p_from) { parameters.from = p_from; }
@@ -840,8 +847,8 @@ public:
 	void set_hit_back_faces(bool p_enable) { parameters.hit_back_faces = p_enable; }
 	bool is_hit_back_faces_enabled() const { return parameters.hit_back_faces; }
 
-	void set_exclude(const Vector<RID> &p_exclude);
-	Vector<RID> get_exclude() const;
+	void set_exclude(const TypedArray<RID> &p_exclude);
+	TypedArray<RID> get_exclude() const;
 };
 
 class PhysicsPointQueryParameters3D : public RefCounted {
@@ -867,8 +874,8 @@ public:
 	void set_collide_with_areas(bool p_enable) { parameters.collide_with_areas = p_enable; }
 	bool is_collide_with_areas_enabled() const { return parameters.collide_with_areas; }
 
-	void set_exclude(const Vector<RID> &p_exclude);
-	Vector<RID> get_exclude() const;
+	void set_exclude(const TypedArray<RID> &p_exclude);
+	TypedArray<RID> get_exclude() const;
 };
 
 class PhysicsShapeQueryParameters3D : public RefCounted {
@@ -908,8 +915,8 @@ public:
 	void set_collide_with_areas(bool p_enable) { parameters.collide_with_areas = p_enable; }
 	bool is_collide_with_areas_enabled() const { return parameters.collide_with_areas; }
 
-	void set_exclude(const Vector<RID> &p_exclude);
-	Vector<RID> get_exclude() const;
+	void set_exclude(const TypedArray<RID> &p_exclude);
+	TypedArray<RID> get_exclude() const;
 };
 
 class PhysicsTestMotionParameters3D : public RefCounted {
@@ -938,11 +945,11 @@ public:
 	bool is_collide_separation_ray_enabled() const { return parameters.collide_separation_ray; }
 	void set_collide_separation_ray_enabled(bool p_enabled) { parameters.collide_separation_ray = p_enabled; }
 
-	Vector<RID> get_exclude_bodies() const;
-	void set_exclude_bodies(const Vector<RID> &p_exclude);
+	TypedArray<RID> get_exclude_bodies() const;
+	void set_exclude_bodies(const TypedArray<RID> &p_exclude);
 
-	Array get_exclude_objects() const;
-	void set_exclude_objects(const Array &p_exclude);
+	TypedArray<uint64_t> get_exclude_objects() const;
+	void set_exclude_objects(const TypedArray<uint64_t> &p_exclude);
 
 	bool is_recovery_as_collision_enabled() const { return parameters.recovery_as_collision; }
 	void set_recovery_as_collision_enabled(bool p_enabled) { parameters.recovery_as_collision = p_enabled; }
@@ -977,16 +984,18 @@ public:
 	real_t get_collision_depth(int p_collision_index = 0) const;
 };
 
-typedef PhysicsServer3D *(*CreatePhysicsServer3DCallback)();
+class PhysicsServer3DManager : public Object {
+	GDCLASS(PhysicsServer3DManager, Object);
 
-class PhysicsServer3DManager {
+	static PhysicsServer3DManager *singleton;
+
 	struct ClassInfo {
 		String name;
-		CreatePhysicsServer3DCallback create_callback = nullptr;
+		Callable create_callback;
 
 		ClassInfo() {}
 
-		ClassInfo(String p_name, CreatePhysicsServer3DCallback p_create_callback) :
+		ClassInfo(String p_name, Callable p_create_callback) :
 				name(p_name),
 				create_callback(p_create_callback) {}
 
@@ -1000,24 +1009,30 @@ class PhysicsServer3DManager {
 		}
 	};
 
-	static Vector<ClassInfo> physics_servers;
-	static int default_server_id;
-	static int default_server_priority;
+	Vector<ClassInfo> physics_servers;
+	int default_server_id = -1;
+	int default_server_priority = -1;
+
+	void on_servers_changed();
+
+protected:
+	static void _bind_methods();
 
 public:
 	static const String setting_property_name;
 
-private:
-	static void on_servers_changed();
+	static PhysicsServer3DManager *get_singleton();
 
-public:
-	static void register_server(const String &p_name, CreatePhysicsServer3DCallback p_creat_callback);
-	static void set_default_server(const String &p_name, int p_priority = 0);
-	static int find_server_id(const String &p_name);
-	static int get_servers_count();
-	static String get_server_name(int p_id);
-	static PhysicsServer3D *new_default_server();
-	static PhysicsServer3D *new_server(const String &p_name);
+	void register_server(const String &p_name, const Callable &p_create_callback);
+	void set_default_server(const String &p_name, int p_priority = 0);
+	int find_server_id(const String &p_name);
+	int get_servers_count();
+	String get_server_name(int p_id);
+	PhysicsServer3D *new_default_server();
+	PhysicsServer3D *new_server(const String &p_name);
+
+	PhysicsServer3DManager();
+	~PhysicsServer3DManager();
 };
 
 VARIANT_ENUM_CAST(PhysicsServer3D::ShapeType);

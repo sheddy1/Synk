@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  variant_op.h                                                         */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  variant_op.h                                                          */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef VARIANT_OP_H
 #define VARIANT_OP_H
@@ -284,7 +284,7 @@ public:
 		const B &b = *VariantGetInternalPtr<B>::get_ptr(&p_right);
 		if (b == 0) {
 			r_valid = false;
-			*r_ret = "Module by zero error";
+			*r_ret = "Modulo by zero error";
 			return;
 		}
 		*r_ret = a % b;
@@ -307,7 +307,7 @@ public:
 		const Vector2i &b = *VariantGetInternalPtr<Vector2i>::get_ptr(&p_right);
 		if (unlikely(b.x == 0 || b.y == 0)) {
 			r_valid = false;
-			*r_ret = "Module by zero error";
+			*r_ret = "Modulo by zero error";
 			return;
 		}
 		*r_ret = a % b;
@@ -331,7 +331,7 @@ public:
 		const Vector3i &b = *VariantGetInternalPtr<Vector3i>::get_ptr(&p_right);
 		if (unlikely(b.x == 0 || b.y == 0 || b.z == 0)) {
 			r_valid = false;
-			*r_ret = "Module by zero error";
+			*r_ret = "Modulo by zero error";
 			return;
 		}
 		*r_ret = a % b;
@@ -355,7 +355,7 @@ public:
 		const Vector4i &b = *VariantGetInternalPtr<Vector4i>::get_ptr(&p_right);
 		if (unlikely(b.x == 0 || b.y == 0 || b.z == 0 || b.w == 0)) {
 			r_valid = false;
-			*r_ret = "Module by zero error";
+			*r_ret = "Modulo by zero error";
 			return;
 		}
 		*r_ret = a % b;
@@ -549,14 +549,14 @@ public:
 class OperatorEvaluatorEqualObject {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const Object *a = p_left.get_validated_object();
-		const Object *b = p_right.get_validated_object();
+		const ObjectID &a = VariantInternal::get_object_id(&p_left);
+		const ObjectID &b = VariantInternal::get_object_id(&p_right);
 		*r_ret = a == b;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		const Object *a = left->get_validated_object();
-		const Object *b = right->get_validated_object();
+		const ObjectID &a = VariantInternal::get_object_id(left);
+		const ObjectID &b = VariantInternal::get_object_id(right);
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = a == b;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -568,12 +568,12 @@ public:
 class OperatorEvaluatorEqualObjectNil {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const Object *a = p_left.get_validated_object();
+		const Object *a = p_left.operator Object *();
 		*r_ret = a == nullptr;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		const Object *a = left->get_validated_object();
+		const Object *a = left->operator Object *();
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = a == nullptr;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -585,12 +585,12 @@ public:
 class OperatorEvaluatorEqualNilObject {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const Object *b = p_right.get_validated_object();
+		const Object *b = p_right.operator Object *();
 		*r_ret = nullptr == b;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		const Object *b = right->get_validated_object();
+		const Object *b = right->operator Object *();
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = nullptr == b;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -620,14 +620,14 @@ public:
 class OperatorEvaluatorNotEqualObject {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		Object *a = p_left.get_validated_object();
-		Object *b = p_right.get_validated_object();
+		const ObjectID &a = VariantInternal::get_object_id(&p_left);
+		const ObjectID &b = VariantInternal::get_object_id(&p_right);
 		*r_ret = a != b;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		Object *a = left->get_validated_object();
-		Object *b = right->get_validated_object();
+		const ObjectID &a = VariantInternal::get_object_id(left);
+		const ObjectID &b = VariantInternal::get_object_id(right);
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = a != b;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -639,12 +639,12 @@ public:
 class OperatorEvaluatorNotEqualObjectNil {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		Object *a = p_left.get_validated_object();
+		Object *a = p_left.operator Object *();
 		*r_ret = a != nullptr;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		Object *a = left->get_validated_object();
+		Object *a = left->operator Object *();
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = a != nullptr;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -656,12 +656,12 @@ public:
 class OperatorEvaluatorNotEqualNilObject {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		Object *b = p_right.get_validated_object();
+		Object *b = p_right.operator Object *();
 		*r_ret = nullptr != b;
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		Object *b = right->get_validated_object();
+		Object *b = right->operator Object *();
 		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = nullptr != b;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
@@ -805,14 +805,14 @@ class OperatorEvaluatorNot {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
 		const A &a = *VariantGetInternalPtr<A>::get_ptr(&p_left);
-		*r_ret = !a;
+		*r_ret = a == A();
 		r_valid = true;
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = !*VariantGetInternalPtr<A>::get_ptr(left);
+		*VariantGetInternalPtr<bool>::get_ptr(r_ret) = *VariantGetInternalPtr<A>::get_ptr(left) == A();
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
-		PtrToArg<bool>::encode(!PtrToArg<A>::convert(left));
+		PtrToArg<bool>::encode(PtrToArg<A>::convert(left) == A(), r_ret);
 	}
 	static Variant::Type get_return_type() { return Variant::BOOL; }
 };
@@ -824,6 +824,11 @@ public:
 	_FORCE_INLINE_ static void _add_arrays(Array &sum, const Array &array_a, const Array &array_b) {
 		int asize = array_a.size();
 		int bsize = array_b.size();
+
+		if (array_a.is_typed() && array_a.is_same_typed(array_b)) {
+			sum.set_typed(array_a.get_typed_builtin(), array_a.get_typed_class_name(), array_a.get_typed_script());
+		}
+
 		sum.resize(asize + bsize);
 		for (int i = 0; i < asize; i++) {
 			sum[i] = array_a[i];
@@ -875,7 +880,33 @@ public:
 	static Variant::Type get_return_type() { return GetTypeInfo<Vector<T>>::VARIANT_TYPE; }
 };
 
-class OperatorEvaluatorStringModNil {
+template <class Left, class Right>
+class OperatorEvaluatorStringConcat {
+public:
+	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
+		const String a(*VariantGetInternalPtr<Left>::get_ptr(&p_left));
+		const String b(*VariantGetInternalPtr<Right>::get_ptr(&p_right));
+		*r_ret = a + b;
+		r_valid = true;
+	}
+	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
+		const String a(*VariantGetInternalPtr<Left>::get_ptr(left));
+		const String b(*VariantGetInternalPtr<Right>::get_ptr(right));
+		*VariantGetInternalPtr<String>::get_ptr(r_ret) = a + b;
+	}
+	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
+		const String a(PtrToArg<Left>::convert(left));
+		const String b(PtrToArg<Right>::convert(right));
+		PtrToArg<String>::encode(a + b, r_ret);
+	}
+	static Variant::Type get_return_type() { return Variant::STRING; }
+};
+
+template <class S, class T>
+class OperatorEvaluatorStringFormat;
+
+template <class S>
+class OperatorEvaluatorStringFormat<S, void> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, bool *r_valid) {
 		Array values;
@@ -888,20 +919,22 @@ public:
 		return a;
 	}
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const String &a = *VariantGetInternalPtr<String>::get_ptr(&p_left);
-		*r_ret = do_mod(a, &r_valid);
-		r_valid = true;
+		*r_ret = do_mod(*VariantGetInternalPtr<S>::get_ptr(&p_left), &r_valid);
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		*VariantGetInternalPtr<String>::get_ptr(r_ret) = do_mod(*VariantGetInternalPtr<String>::get_ptr(left), nullptr);
+		bool valid = true;
+		String result = do_mod(*VariantGetInternalPtr<S>::get_ptr(left), &valid);
+		ERR_FAIL_COND_MSG(!valid, result);
+		*VariantGetInternalPtr<String>::get_ptr(r_ret) = result;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
-		PtrToArg<String>::encode(do_mod(PtrToArg<String>::convert(left), nullptr), r_ret);
+		PtrToArg<String>::encode(do_mod(PtrToArg<S>::convert(left), nullptr), r_ret);
 	}
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-class OperatorEvaluatorStringModArray {
+template <class S>
+class OperatorEvaluatorStringFormat<S, Array> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const Array &p_values, bool *r_valid) {
 		String a = s.sprintf(p_values, r_valid);
@@ -911,20 +944,22 @@ public:
 		return a;
 	}
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const String &a = *VariantGetInternalPtr<String>::get_ptr(&p_left);
-		*r_ret = do_mod(a, *VariantGetInternalPtr<Array>::get_ptr(&p_right), &r_valid);
-		r_valid = true;
+		*r_ret = do_mod(*VariantGetInternalPtr<S>::get_ptr(&p_left), *VariantGetInternalPtr<Array>::get_ptr(&p_right), &r_valid);
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		*VariantGetInternalPtr<String>::get_ptr(r_ret) = do_mod(*VariantGetInternalPtr<String>::get_ptr(left), *VariantGetInternalPtr<Array>::get_ptr(right), nullptr);
+		bool valid = true;
+		String result = do_mod(*VariantGetInternalPtr<S>::get_ptr(left), *VariantGetInternalPtr<Array>::get_ptr(right), &valid);
+		ERR_FAIL_COND_MSG(!valid, result);
+		*VariantGetInternalPtr<String>::get_ptr(r_ret) = result;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
-		PtrToArg<String>::encode(do_mod(PtrToArg<String>::convert(left), PtrToArg<Array>::convert(right), nullptr), r_ret);
+		PtrToArg<String>::encode(do_mod(PtrToArg<S>::convert(left), PtrToArg<Array>::convert(right), nullptr), r_ret);
 	}
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-class OperatorEvaluatorStringModObject {
+template <class S>
+class OperatorEvaluatorStringFormat<S, Object> {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const Object *p_object, bool *r_valid) {
 		Array values;
@@ -937,21 +972,22 @@ public:
 		return a;
 	}
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const String &a = *VariantGetInternalPtr<String>::get_ptr(&p_left);
-		*r_ret = do_mod(a, p_right.get_validated_object(), &r_valid);
-		r_valid = true;
+		*r_ret = do_mod(*VariantGetInternalPtr<S>::get_ptr(&p_left), p_right.get_validated_object(), &r_valid);
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		*VariantGetInternalPtr<String>::get_ptr(r_ret) = do_mod(*VariantGetInternalPtr<String>::get_ptr(left), right->get_validated_object(), nullptr);
+		bool valid = true;
+		String result = do_mod(*VariantGetInternalPtr<S>::get_ptr(left), right->get_validated_object(), &valid);
+		ERR_FAIL_COND_MSG(!valid, result);
+		*VariantGetInternalPtr<String>::get_ptr(r_ret) = result;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
-		PtrToArg<String>::encode(do_mod(PtrToArg<String>::convert(left), PtrToArg<Object *>::convert(right), nullptr), r_ret);
+		PtrToArg<String>::encode(do_mod(PtrToArg<S>::convert(left), PtrToArg<Object *>::convert(right), nullptr), r_ret);
 	}
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
 
-template <class T>
-class OperatorEvaluatorStringModT {
+template <class S, class T>
+class OperatorEvaluatorStringFormat {
 public:
 	_FORCE_INLINE_ static String do_mod(const String &s, const T &p_value, bool *r_valid) {
 		Array values;
@@ -963,15 +999,16 @@ public:
 		return a;
 	}
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
-		const String &a = *VariantGetInternalPtr<String>::get_ptr(&p_left);
-		*r_ret = do_mod(a, *VariantGetInternalPtr<T>::get_ptr(&p_right), &r_valid);
-		r_valid = true;
+		*r_ret = do_mod(*VariantGetInternalPtr<S>::get_ptr(&p_left), *VariantGetInternalPtr<T>::get_ptr(&p_right), &r_valid);
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
-		*VariantGetInternalPtr<String>::get_ptr(r_ret) = do_mod(*VariantGetInternalPtr<String>::get_ptr(left), *VariantGetInternalPtr<T>::get_ptr(right), nullptr);
+		bool valid = true;
+		String result = do_mod(*VariantGetInternalPtr<S>::get_ptr(left), *VariantGetInternalPtr<T>::get_ptr(right), &valid);
+		ERR_FAIL_COND_MSG(!valid, result);
+		*VariantGetInternalPtr<String>::get_ptr(r_ret) = result;
 	}
 	static void ptr_evaluate(const void *left, const void *right, void *r_ret) {
-		PtrToArg<String>::encode(do_mod(PtrToArg<String>::convert(left), PtrToArg<T>::convert(right), nullptr), r_ret);
+		PtrToArg<String>::encode(do_mod(PtrToArg<S>::convert(left), PtrToArg<T>::convert(right), nullptr), r_ret);
 	}
 	static Variant::Type get_return_type() { return Variant::STRING; }
 };
@@ -1280,8 +1317,11 @@ public:
 
 ////
 
+template <class Left, class Right>
+class OperatorEvaluatorInStringFind;
+
 template <class Left>
-class OperatorEvaluatorInStringFind {
+class OperatorEvaluatorInStringFind<Left, String> {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
 		const Left &str_a = *VariantGetInternalPtr<Left>::get_ptr(&p_left);
@@ -1302,7 +1342,7 @@ public:
 };
 
 template <class Left>
-class OperatorEvaluatorInStringNameFind {
+class OperatorEvaluatorInStringFind<Left, StringName> {
 public:
 	static void evaluate(const Variant &p_left, const Variant &p_right, Variant *r_ret, bool &r_valid) {
 		const Left &str_a = *VariantGetInternalPtr<Left>::get_ptr(&p_left);
@@ -1453,7 +1493,7 @@ public:
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
 		Object *l = right->get_validated_object();
-		ERR_FAIL_COND(l == nullptr);
+		ERR_FAIL_NULL(l);
 		const String &a = *VariantGetInternalPtr<String>::get_ptr(left);
 
 		bool valid;
@@ -1487,7 +1527,7 @@ public:
 	}
 	static inline void validated_evaluate(const Variant *left, const Variant *right, Variant *r_ret) {
 		Object *l = right->get_validated_object();
-		ERR_FAIL_COND(l == nullptr);
+		ERR_FAIL_NULL(l);
 		const StringName &a = *VariantGetInternalPtr<StringName>::get_ptr(left);
 
 		bool valid;

@@ -1,41 +1,40 @@
-/*************************************************************************/
-/*  texture_progress_bar.cpp                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  texture_progress_bar.cpp                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "texture_progress_bar.h"
 
 #include "core/config/engine.h"
+#include "scene/resources/atlas_texture.h"
 
 void TextureProgressBar::set_under_texture(const Ref<Texture2D> &p_texture) {
-	under = p_texture;
-	update();
-	update_minimum_size();
+	_set_texture(&under, p_texture);
 }
 
 Ref<Texture2D> TextureProgressBar::get_under_texture() const {
@@ -43,11 +42,7 @@ Ref<Texture2D> TextureProgressBar::get_under_texture() const {
 }
 
 void TextureProgressBar::set_over_texture(const Ref<Texture2D> &p_texture) {
-	over = p_texture;
-	update();
-	if (under.is_null()) {
-		update_minimum_size();
-	}
+	_set_texture(&over, p_texture);
 }
 
 Ref<Texture2D> TextureProgressBar::get_over_texture() const {
@@ -56,8 +51,13 @@ Ref<Texture2D> TextureProgressBar::get_over_texture() const {
 
 void TextureProgressBar::set_stretch_margin(Side p_side, int p_size) {
 	ERR_FAIL_INDEX((int)p_side, 4);
+
+	if (stretch_margin[p_side] == p_size) {
+		return;
+	}
+
 	stretch_margin[p_side] = p_size;
-	update();
+	queue_redraw();
 	update_minimum_size();
 }
 
@@ -67,9 +67,14 @@ int TextureProgressBar::get_stretch_margin(Side p_side) const {
 }
 
 void TextureProgressBar::set_nine_patch_stretch(bool p_stretch) {
+	if (nine_patch_stretch == p_stretch) {
+		return;
+	}
+
 	nine_patch_stretch = p_stretch;
-	update();
+	queue_redraw();
 	update_minimum_size();
+	notify_property_list_changed();
 }
 
 bool TextureProgressBar::get_nine_patch_stretch() const {
@@ -91,9 +96,7 @@ Size2 TextureProgressBar::get_minimum_size() const {
 }
 
 void TextureProgressBar::set_progress_texture(const Ref<Texture2D> &p_texture) {
-	progress = p_texture;
-	update();
-	update_minimum_size();
+	_set_texture(&progress, p_texture);
 }
 
 Ref<Texture2D> TextureProgressBar::get_progress_texture() const {
@@ -101,8 +104,12 @@ Ref<Texture2D> TextureProgressBar::get_progress_texture() const {
 }
 
 void TextureProgressBar::set_progress_offset(Point2 p_offset) {
+	if (progress_offset == p_offset) {
+		return;
+	}
+
 	progress_offset = p_offset;
-	update();
+	queue_redraw();
 }
 
 Point2 TextureProgressBar::get_progress_offset() const {
@@ -110,8 +117,12 @@ Point2 TextureProgressBar::get_progress_offset() const {
 }
 
 void TextureProgressBar::set_tint_under(const Color &p_tint) {
+	if (tint_under == p_tint) {
+		return;
+	}
+
 	tint_under = p_tint;
-	update();
+	queue_redraw();
 }
 
 Color TextureProgressBar::get_tint_under() const {
@@ -119,8 +130,12 @@ Color TextureProgressBar::get_tint_under() const {
 }
 
 void TextureProgressBar::set_tint_progress(const Color &p_tint) {
+	if (tint_progress == p_tint) {
+		return;
+	}
+
 	tint_progress = p_tint;
-	update();
+	queue_redraw();
 }
 
 Color TextureProgressBar::get_tint_progress() const {
@@ -128,12 +143,38 @@ Color TextureProgressBar::get_tint_progress() const {
 }
 
 void TextureProgressBar::set_tint_over(const Color &p_tint) {
+	if (tint_over == p_tint) {
+		return;
+	}
+
 	tint_over = p_tint;
-	update();
+	queue_redraw();
 }
 
 Color TextureProgressBar::get_tint_over() const {
 	return tint_over;
+}
+
+void TextureProgressBar::_set_texture(Ref<Texture2D> *p_destination, const Ref<Texture2D> &p_texture) {
+	DEV_ASSERT(p_destination);
+	Ref<Texture2D> &destination = *p_destination;
+	if (destination == p_texture) {
+		return;
+	}
+	if (destination.is_valid()) {
+		destination->disconnect_changed(callable_mp(this, &TextureProgressBar::_texture_changed));
+	}
+	destination = p_texture;
+	if (destination.is_valid()) {
+		// Pass `CONNECT_REFERENCE_COUNTED` to avoid early disconnect in case the same texture is assigned to different "slots".
+		destination->connect_changed(callable_mp(this, &TextureProgressBar::_texture_changed), CONNECT_REFERENCE_COUNTED);
+	}
+	_texture_changed();
+}
+
+void TextureProgressBar::_texture_changed() {
+	update_minimum_size();
+	queue_redraw();
 }
 
 Point2 TextureProgressBar::unit_val_to_uv(float val) {
@@ -473,18 +514,38 @@ void TextureProgressBar::_notification(int p_what) {
 								}
 								pts.append(to);
 
+								Ref<AtlasTexture> atlas_progress = progress;
+								bool valid_atlas_progress = atlas_progress.is_valid() && atlas_progress->get_atlas().is_valid();
+								Rect2 region_rect;
+								Size2 atlas_size;
+								if (valid_atlas_progress) {
+									region_rect = atlas_progress->get_region();
+									atlas_size = atlas_progress->get_atlas()->get_size();
+								}
+
 								Vector<Point2> uvs;
 								Vector<Point2> points;
-								uvs.push_back(get_relative_center());
-								points.push_back(progress_offset + s * get_relative_center());
 								for (int i = 0; i < pts.size(); i++) {
 									Point2 uv = unit_val_to_uv(pts[i]);
 									if (uvs.find(uv) >= 0) {
 										continue;
 									}
-									uvs.push_back(uv);
 									points.push_back(progress_offset + Point2(uv.x * s.x, uv.y * s.y));
+									if (valid_atlas_progress) {
+										uv.x = Math::remap(uv.x, 0, 1, region_rect.position.x / atlas_size.x, (region_rect.position.x + region_rect.size.x) / atlas_size.x);
+										uv.y = Math::remap(uv.y, 0, 1, region_rect.position.y / atlas_size.y, (region_rect.position.y + region_rect.size.y) / atlas_size.y);
+									}
+									uvs.push_back(uv);
 								}
+
+								Point2 center_point = get_relative_center();
+								points.push_back(progress_offset + s * center_point);
+								if (valid_atlas_progress) {
+									center_point.x = Math::remap(center_point.x, 0, 1, region_rect.position.x / atlas_size.x, (region_rect.position.x + region_rect.size.x) / atlas_size.x);
+									center_point.y = Math::remap(center_point.y, 0, 1, region_rect.position.y / atlas_size.y, (region_rect.position.y + region_rect.size.y) / atlas_size.y);
+								}
+								uvs.push_back(center_point);
+
 								Vector<Color> colors;
 								colors.push_back(tint_progress);
 								draw_polygon(points, colors, uvs, progress);
@@ -548,8 +609,14 @@ void TextureProgressBar::_notification(int p_what) {
 
 void TextureProgressBar::set_fill_mode(int p_fill) {
 	ERR_FAIL_INDEX(p_fill, FILL_MODE_MAX);
+
+	if (mode == (FillMode)p_fill) {
+		return;
+	}
+
 	mode = (FillMode)p_fill;
-	update();
+	queue_redraw();
+	notify_property_list_changed();
 }
 
 int TextureProgressBar::get_fill_mode() {
@@ -563,8 +630,13 @@ void TextureProgressBar::set_radial_initial_angle(float p_angle) {
 	while (p_angle < 0) {
 		p_angle += 360;
 	}
+
+	if (rad_init_angle == p_angle) {
+		return;
+	}
+
 	rad_init_angle = p_angle;
-	update();
+	queue_redraw();
 }
 
 float TextureProgressBar::get_radial_initial_angle() {
@@ -572,8 +644,14 @@ float TextureProgressBar::get_radial_initial_angle() {
 }
 
 void TextureProgressBar::set_fill_degrees(float p_angle) {
-	rad_max_degrees = CLAMP(p_angle, 0, 360);
-	update();
+	float angle_clamped = CLAMP(p_angle, 0, 360);
+
+	if (rad_max_degrees == angle_clamped) {
+		return;
+	}
+
+	rad_max_degrees = angle_clamped;
+	queue_redraw();
 }
 
 float TextureProgressBar::get_fill_degrees() {
@@ -581,12 +659,26 @@ float TextureProgressBar::get_fill_degrees() {
 }
 
 void TextureProgressBar::set_radial_center_offset(const Point2 &p_off) {
+	if (rad_center_off == p_off) {
+		return;
+	}
+
 	rad_center_off = p_off;
-	update();
+	queue_redraw();
 }
 
 Point2 TextureProgressBar::get_radial_center_offset() {
 	return rad_center_off;
+}
+
+void TextureProgressBar::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name.begins_with("stretch_margin_") && !nine_patch_stretch) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
+
+	if (p_property.name.begins_with("radial_") && (mode != FillMode::FILL_CLOCKWISE && mode != FillMode::FILL_COUNTER_CLOCKWISE && mode != FillMode::FILL_CLOCKWISE_AND_COUNTER_CLOCKWISE)) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
+	}
 }
 
 void TextureProgressBar::_bind_methods() {
@@ -630,8 +722,13 @@ void TextureProgressBar::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_nine_patch_stretch"), &TextureProgressBar::get_nine_patch_stretch);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "fill_mode", PROPERTY_HINT_ENUM, "Left to Right,Right to Left,Top to Bottom,Bottom to Top,Clockwise,Counter Clockwise,Bilinear (Left and Right),Bilinear (Top and Bottom),Clockwise and Counter Clockwise"), "set_fill_mode", "get_fill_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "nine_patch_stretch"), "set_nine_patch_stretch", "get_nine_patch_stretch");
+	ADD_GROUP("Radial Fill", "radial_");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "radial_initial_angle", PROPERTY_HINT_RANGE, "0.0,360.0,0.1,degrees"), "set_radial_initial_angle", "get_radial_initial_angle");
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "radial_fill_degrees", PROPERTY_HINT_RANGE, "0.0,360.0,0.1,degrees"), "set_fill_degrees", "get_fill_degrees");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "radial_center_offset", PROPERTY_HINT_NONE, "suffix:px"), "set_radial_center_offset", "get_radial_center_offset");
 
+	ADD_GROUP("", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "nine_patch_stretch"), "set_nine_patch_stretch", "get_nine_patch_stretch");
 	ADD_GROUP("Stretch Margin", "stretch_margin_");
 	ADD_PROPERTYI(PropertyInfo(Variant::INT, "stretch_margin_left", PROPERTY_HINT_RANGE, "0,16384,1,suffix:px"), "set_stretch_margin", "get_stretch_margin", SIDE_LEFT);
 	ADD_PROPERTYI(PropertyInfo(Variant::INT, "stretch_margin_top", PROPERTY_HINT_RANGE, "0,16384,1,suffix:px"), "set_stretch_margin", "get_stretch_margin", SIDE_TOP);
@@ -648,11 +745,6 @@ void TextureProgressBar::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "tint_under"), "set_tint_under", "get_tint_under");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "tint_over"), "set_tint_over", "get_tint_over");
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "tint_progress"), "set_tint_progress", "get_tint_progress");
-
-	ADD_GROUP("Radial Fill", "radial_");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "radial_initial_angle", PROPERTY_HINT_RANGE, "0.0,360.0,0.1,slider,degrees"), "set_radial_initial_angle", "get_radial_initial_angle");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "radial_fill_degrees", PROPERTY_HINT_RANGE, "0.0,360.0,0.1,slider,degrees"), "set_fill_degrees", "get_fill_degrees");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "radial_center_offset", PROPERTY_HINT_NONE, "suffix:px"), "set_radial_center_offset", "get_radial_center_offset");
 
 	BIND_ENUM_CONSTANT(FILL_LEFT_TO_RIGHT);
 	BIND_ENUM_CONSTANT(FILL_RIGHT_TO_LEFT);

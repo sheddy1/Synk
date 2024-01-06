@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  rid_owner.h                                                          */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  rid_owner.h                                                           */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef RID_OWNER_H
 #define RID_OWNER_H
@@ -117,6 +117,7 @@ class RID_Alloc : public RID_AllocBase {
 		uint32_t free_element = free_index % elements_in_chunk;
 
 		uint32_t validator = (uint32_t)(_gen_id() & 0x7FFFFFFF);
+		CRASH_COND_MSG(validator == 0x7FFFFFFF, "Overflow in RID validator");
 		uint64_t id = validator;
 		id <<= 32;
 		id |= free_index;
@@ -186,7 +187,6 @@ public:
 					spin_lock.unlock();
 				}
 				ERR_FAIL_V_MSG(nullptr, "Attempting to initialize the wrong RID");
-				return nullptr;
 			}
 
 			validator_chunks[idx_chunk][idx_element] &= 0x7FFFFFFF; //initialized
@@ -211,12 +211,12 @@ public:
 	}
 	void initialize_rid(RID p_rid) {
 		T *mem = get_or_null(p_rid, true);
-		ERR_FAIL_COND(!mem);
+		ERR_FAIL_NULL(mem);
 		memnew_placement(mem, T);
 	}
 	void initialize_rid(RID p_rid, const T &p_value) {
 		T *mem = get_or_null(p_rid, true);
-		ERR_FAIL_COND(!mem);
+		ERR_FAIL_NULL(mem);
 		memnew_placement(mem, T(p_value));
 	}
 
@@ -239,7 +239,7 @@ public:
 
 		uint32_t validator = uint32_t(id >> 32);
 
-		bool owned = (validator_chunks[idx_chunk][idx_element] & 0x7FFFFFFF) == validator;
+		bool owned = (validator != 0x7FFFFFFF) && (validator_chunks[idx_chunk][idx_element] & 0x7FFFFFFF) == validator;
 
 		if (THREAD_SAFE) {
 			spin_lock.unlock();
@@ -335,15 +335,8 @@ public:
 
 	~RID_Alloc() {
 		if (alloc_count) {
-			if (description) {
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type '" + description + "' were leaked at exit.");
-			} else {
-#ifdef NO_SAFE_CAST
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type 'unknown' were leaked at exit.");
-#else
-				print_error("ERROR: " + itos(alloc_count) + " RID allocations of type '" + typeid(T).name() + "' were leaked at exit.");
-#endif
-			}
+			print_error(vformat("ERROR: %d RID allocations of type '%s' were leaked at exit.",
+					alloc_count, description ? description : typeid(T).name()));
 
 			for (size_t i = 0; i < max_alloc; i++) {
 				uint64_t validator = validator_chunks[i / elements_in_chunk][i % elements_in_chunk];
@@ -398,7 +391,7 @@ public:
 
 	_FORCE_INLINE_ void replace(const RID &p_rid, T *p_new_ptr) {
 		T **ptr = alloc.get_or_null(p_rid);
-		ERR_FAIL_COND(!ptr);
+		ERR_FAIL_NULL(ptr);
 		*ptr = p_new_ptr;
 	}
 

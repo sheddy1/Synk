@@ -1,36 +1,35 @@
-/*************************************************************************/
-/*  sprite_2d.cpp                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  sprite_2d.cpp                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "sprite_2d.h"
 
-#include "core/core_string_names.h"
 #include "scene/main/window.h"
 #include "scene/scene_string_names.h"
 
@@ -137,16 +136,16 @@ void Sprite2D::set_texture(const Ref<Texture2D> &p_texture) {
 	}
 
 	if (texture.is_valid()) {
-		texture->disconnect(CoreStringNames::get_singleton()->changed, callable_mp(this, &Sprite2D::_texture_changed));
+		texture->disconnect_changed(callable_mp(this, &Sprite2D::_texture_changed));
 	}
 
 	texture = p_texture;
 
 	if (texture.is_valid()) {
-		texture->connect(CoreStringNames::get_singleton()->changed, callable_mp(this, &Sprite2D::_texture_changed));
+		texture->connect_changed(callable_mp(this, &Sprite2D::_texture_changed));
 	}
 
-	update();
+	queue_redraw();
 	emit_signal(SceneStringNames::get_singleton()->texture_changed);
 	item_rect_changed();
 }
@@ -156,8 +155,12 @@ Ref<Texture2D> Sprite2D::get_texture() const {
 }
 
 void Sprite2D::set_centered(bool p_center) {
+	if (centered == p_center) {
+		return;
+	}
+
 	centered = p_center;
-	update();
+	queue_redraw();
 	item_rect_changed();
 }
 
@@ -166,8 +169,12 @@ bool Sprite2D::is_centered() const {
 }
 
 void Sprite2D::set_offset(const Point2 &p_offset) {
+	if (offset == p_offset) {
+		return;
+	}
+
 	offset = p_offset;
-	update();
+	queue_redraw();
 	item_rect_changed();
 }
 
@@ -176,8 +183,12 @@ Point2 Sprite2D::get_offset() const {
 }
 
 void Sprite2D::set_flip_h(bool p_flip) {
+	if (hflip == p_flip) {
+		return;
+	}
+
 	hflip = p_flip;
-	update();
+	queue_redraw();
 }
 
 bool Sprite2D::is_flipped_h() const {
@@ -185,8 +196,12 @@ bool Sprite2D::is_flipped_h() const {
 }
 
 void Sprite2D::set_flip_v(bool p_flip) {
+	if (vflip == p_flip) {
+		return;
+	}
+
 	vflip = p_flip;
-	update();
+	queue_redraw();
 }
 
 bool Sprite2D::is_flipped_v() const {
@@ -194,12 +209,12 @@ bool Sprite2D::is_flipped_v() const {
 }
 
 void Sprite2D::set_region_enabled(bool p_region_enabled) {
-	if (p_region_enabled == region_enabled) {
+	if (region_enabled == p_region_enabled) {
 		return;
 	}
 
 	region_enabled = p_region_enabled;
-	update();
+	queue_redraw();
 	notify_property_list_changed();
 }
 
@@ -224,8 +239,12 @@ Rect2 Sprite2D::get_region_rect() const {
 }
 
 void Sprite2D::set_region_filter_clip_enabled(bool p_region_filter_clip_enabled) {
+	if (region_filter_clip_enabled == p_region_filter_clip_enabled) {
+		return;
+	}
+
 	region_filter_clip_enabled = p_region_filter_clip_enabled;
-	update();
+	queue_redraw();
 }
 
 bool Sprite2D::is_region_filter_clip_enabled() const {
@@ -235,12 +254,12 @@ bool Sprite2D::is_region_filter_clip_enabled() const {
 void Sprite2D::set_frame(int p_frame) {
 	ERR_FAIL_INDEX(p_frame, vframes * hframes);
 
-	if (frame != p_frame) {
-		item_rect_changed();
+	if (frame == p_frame) {
+		return;
 	}
 
 	frame = p_frame;
-
+	item_rect_changed();
 	emit_signal(SceneStringNames::get_singleton()->frame_changed);
 }
 
@@ -261,8 +280,16 @@ Vector2i Sprite2D::get_frame_coords() const {
 
 void Sprite2D::set_vframes(int p_amount) {
 	ERR_FAIL_COND_MSG(p_amount < 1, "Amount of vframes cannot be smaller than 1.");
+
+	if (vframes == p_amount) {
+		return;
+	}
+
 	vframes = p_amount;
-	update();
+	if (frame >= vframes * hframes) {
+		frame = 0;
+	}
+	queue_redraw();
 	item_rect_changed();
 	notify_property_list_changed();
 }
@@ -273,8 +300,27 @@ int Sprite2D::get_vframes() const {
 
 void Sprite2D::set_hframes(int p_amount) {
 	ERR_FAIL_COND_MSG(p_amount < 1, "Amount of hframes cannot be smaller than 1.");
+
+	if (hframes == p_amount) {
+		return;
+	}
+
+	if (vframes > 1) {
+		// Adjust the frame to fit new sheet dimensions.
+		int original_column = frame % hframes;
+		if (original_column >= p_amount) {
+			// Frame's column was dropped, reset.
+			frame = 0;
+		} else {
+			int original_row = frame / hframes;
+			frame = original_row * p_amount + original_column;
+		}
+	}
 	hframes = p_amount;
-	update();
+	if (frame >= vframes * hframes) {
+		frame = 0;
+	}
+	queue_redraw();
 	item_rect_changed();
 	notify_property_list_changed();
 }
@@ -309,11 +355,9 @@ bool Sprite2D::is_pixel_opaque(const Point2 &p_point) const {
 		q.y = 1.0f - q.y;
 	}
 	q = q * src_rect.size + src_rect.position;
-#ifndef _MSC_VER
-#warning this need to be obtained from CanvasItem new repeat mode (but it needs to guess it from hierarchy, need to add a function for that)
-#endif
-	bool is_repeat = false;
-	bool is_mirrored_repeat = false;
+	TextureRepeat repeat_mode = get_texture_repeat_in_tree();
+	bool is_repeat = repeat_mode == TEXTURE_REPEAT_ENABLED || repeat_mode == TEXTURE_REPEAT_MIRROR;
+	bool is_mirrored_repeat = repeat_mode == TEXTURE_REPEAT_MIRROR;
 	if (is_repeat) {
 		int mirror_x = 0;
 		int mirror_y = 0;
@@ -368,19 +412,19 @@ Rect2 Sprite2D::get_rect() const {
 	return Rect2(ofs, s);
 }
 
-void Sprite2D::_validate_property(PropertyInfo &property) const {
-	if (property.name == "frame") {
-		property.hint = PROPERTY_HINT_RANGE;
-		property.hint_string = "0," + itos(vframes * hframes - 1) + ",1";
-		property.usage |= PROPERTY_USAGE_KEYING_INCREMENTS;
+void Sprite2D::_validate_property(PropertyInfo &p_property) const {
+	if (p_property.name == "frame") {
+		p_property.hint = PROPERTY_HINT_RANGE;
+		p_property.hint_string = "0," + itos(vframes * hframes - 1) + ",1";
+		p_property.usage |= PROPERTY_USAGE_KEYING_INCREMENTS;
 	}
 
-	if (property.name == "frame_coords") {
-		property.usage |= PROPERTY_USAGE_KEYING_INCREMENTS;
+	if (p_property.name == "frame_coords") {
+		p_property.usage |= PROPERTY_USAGE_KEYING_INCREMENTS;
 	}
 
-	if (!region_enabled && (property.name == "region_rect" || property.name == "region_filter_clip")) {
-		property.usage = PROPERTY_USAGE_NO_EDITOR;
+	if (!region_enabled && (p_property.name == "region_rect" || p_property.name == "region_filter_clip")) {
+		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 }
 
@@ -388,7 +432,7 @@ void Sprite2D::_texture_changed() {
 	// Changes to the texture need to trigger an update to make
 	// the editor redraw the sprite with the updated texture.
 	if (texture.is_valid()) {
-		update();
+		queue_redraw();
 	}
 }
 
@@ -446,7 +490,7 @@ void Sprite2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "hframes", PROPERTY_HINT_RANGE, "1,16384,1"), "set_hframes", "get_hframes");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "vframes", PROPERTY_HINT_RANGE, "1,16384,1"), "set_vframes", "get_vframes");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "frame"), "set_frame", "get_frame");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "frame_coords", PROPERTY_HINT_NONE, "suffix:px", PROPERTY_USAGE_EDITOR), "set_frame_coords", "get_frame_coords");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "frame_coords", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_frame_coords", "get_frame_coords");
 
 	ADD_GROUP("Region", "region_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "region_enabled"), "set_region_enabled", "is_region_enabled");

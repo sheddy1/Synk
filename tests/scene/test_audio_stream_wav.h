@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  test_audio_stream_wav.h                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  test_audio_stream_wav.h                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef TEST_AUDIO_STREAM_WAV_H
 #define TEST_AUDIO_STREAM_WAV_H
@@ -115,7 +115,7 @@ Vector<uint8_t> gen_pcm16_test(float wav_rate, int wav_count, bool stereo) {
 }
 
 void run_test(String file_name, AudioStreamWAV::Format data_format, bool stereo, float wav_rate, float wav_count) {
-	String save_path = OS::get_singleton()->get_cache_path().plus_file(file_name);
+	String save_path = OS::get_singleton()->get_cache_path().path_join(file_name);
 
 	Vector<uint8_t> test_data;
 	if (data_format == AudioStreamWAV::FORMAT_8_BITS) {
@@ -138,7 +138,7 @@ void run_test(String file_name, AudioStreamWAV::Format data_format, bool stereo,
 	CHECK(stream->get_data() == test_data);
 
 	SUBCASE("Stream length is computed properly") {
-		CHECK(Math::is_equal_approx(stream->get_length(), wav_count / wav_rate));
+		CHECK(stream->get_length() == doctest::Approx(double(wav_count / wav_rate)));
 	}
 
 	SUBCASE("Stream can be saved as .wav") {
@@ -200,7 +200,7 @@ TEST_CASE("[AudioStreamWAV] Alternate mix rate") {
 }
 
 TEST_CASE("[AudioStreamWAV] save_to_wav() adds '.wav' file extension automatically") {
-	String save_path = OS::get_singleton()->get_cache_path().plus_file("test_wav_extension");
+	String save_path = OS::get_singleton()->get_cache_path().path_join("test_wav_extension");
 	Vector<uint8_t> test_data = gen_pcm8_test(WAV_RATE, WAV_COUNT, false);
 	Ref<AudioStreamWAV> stream = memnew(AudioStreamWAV);
 	stream->set_data(test_data);
@@ -230,7 +230,7 @@ TEST_CASE("[AudioStreamWAV] Save empty file") {
 }
 
 TEST_CASE("[AudioStreamWAV] Saving IMA ADPCM is not supported") {
-	String save_path = OS::get_singleton()->get_cache_path().plus_file("test_adpcm.wav");
+	String save_path = OS::get_singleton()->get_cache_path().path_join("test_adpcm.wav");
 	Ref<AudioStreamWAV> stream = memnew(AudioStreamWAV);
 	stream->set_format(AudioStreamWAV::FORMAT_IMA_ADPCM);
 	ERR_PRINT_OFF;

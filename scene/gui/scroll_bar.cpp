@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  scroll_bar.cpp                                                       */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  scroll_bar.cpp                                                        */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "scroll_bar.h"
 
@@ -34,6 +34,7 @@
 #include "core/os/os.h"
 #include "core/string/print_string.h"
 #include "scene/main/window.h"
+#include "scene/theme/theme_db.h"
 
 bool ScrollBar::focus_by_default = false;
 
@@ -55,12 +56,14 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 		accept_event();
 
 		if (b->get_button_index() == MouseButton::WHEEL_DOWN && b->is_pressed()) {
-			set_value(get_value() + get_page() / 4.0);
+			double change = get_page() != 0.0 ? get_page() / 4.0 : (get_max() - get_min()) / 16.0;
+			set_value(get_value() + MAX(change, get_step()));
 			accept_event();
 		}
 
 		if (b->get_button_index() == MouseButton::WHEEL_UP && b->is_pressed()) {
-			set_value(get_value() - get_page() / 4.0);
+			double change = get_page() != 0.0 ? get_page() / 4.0 : (get_max() - get_min()) / 16.0;
+			set_value(get_value() - MAX(change, get_step()));
 			accept_event();
 		}
 
@@ -70,8 +73,8 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 
 		if (b->is_pressed()) {
 			double ofs = orientation == VERTICAL ? b->get_position().y : b->get_position().x;
-			Ref<Texture2D> decr = get_theme_icon(SNAME("decrement"));
-			Ref<Texture2D> incr = get_theme_icon(SNAME("increment"));
+			Ref<Texture2D> decr = theme_cache.decrement_icon;
+			Ref<Texture2D> incr = theme_cache.increment_icon;
 
 			double decr_size = orientation == VERTICAL ? decr->get_height() : decr->get_width();
 			double incr_size = orientation == VERTICAL ? incr->get_height() : incr->get_width();
@@ -82,14 +85,14 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 			if (ofs < decr_size) {
 				decr_active = true;
 				set_value(get_value() - (custom_step >= 0 ? custom_step : get_step()));
-				update();
+				queue_redraw();
 				return;
 			}
 
 			if (ofs > total - incr_size) {
 				incr_active = true;
 				set_value(get_value() + (custom_step >= 0 ? custom_step : get_step()));
-				update();
+				queue_redraw();
 				return;
 			}
 
@@ -99,7 +102,8 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 				if (scrolling) {
 					target_scroll = CLAMP(target_scroll - get_page(), get_min(), get_max() - get_page());
 				} else {
-					target_scroll = CLAMP(get_value() - get_page(), get_min(), get_max() - get_page());
+					double change = get_page() != 0.0 ? get_page() : (get_max() - get_min()) / 16.0;
+					target_scroll = CLAMP(get_value() - change, get_min(), get_max() - get_page());
 				}
 
 				if (smooth_scroll_enabled) {
@@ -117,12 +121,13 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 				drag.active = true;
 				drag.pos_at_click = grabber_ofs + ofs;
 				drag.value_at_click = get_as_ratio();
-				update();
+				queue_redraw();
 			} else {
 				if (scrolling) {
 					target_scroll = CLAMP(target_scroll + get_page(), get_min(), get_max() - get_page());
 				} else {
-					target_scroll = CLAMP(get_value() + get_page(), get_min(), get_max() - get_page());
+					double change = get_page() != 0.0 ? get_page() : (get_max() - get_min()) / 16.0;
+					target_scroll = CLAMP(get_value() + change, get_min(), get_max() - get_page());
 				}
 
 				if (smooth_scroll_enabled) {
@@ -137,7 +142,7 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 			incr_active = false;
 			decr_active = false;
 			drag.active = false;
-			update();
+			queue_redraw();
 		}
 	}
 
@@ -146,7 +151,7 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 
 		if (drag.active) {
 			double ofs = orientation == VERTICAL ? m->get_position().y : m->get_position().x;
-			Ref<Texture2D> decr = get_theme_icon(SNAME("decrement"));
+			Ref<Texture2D> decr = theme_cache.decrement_icon;
 
 			double decr_size = orientation == VERTICAL ? decr->get_height() : decr->get_width();
 			ofs -= decr_size;
@@ -156,8 +161,8 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 			set_as_ratio(drag.value_at_click + diff);
 		} else {
 			double ofs = orientation == VERTICAL ? m->get_position().y : m->get_position().x;
-			Ref<Texture2D> decr = get_theme_icon(SNAME("decrement"));
-			Ref<Texture2D> incr = get_theme_icon(SNAME("increment"));
+			Ref<Texture2D> decr = theme_cache.decrement_icon;
+			Ref<Texture2D> incr = theme_cache.increment_icon;
 
 			double decr_size = orientation == VERTICAL ? decr->get_height() : decr->get_width();
 			double incr_size = orientation == VERTICAL ? incr->get_height() : incr->get_width();
@@ -177,41 +182,41 @@ void ScrollBar::gui_input(const Ref<InputEvent> &p_event) {
 
 			if (new_hilite != highlight) {
 				highlight = new_hilite;
-				update();
+				queue_redraw();
 			}
 		}
 	}
 
 	if (p_event->is_pressed()) {
-		if (p_event->is_action("ui_left")) {
+		if (p_event->is_action("ui_left", true)) {
 			if (orientation != HORIZONTAL) {
 				return;
 			}
 			set_value(get_value() - (custom_step >= 0 ? custom_step : get_step()));
 
-		} else if (p_event->is_action("ui_right")) {
+		} else if (p_event->is_action("ui_right", true)) {
 			if (orientation != HORIZONTAL) {
 				return;
 			}
 			set_value(get_value() + (custom_step >= 0 ? custom_step : get_step()));
 
-		} else if (p_event->is_action("ui_up")) {
+		} else if (p_event->is_action("ui_up", true)) {
 			if (orientation != VERTICAL) {
 				return;
 			}
 
 			set_value(get_value() - (custom_step >= 0 ? custom_step : get_step()));
 
-		} else if (p_event->is_action("ui_down")) {
+		} else if (p_event->is_action("ui_down", true)) {
 			if (orientation != VERTICAL) {
 				return;
 			}
 			set_value(get_value() + (custom_step >= 0 ? custom_step : get_step()));
 
-		} else if (p_event->is_action("ui_home")) {
+		} else if (p_event->is_action("ui_home", true)) {
 			set_value(get_min());
 
-		} else if (p_event->is_action("ui_end")) {
+		} else if (p_event->is_action("ui_end", true)) {
 			set_value(get_max());
 		}
 	}
@@ -225,30 +230,30 @@ void ScrollBar::_notification(int p_what) {
 			Ref<Texture2D> decr, incr;
 
 			if (decr_active) {
-				decr = get_theme_icon(SNAME("decrement_pressed"));
+				decr = theme_cache.decrement_pressed_icon;
 			} else if (highlight == HIGHLIGHT_DECR) {
-				decr = get_theme_icon(SNAME("decrement_highlight"));
+				decr = theme_cache.decrement_hl_icon;
 			} else {
-				decr = get_theme_icon(SNAME("decrement"));
+				decr = theme_cache.decrement_icon;
 			}
 
 			if (incr_active) {
-				incr = get_theme_icon(SNAME("increment_pressed"));
+				incr = theme_cache.increment_pressed_icon;
 			} else if (highlight == HIGHLIGHT_INCR) {
-				incr = get_theme_icon(SNAME("increment_highlight"));
+				incr = theme_cache.increment_hl_icon;
 			} else {
-				incr = get_theme_icon(SNAME("increment"));
+				incr = theme_cache.increment_icon;
 			}
 
-			Ref<StyleBox> bg = has_focus() ? get_theme_stylebox(SNAME("scroll_focus")) : get_theme_stylebox(SNAME("scroll"));
+			Ref<StyleBox> bg = has_focus() ? theme_cache.scroll_focus_style : theme_cache.scroll_style;
 
 			Ref<StyleBox> grabber;
 			if (drag.active) {
-				grabber = get_theme_stylebox(SNAME("grabber_pressed"));
+				grabber = theme_cache.grabber_pressed_style;
 			} else if (highlight == HIGHLIGHT_RANGE) {
-				grabber = get_theme_stylebox(SNAME("grabber_highlight"));
+				grabber = theme_cache.grabber_hl_style;
 			} else {
-				grabber = get_theme_stylebox(SNAME("grabber"));
+				grabber = theme_cache.grabber_style;
 			}
 
 			Point2 ofs;
@@ -303,7 +308,7 @@ void ScrollBar::_notification(int p_what) {
 
 			if (drag_node) {
 				drag_node->connect("gui_input", callable_mp(this, &ScrollBar::_drag_node_input));
-				drag_node->connect("tree_exiting", callable_mp(this, &ScrollBar::_drag_node_exit), CONNECT_ONESHOT);
+				drag_node->connect("tree_exiting", callable_mp(this, &ScrollBar::_drag_node_exit), CONNECT_ONE_SHOT);
 			}
 		} break;
 
@@ -320,7 +325,7 @@ void ScrollBar::_notification(int p_what) {
 			if (scrolling) {
 				if (get_value() != target_scroll) {
 					double target = target_scroll - get_value();
-					double dist = sqrt(target * target);
+					double dist = abs(target);
 					double vel = ((target / dist) * 500) * get_physics_process_delta_time();
 
 					if (Math::abs(vel) >= dist) {
@@ -406,16 +411,24 @@ void ScrollBar::_notification(int p_what) {
 			}
 		} break;
 
+		case NOTIFICATION_VISIBILITY_CHANGED: {
+			if (!is_visible()) {
+				incr_active = false;
+				decr_active = false;
+				drag.active = false;
+			}
+		} break;
+
 		case NOTIFICATION_MOUSE_EXIT: {
 			highlight = HIGHLIGHT_NONE;
-			update();
+			queue_redraw();
 		} break;
 	}
 }
 
 double ScrollBar::get_grabber_min_size() const {
-	Ref<StyleBox> grabber = get_theme_stylebox(SNAME("grabber"));
-	Size2 gminsize = grabber->get_minimum_size() + grabber->get_center_size();
+	Ref<StyleBox> grabber = theme_cache.grabber_style;
+	Size2 gminsize = grabber->get_minimum_size();
 	return (orientation == VERTICAL) ? gminsize.height : gminsize.width;
 }
 
@@ -435,17 +448,17 @@ double ScrollBar::get_area_size() const {
 	switch (orientation) {
 		case VERTICAL: {
 			double area = get_size().height;
-			area -= get_theme_stylebox(SNAME("scroll"))->get_minimum_size().height;
-			area -= get_theme_icon(SNAME("increment"))->get_height();
-			area -= get_theme_icon(SNAME("decrement"))->get_height();
+			area -= theme_cache.scroll_style->get_minimum_size().height;
+			area -= theme_cache.increment_icon->get_height();
+			area -= theme_cache.decrement_icon->get_height();
 			area -= get_grabber_min_size();
 			return area;
 		} break;
 		case HORIZONTAL: {
 			double area = get_size().width;
-			area -= get_theme_stylebox(SNAME("scroll"))->get_minimum_size().width;
-			area -= get_theme_icon(SNAME("increment"))->get_width();
-			area -= get_theme_icon(SNAME("decrement"))->get_width();
+			area -= theme_cache.scroll_style->get_minimum_size().width;
+			area -= theme_cache.increment_icon->get_width();
+			area -= theme_cache.decrement_icon->get_width();
 			area -= get_grabber_min_size();
 			return area;
 		} break;
@@ -455,34 +468,18 @@ double ScrollBar::get_area_size() const {
 	}
 }
 
-double ScrollBar::get_area_offset() const {
-	double ofs = 0.0;
-
-	if (orientation == VERTICAL) {
-		ofs += get_theme_stylebox(SNAME("hscroll"))->get_margin(SIDE_TOP);
-		ofs += get_theme_icon(SNAME("decrement"))->get_height();
-	}
-
-	if (orientation == HORIZONTAL) {
-		ofs += get_theme_stylebox(SNAME("hscroll"))->get_margin(SIDE_LEFT);
-		ofs += get_theme_icon(SNAME("decrement"))->get_width();
-	}
-
-	return ofs;
-}
-
 double ScrollBar::get_grabber_offset() const {
 	return (get_area_size()) * get_as_ratio();
 }
 
 Size2 ScrollBar::get_minimum_size() const {
-	Ref<Texture2D> incr = get_theme_icon(SNAME("increment"));
-	Ref<Texture2D> decr = get_theme_icon(SNAME("decrement"));
-	Ref<StyleBox> bg = get_theme_stylebox(SNAME("scroll"));
+	Ref<Texture2D> incr = theme_cache.increment_icon;
+	Ref<Texture2D> decr = theme_cache.decrement_icon;
+	Ref<StyleBox> bg = theme_cache.scroll_style;
 	Size2 minsize;
 
 	if (orientation == VERTICAL) {
-		minsize.width = MAX(incr->get_size().width, (bg->get_minimum_size() + bg->get_center_size()).width);
+		minsize.width = MAX(incr->get_size().width, bg->get_minimum_size().width);
 		minsize.height += incr->get_size().height;
 		minsize.height += decr->get_size().height;
 		minsize.height += bg->get_minimum_size().height;
@@ -490,7 +487,7 @@ Size2 ScrollBar::get_minimum_size() const {
 	}
 
 	if (orientation == HORIZONTAL) {
-		minsize.height = MAX(incr->get_size().height, (bg->get_center_size() + bg->get_minimum_size()).height);
+		minsize.height = MAX(incr->get_size().height, bg->get_minimum_size().height);
 		minsize.width += incr->get_size().width;
 		minsize.width += decr->get_size().width;
 		minsize.width += bg->get_minimum_size().width;
@@ -532,7 +529,7 @@ void ScrollBar::_drag_node_input(const Ref<InputEvent> &p_input) {
 			drag_node_accum = Vector2();
 			last_drag_node_accum = Vector2();
 			drag_node_from = Vector2(orientation == HORIZONTAL ? get_value() : 0, orientation == VERTICAL ? get_value() : 0);
-			drag_node_touching = DisplayServer::get_singleton()->screen_is_touchscreen(DisplayServer::get_singleton()->window_get_current_screen(get_viewport()->get_window_id()));
+			drag_node_touching = DisplayServer::get_singleton()->is_touchscreen_available();
 			drag_node_touching_deaccel = false;
 			time_since_motion = 0;
 
@@ -595,7 +592,7 @@ void ScrollBar::set_drag_node(const NodePath &p_path) {
 
 		if (drag_node) {
 			drag_node->connect("gui_input", callable_mp(this, &ScrollBar::_drag_node_input));
-			drag_node->connect("tree_exiting", callable_mp(this, &ScrollBar::_drag_node_exit), CONNECT_ONESHOT);
+			drag_node->connect("tree_exiting", callable_mp(this, &ScrollBar::_drag_node_exit), CONNECT_ONE_SHOT);
 		}
 	}
 }
@@ -623,6 +620,19 @@ void ScrollBar::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("scrolling"));
 
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "custom_step", PROPERTY_HINT_RANGE, "-1,4096,suffix:px"), "set_custom_step", "get_custom_step");
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollBar, scroll_style, "scroll");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollBar, scroll_focus_style, "scroll_focus");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollBar, grabber_style, "grabber");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollBar, grabber_hl_style, "grabber_highlight");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_STYLEBOX, ScrollBar, grabber_pressed_style, "grabber_pressed");
+
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, increment_icon, "increment");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, increment_hl_icon, "increment_highlight");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, increment_pressed_icon, "increment_pressed");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, decrement_icon, "decrement");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, decrement_hl_icon, "decrement_highlight");
+	BIND_THEME_ITEM_CUSTOM(Theme::DATA_TYPE_ICON, ScrollBar, decrement_pressed_icon, "decrement_pressed");
 }
 
 ScrollBar::ScrollBar(Orientation p_orientation) {

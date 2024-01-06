@@ -99,7 +99,7 @@ typedef struct hb_glyph_info_t {
  * 				   layout, by avoiding re-shaping of each line
  * 				   after line-breaking, by limiting the
  * 				   reshaping to a small piece around the
- * 				   breaking positin only, even if the breaking
+ * 				   breaking position only, even if the breaking
  * 				   position carries the
  * 				   #HB_GLYPH_FLAG_UNSAFE_TO_BREAK or when
  * 				   hyphenation or other text transformation
@@ -145,7 +145,7 @@ typedef struct hb_glyph_info_t {
  * @HB_GLYPH_FLAG_SAFE_TO_INSERT_TATWEEL: In scripts that use elongation (Arabic,
 				   Mongolian, Syriac, etc.), this flag signifies
 				   that it is safe to insert a U+0640 TATWEEL
-				   character *before* this cluster for elongation.
+				   character before this cluster for elongation.
 				   This flag does not determine the
 				   script-specific elongation places, but only
 				   when it is safe to do the elongation without
@@ -763,7 +763,7 @@ hb_buffer_diff (hb_buffer_t *buffer,
 
 
 /*
- * Debugging.
+ * Tracing.
  */
 
 /**

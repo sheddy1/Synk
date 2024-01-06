@@ -1,34 +1,39 @@
-/*************************************************************************/
-/*  os_windows.cpp                                                       */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  os_windows.cpp                                                        */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "os_windows.h"
+
+#include "display_server_windows.h"
+#include "joypad_windows.h"
+#include "lang_table.h"
+#include "windows_terminal_logger.h"
 
 #include "core/debugger/engine_debugger.h"
 #include "core/debugger/script_debugger.h"
@@ -37,22 +42,27 @@
 #include "drivers/unix/net_socket_posix.h"
 #include "drivers/windows/dir_access_windows.h"
 #include "drivers/windows/file_access_windows.h"
-#include "joypad_windows.h"
-#include "lang_table.h"
 #include "main/main.h"
-#include "platform/windows/display_server_windows.h"
 #include "servers/audio_server.h"
 #include "servers/rendering/rendering_server_default.h"
-#include "windows_terminal_logger.h"
+#include "servers/text_server.h"
 
 #include <avrt.h>
 #include <bcrypt.h>
 #include <direct.h>
-#include <dwrite.h>
 #include <knownfolders.h>
 #include <process.h>
+#include <psapi.h>
 #include <regstr.h>
 #include <shlobj.h>
+#include <wbemcli.h>
+#include <wincrypt.h>
+
+#ifdef DEBUG_ENABLED
+#pragma pack(push, before_imagehlp, 8)
+#include <imagehlp.h>
+#pragma pack(pop, before_imagehlp)
+#endif
 
 extern "C" {
 __declspec(dllexport) DWORD NvOptimusEnablement = 1;
@@ -66,6 +76,11 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 
 #ifndef WM_POINTERUPDATE
 #define WM_POINTERUPDATE 0x0245
+#endif
+
+// Missing in MinGW headers before 8.0.
+#ifndef DWRITE_FONT_WEIGHT_SEMI_LIGHT
+#define DWRITE_FONT_WEIGHT_SEMI_LIGHT (DWRITE_FONT_WEIGHT)350
 #endif
 
 #if defined(__GNUC__)
@@ -82,7 +97,7 @@ static String format_error_message(DWORD id) {
 
 	LocalFree(messageBuffer);
 
-	return msg;
+	return msg.replace("\r", "").replace("\n", "");
 }
 
 void RedirectStream(const char *p_file_name, const char *p_mode, FILE *p_cpp_stream, const DWORD p_std_handle) {
@@ -102,8 +117,6 @@ void RedirectIOToConsole() {
 		RedirectStream("CONIN$", "r", stdin, STD_INPUT_HANDLE);
 		RedirectStream("CONOUT$", "w", stdout, STD_OUTPUT_HANDLE);
 		RedirectStream("CONOUT$", "w", stderr, STD_ERROR_HANDLE);
-
-		printf("\n"); // Make sure our output is starting from the new line.
 	}
 }
 
@@ -190,6 +203,28 @@ void OS_Windows::initialize() {
 
 	IPUnix::make_default();
 	main_loop = nullptr;
+
+	HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&dwrite_factory));
+	if (SUCCEEDED(hr)) {
+		hr = dwrite_factory->GetSystemFontCollection(&font_collection, false);
+		if (SUCCEEDED(hr)) {
+			dwrite_init = true;
+			hr = dwrite_factory->QueryInterface(&dwrite_factory2);
+			if (SUCCEEDED(hr)) {
+				hr = dwrite_factory2->GetSystemFontFallback(&system_font_fallback);
+				if (SUCCEEDED(hr)) {
+					dwrite2_init = true;
+				}
+			}
+		}
+	}
+	if (!dwrite_init) {
+		print_verbose("Unable to load IDWriteFactory, system font support is disabled.");
+	} else if (!dwrite2_init) {
+		print_verbose("Unable to load IDWriteFactory2, automatic system font fallback is disabled.");
+	}
+
+	FileAccessWindows::initialize();
 }
 
 void OS_Windows::delete_main_loop() {
@@ -204,6 +239,22 @@ void OS_Windows::set_main_loop(MainLoop *p_main_loop) {
 }
 
 void OS_Windows::finalize() {
+	if (dwrite_factory2) {
+		dwrite_factory2->Release();
+		dwrite_factory2 = nullptr;
+	}
+	if (font_collection) {
+		font_collection->Release();
+		font_collection = nullptr;
+	}
+	if (system_font_fallback) {
+		system_font_fallback->Release();
+		system_font_fallback = nullptr;
+	}
+	if (dwrite_factory) {
+		dwrite_factory->Release();
+		dwrite_factory = nullptr;
+	}
 #ifdef WINMIDI_ENABLED
 	driver_midi.close();
 #endif
@@ -216,6 +267,8 @@ void OS_Windows::finalize() {
 }
 
 void OS_Windows::finalize_core() {
+	FileAccessWindows::finalize();
+
 	timeEndPeriod(1);
 
 	memdelete(process_map);
@@ -232,13 +285,82 @@ Error OS_Windows::get_entropy(uint8_t *r_buffer, int p_bytes) {
 	return OK;
 }
 
+#ifdef DEBUG_ENABLED
+void debug_dynamic_library_check_dependencies(const String &p_root_path, const String &p_path, HashSet<String> &r_checked, HashSet<String> &r_missing) {
+	if (r_checked.has(p_path)) {
+		return;
+	}
+	r_checked.insert(p_path);
+
+	LOADED_IMAGE loaded_image;
+	HANDLE file = CreateFileW((LPCWSTR)p_path.utf16().get_data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (file != INVALID_HANDLE_VALUE) {
+		HANDLE file_mapping = CreateFileMappingW(file, nullptr, PAGE_READONLY | SEC_COMMIT, 0, 0, nullptr);
+		if (file_mapping != INVALID_HANDLE_VALUE) {
+			PVOID mapping = MapViewOfFile(file_mapping, FILE_MAP_READ, 0, 0, 0);
+			if (mapping) {
+				PIMAGE_DOS_HEADER dos_header = (PIMAGE_DOS_HEADER)mapping;
+				PIMAGE_NT_HEADERS nt_header = nullptr;
+				if (dos_header->e_magic == IMAGE_DOS_SIGNATURE) {
+					PCHAR nt_header_ptr;
+					nt_header_ptr = ((PCHAR)mapping) + dos_header->e_lfanew;
+					nt_header = (PIMAGE_NT_HEADERS)nt_header_ptr;
+					if (nt_header->Signature != IMAGE_NT_SIGNATURE) {
+						nt_header = nullptr;
+					}
+				}
+				if (nt_header) {
+					loaded_image.ModuleName = nullptr;
+					loaded_image.hFile = file;
+					loaded_image.MappedAddress = (PUCHAR)mapping;
+					loaded_image.FileHeader = nt_header;
+					loaded_image.Sections = (PIMAGE_SECTION_HEADER)((LPBYTE)&nt_header->OptionalHeader + nt_header->FileHeader.SizeOfOptionalHeader);
+					loaded_image.NumberOfSections = nt_header->FileHeader.NumberOfSections;
+					loaded_image.SizeOfImage = GetFileSize(file, nullptr);
+					loaded_image.Characteristics = nt_header->FileHeader.Characteristics;
+					loaded_image.LastRvaSection = loaded_image.Sections;
+					loaded_image.fSystemImage = false;
+					loaded_image.fDOSImage = false;
+					loaded_image.Links.Flink = &loaded_image.Links;
+					loaded_image.Links.Blink = &loaded_image.Links;
+
+					ULONG size = 0;
+					const IMAGE_IMPORT_DESCRIPTOR *import_desc = (const IMAGE_IMPORT_DESCRIPTOR *)ImageDirectoryEntryToData((HMODULE)loaded_image.MappedAddress, false, IMAGE_DIRECTORY_ENTRY_IMPORT, &size);
+					if (import_desc) {
+						for (; import_desc->Name && import_desc->FirstThunk; import_desc++) {
+							char16_t full_name_wc[MAX_PATH];
+							const char *name_cs = (const char *)ImageRvaToVa(loaded_image.FileHeader, loaded_image.MappedAddress, import_desc->Name, 0);
+							String name = String(name_cs);
+							if (name.begins_with("api-ms-win-")) {
+								r_checked.insert(name);
+							} else if (SearchPathW(nullptr, (LPCWSTR)name.utf16().get_data(), nullptr, MAX_PATH, (LPWSTR)full_name_wc, nullptr)) {
+								debug_dynamic_library_check_dependencies(p_root_path, String::utf16(full_name_wc), r_checked, r_missing);
+							} else if (SearchPathW((LPCWSTR)(p_path.get_base_dir().utf16().get_data()), (LPCWSTR)name.utf16().get_data(), nullptr, MAX_PATH, (LPWSTR)full_name_wc, nullptr)) {
+								debug_dynamic_library_check_dependencies(p_root_path, String::utf16(full_name_wc), r_checked, r_missing);
+							} else {
+								r_missing.insert(name);
+							}
+						}
+					}
+				}
+				UnmapViewOfFile(mapping);
+			}
+			CloseHandle(file_mapping);
+		}
+		CloseHandle(file);
+	}
+}
+#endif
+
 Error OS_Windows::open_dynamic_library(const String p_path, void *&p_library_handle, bool p_also_set_library_path, String *r_resolved_path) {
 	String path = p_path.replace("/", "\\");
 
 	if (!FileAccess::exists(path)) {
-		//this code exists so gdnative can load .dll files from within the executable path
-		path = get_executable_path().get_base_dir().plus_file(p_path.get_file());
+		//this code exists so gdextension can load .dll files from within the executable path
+		path = get_executable_path().get_base_dir().path_join(p_path.get_file());
 	}
+
+	ERR_FAIL_COND_V(!FileAccess::exists(path), ERR_FILE_NOT_FOUND);
 
 	typedef DLL_DIRECTORY_COOKIE(WINAPI * PAddDllDirectory)(PCWSTR);
 	typedef BOOL(WINAPI * PRemoveDllDirectory)(DLL_DIRECTORY_COOKIE);
@@ -254,7 +376,29 @@ Error OS_Windows::open_dynamic_library(const String p_path, void *&p_library_han
 	}
 
 	p_library_handle = (void *)LoadLibraryExW((LPCWSTR)(path.utf16().get_data()), nullptr, (p_also_set_library_path && has_dll_directory_api) ? LOAD_LIBRARY_SEARCH_DEFAULT_DIRS : 0);
-	ERR_FAIL_COND_V_MSG(!p_library_handle, ERR_CANT_OPEN, "Can't open dynamic library: " + p_path + ", error: " + format_error_message(GetLastError()) + ".");
+#ifdef DEBUG_ENABLED
+	if (!p_library_handle) {
+		DWORD err_code = GetLastError();
+
+		HashSet<String> checekd_libs;
+		HashSet<String> missing_libs;
+		debug_dynamic_library_check_dependencies(path, path, checekd_libs, missing_libs);
+		if (!missing_libs.is_empty()) {
+			String missing;
+			for (const String &E : missing_libs) {
+				if (!missing.is_empty()) {
+					missing += ", ";
+				}
+				missing += E;
+			}
+			ERR_FAIL_V_MSG(ERR_CANT_OPEN, vformat("Can't open dynamic library: %s. Missing dependencies: %s. Error: %s.", p_path, missing, format_error_message(err_code)));
+		} else {
+			ERR_FAIL_V_MSG(ERR_CANT_OPEN, vformat("Can't open dynamic library: %s. Error: %s.", p_path, format_error_message(err_code)));
+		}
+	}
+#else
+	ERR_FAIL_NULL_V_MSG(p_library_handle, ERR_CANT_OPEN, vformat("Can't open dynamic library: %s. Error: %s.", p_path, format_error_message(GetLastError())));
+#endif
 
 	if (cookie) {
 		remove_dll_directory(cookie);
@@ -278,7 +422,7 @@ Error OS_Windows::get_dynamic_library_symbol_handle(void *p_library_handle, cons
 	p_symbol_handle = (void *)GetProcAddress((HMODULE)p_library_handle, p_name.utf8().get_data());
 	if (!p_symbol_handle) {
 		if (!p_optional) {
-			ERR_FAIL_V_MSG(ERR_CANT_RESOLVE, "Can't resolve symbol " + p_name + ", error: " + String::num(GetLastError()) + ".");
+			ERR_FAIL_V_MSG(ERR_CANT_RESOLVE, vformat("Can't resolve symbol %s, error: \"%s\".", p_name, format_error_message(GetLastError())));
 		} else {
 			return ERR_CANT_RESOLVE;
 		}
@@ -290,7 +434,123 @@ String OS_Windows::get_name() const {
 	return "Windows";
 }
 
-OS::Date OS_Windows::get_date(bool p_utc) const {
+String OS_Windows::get_distribution_name() const {
+	return get_name();
+}
+
+String OS_Windows::get_version() const {
+	RtlGetVersionPtr version_ptr = (RtlGetVersionPtr)GetProcAddress(GetModuleHandle("ntdll.dll"), "RtlGetVersion");
+	if (version_ptr != nullptr) {
+		RTL_OSVERSIONINFOW fow;
+		ZeroMemory(&fow, sizeof(fow));
+		fow.dwOSVersionInfoSize = sizeof(fow);
+		if (version_ptr(&fow) == 0x00000000) {
+			return vformat("%d.%d.%d", (int64_t)fow.dwMajorVersion, (int64_t)fow.dwMinorVersion, (int64_t)fow.dwBuildNumber);
+		}
+	}
+	return "";
+}
+
+Vector<String> OS_Windows::get_video_adapter_driver_info() const {
+	if (RenderingServer::get_singleton() == nullptr) {
+		return Vector<String>();
+	}
+
+	static Vector<String> info;
+	if (!info.is_empty()) {
+		return info;
+	}
+
+	REFCLSID clsid = CLSID_WbemLocator; // Unmarshaler CLSID
+	REFIID uuid = IID_IWbemLocator; // Interface UUID
+	IWbemLocator *wbemLocator = NULL; // to get the services
+	IWbemServices *wbemServices = NULL; // to get the class
+	IEnumWbemClassObject *iter = NULL;
+	IWbemClassObject *pnpSDriverObject[1]; // contains driver name, version, etc.
+	String driver_name;
+	String driver_version;
+
+	const String device_name = RenderingServer::get_singleton()->get_video_adapter_name();
+	if (device_name.is_empty()) {
+		return Vector<String>();
+	}
+
+	HRESULT hr = CoCreateInstance(clsid, NULL, CLSCTX_INPROC_SERVER, uuid, (LPVOID *)&wbemLocator);
+	if (hr != S_OK) {
+		return Vector<String>();
+	}
+	BSTR resource_name = SysAllocString(L"root\\CIMV2");
+	hr = wbemLocator->ConnectServer(resource_name, NULL, NULL, NULL, 0, NULL, NULL, &wbemServices);
+	SysFreeString(resource_name);
+
+	SAFE_RELEASE(wbemLocator) // from now on, use `wbemServices`
+	if (hr != S_OK) {
+		SAFE_RELEASE(wbemServices)
+		return Vector<String>();
+	}
+
+	const String gpu_device_class_query = vformat("SELECT * FROM Win32_PnPSignedDriver WHERE DeviceName = \"%s\"", device_name);
+	BSTR query = SysAllocString((const WCHAR *)gpu_device_class_query.utf16().get_data());
+	BSTR query_lang = SysAllocString(L"WQL");
+	hr = wbemServices->ExecQuery(query_lang, query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &iter);
+	SysFreeString(query_lang);
+	SysFreeString(query);
+	if (hr == S_OK) {
+		ULONG resultCount;
+		hr = iter->Next(5000, 1, pnpSDriverObject, &resultCount); // Get exactly 1. Wait max 5 seconds.
+
+		if (hr == S_OK && resultCount > 0) {
+			VARIANT dn;
+			VariantInit(&dn);
+
+			BSTR object_name = SysAllocString(L"DriverName");
+			hr = pnpSDriverObject[0]->Get(object_name, 0, &dn, NULL, NULL);
+			SysFreeString(object_name);
+			if (hr == S_OK) {
+				String d_name = String(V_BSTR(&dn));
+				if (d_name.is_empty()) {
+					object_name = SysAllocString(L"DriverProviderName");
+					hr = pnpSDriverObject[0]->Get(object_name, 0, &dn, NULL, NULL);
+					SysFreeString(object_name);
+					if (hr == S_OK) {
+						driver_name = String(V_BSTR(&dn));
+					}
+				} else {
+					driver_name = d_name;
+				}
+			} else {
+				object_name = SysAllocString(L"DriverProviderName");
+				hr = pnpSDriverObject[0]->Get(object_name, 0, &dn, NULL, NULL);
+				SysFreeString(object_name);
+				if (hr == S_OK) {
+					driver_name = String(V_BSTR(&dn));
+				}
+			}
+
+			VARIANT dv;
+			VariantInit(&dv);
+			object_name = SysAllocString(L"DriverVersion");
+			hr = pnpSDriverObject[0]->Get(object_name, 0, &dv, NULL, NULL);
+			SysFreeString(object_name);
+			if (hr == S_OK) {
+				driver_version = String(V_BSTR(&dv));
+			}
+			for (ULONG i = 0; i < resultCount; i++) {
+				SAFE_RELEASE(pnpSDriverObject[i])
+			}
+		}
+	}
+
+	SAFE_RELEASE(wbemServices)
+	SAFE_RELEASE(iter)
+
+	info.push_back(driver_name);
+	info.push_back(driver_version);
+
+	return info;
+}
+
+OS::DateTime OS_Windows::get_datetime(bool p_utc) const {
 	SYSTEMTIME systemtime;
 	if (p_utc) {
 		GetSystemTime(&systemtime);
@@ -300,45 +560,33 @@ OS::Date OS_Windows::get_date(bool p_utc) const {
 
 	//Get DST information from Windows, but only if p_utc is false.
 	TIME_ZONE_INFORMATION info;
-	bool daylight = false;
+	bool is_daylight = false;
 	if (!p_utc && GetTimeZoneInformation(&info) == TIME_ZONE_ID_DAYLIGHT) {
-		daylight = true;
+		is_daylight = true;
 	}
 
-	Date date;
-	date.day = systemtime.wDay;
-	date.month = Month(systemtime.wMonth);
-	date.weekday = Weekday(systemtime.wDayOfWeek);
-	date.year = systemtime.wYear;
-	date.dst = daylight;
-	return date;
-}
-
-OS::Time OS_Windows::get_time(bool p_utc) const {
-	SYSTEMTIME systemtime;
-	if (p_utc) {
-		GetSystemTime(&systemtime);
-	} else {
-		GetLocalTime(&systemtime);
-	}
-
-	Time time;
-	time.hour = systemtime.wHour;
-	time.minute = systemtime.wMinute;
-	time.second = systemtime.wSecond;
-	return time;
+	DateTime dt;
+	dt.year = systemtime.wYear;
+	dt.month = Month(systemtime.wMonth);
+	dt.day = systemtime.wDay;
+	dt.weekday = Weekday(systemtime.wDayOfWeek);
+	dt.hour = systemtime.wHour;
+	dt.minute = systemtime.wMinute;
+	dt.second = systemtime.wSecond;
+	dt.dst = is_daylight;
+	return dt;
 }
 
 OS::TimeZoneInfo OS_Windows::get_time_zone_info() const {
 	TIME_ZONE_INFORMATION info;
-	bool daylight = false;
+	bool is_daylight = false;
 	if (GetTimeZoneInformation(&info) == TIME_ZONE_ID_DAYLIGHT) {
-		daylight = true;
+		is_daylight = true;
 	}
 
 	// Daylight Bias needs to be added to the bias if DST is in effect, or else it will not properly update.
 	TimeZoneInfo ret;
-	if (daylight) {
+	if (is_daylight) {
 		ret.name = info.DaylightName;
 		ret.bias = info.Bias + info.DaylightBias;
 	} else {
@@ -442,6 +690,43 @@ static void _append_to_pipe(char *p_bytes, int p_size, String *r_pipe, Mutex *p_
 	}
 }
 
+Dictionary OS_Windows::get_memory_info() const {
+	Dictionary meminfo;
+
+	meminfo["physical"] = -1;
+	meminfo["free"] = -1;
+	meminfo["available"] = -1;
+	meminfo["stack"] = -1;
+
+	PERFORMANCE_INFORMATION pref_info;
+	pref_info.cb = sizeof(pref_info);
+	GetPerformanceInfo(&pref_info, sizeof(pref_info));
+
+	typedef void(WINAPI * PGetCurrentThreadStackLimits)(PULONG_PTR, PULONG_PTR);
+	PGetCurrentThreadStackLimits GetCurrentThreadStackLimits = (PGetCurrentThreadStackLimits)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetCurrentThreadStackLimits");
+
+	ULONG_PTR LowLimit = 0;
+	ULONG_PTR HighLimit = 0;
+	if (GetCurrentThreadStackLimits) {
+		GetCurrentThreadStackLimits(&LowLimit, &HighLimit);
+	}
+
+	if (pref_info.PhysicalTotal * pref_info.PageSize != 0) {
+		meminfo["physical"] = static_cast<int64_t>(pref_info.PhysicalTotal * pref_info.PageSize);
+	}
+	if (pref_info.PhysicalAvailable * pref_info.PageSize != 0) {
+		meminfo["free"] = static_cast<int64_t>(pref_info.PhysicalAvailable * pref_info.PageSize);
+	}
+	if (pref_info.CommitLimit * pref_info.PageSize != 0) {
+		meminfo["available"] = static_cast<int64_t>(pref_info.CommitLimit * pref_info.PageSize);
+	}
+	if (HighLimit - LowLimit != 0) {
+		meminfo["stack"] = static_cast<int64_t>(HighLimit - LowLimit);
+	}
+
+	return meminfo;
+}
+
 Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments, String *r_pipe, int *r_exitcode, bool read_stderr, Mutex *p_pipe_mutex, bool p_open_console) {
 	String path = p_path.replace("/", "\\");
 	String command = _quote_command_line_argument(path);
@@ -529,9 +814,8 @@ Error OS_Windows::execute(const String &p_path, const List<String> &p_arguments,
 		}
 
 		CloseHandle(pipe[0]); // Close pipe read handle.
-	} else {
-		WaitForSingleObject(pi.pi.hProcess, INFINITE);
 	}
+	WaitForSingleObject(pi.pi.hProcess, INFINITE);
 
 	if (r_exitcode) {
 		DWORD ret2;
@@ -578,15 +862,23 @@ Error OS_Windows::create_process(const String &p_path, const List<String> &p_arg
 }
 
 Error OS_Windows::kill(const ProcessID &p_pid) {
-	ERR_FAIL_COND_V(!process_map->has(p_pid), FAILED);
+	int ret = 0;
+	if (process_map->has(p_pid)) {
+		const PROCESS_INFORMATION pi = (*process_map)[p_pid].pi;
+		process_map->erase(p_pid);
 
-	const PROCESS_INFORMATION pi = (*process_map)[p_pid].pi;
-	process_map->erase(p_pid);
+		ret = TerminateProcess(pi.hProcess, 0);
 
-	const int ret = TerminateProcess(pi.hProcess, 0);
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+	} else {
+		HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, false, (DWORD)p_pid);
+		if (hProcess != NULL) {
+			ret = TerminateProcess(hProcess, 0);
 
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
+			CloseHandle(hProcess);
+		}
+	}
 
 	return ret != 0 ? OK : FAILED;
 }
@@ -623,21 +915,17 @@ Error OS_Windows::set_cwd(const String &p_cwd) {
 }
 
 Vector<String> OS_Windows::get_system_fonts() const {
+	if (!dwrite_init) {
+		return Vector<String>();
+	}
+
 	Vector<String> ret;
 	HashSet<String> font_names;
-
-	ComAutoreleaseRef<IDWriteFactory> dwrite_factory;
-	HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&dwrite_factory.reference));
-	ERR_FAIL_COND_V(FAILED(hr) || dwrite_factory.is_null(), ret);
-
-	ComAutoreleaseRef<IDWriteFontCollection> font_collection;
-	hr = dwrite_factory->GetSystemFontCollection(&font_collection.reference, false);
-	ERR_FAIL_COND_V(FAILED(hr) || font_collection.is_null(), ret);
 
 	UINT32 family_count = font_collection->GetFontFamilyCount();
 	for (UINT32 i = 0; i < family_count; i++) {
 		ComAutoreleaseRef<IDWriteFontFamily> family;
-		hr = font_collection->GetFontFamily(i, &family.reference);
+		HRESULT hr = font_collection->GetFontFamily(i, &family.reference);
 		ERR_CONTINUE(FAILED(hr) || family.is_null());
 
 		ComAutoreleaseRef<IDWriteLocalizedStrings> family_names;
@@ -668,7 +956,98 @@ Vector<String> OS_Windows::get_system_fonts() const {
 	return ret;
 }
 
-String OS_Windows::get_system_font_path(const String &p_font_name, bool p_bold, bool p_italic) const {
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
+
+class FallbackTextAnalysisSource : public IDWriteTextAnalysisSource {
+	LONG _cRef = 1;
+
+	bool rtl = false;
+	Char16String string;
+	Char16String locale;
+	IDWriteNumberSubstitution *n_sub = nullptr;
+
+public:
+	HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, VOID **ppvInterface) override {
+		if (IID_IUnknown == riid) {
+			AddRef();
+			*ppvInterface = (IUnknown *)this;
+		} else if (__uuidof(IMMNotificationClient) == riid) {
+			AddRef();
+			*ppvInterface = (IMMNotificationClient *)this;
+		} else {
+			*ppvInterface = nullptr;
+			return E_NOINTERFACE;
+		}
+		return S_OK;
+	}
+
+	ULONG STDMETHODCALLTYPE AddRef() override {
+		return InterlockedIncrement(&_cRef);
+	}
+
+	ULONG STDMETHODCALLTYPE Release() override {
+		ULONG ulRef = InterlockedDecrement(&_cRef);
+		if (0 == ulRef) {
+			delete this;
+		}
+		return ulRef;
+	}
+
+	HRESULT STDMETHODCALLTYPE GetTextAtPosition(UINT32 p_text_position, WCHAR const **r_text_string, UINT32 *r_text_length) override {
+		if (p_text_position >= (UINT32)string.length()) {
+			*r_text_string = nullptr;
+			*r_text_length = 0;
+			return S_OK;
+		}
+		*r_text_string = reinterpret_cast<const wchar_t *>(string.get_data()) + p_text_position;
+		*r_text_length = string.length() - p_text_position;
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE GetTextBeforePosition(UINT32 p_text_position, WCHAR const **r_text_string, UINT32 *r_text_length) override {
+		if (p_text_position < 1 || p_text_position >= (UINT32)string.length()) {
+			*r_text_string = nullptr;
+			*r_text_length = 0;
+			return S_OK;
+		}
+		*r_text_string = reinterpret_cast<const wchar_t *>(string.get_data());
+		*r_text_length = p_text_position;
+		return S_OK;
+	}
+
+	DWRITE_READING_DIRECTION STDMETHODCALLTYPE GetParagraphReadingDirection() override {
+		return (rtl) ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT : DWRITE_READING_DIRECTION_LEFT_TO_RIGHT;
+	}
+
+	HRESULT STDMETHODCALLTYPE GetLocaleName(UINT32 p_text_position, UINT32 *r_text_length, WCHAR const **r_locale_name) override {
+		*r_locale_name = reinterpret_cast<const wchar_t *>(locale.get_data());
+		return S_OK;
+	}
+
+	HRESULT STDMETHODCALLTYPE GetNumberSubstitution(UINT32 p_text_position, UINT32 *r_text_length, IDWriteNumberSubstitution **r_number_substitution) override {
+		*r_number_substitution = n_sub;
+		return S_OK;
+	}
+
+	FallbackTextAnalysisSource(const Char16String &p_text, const Char16String &p_locale, bool p_rtl, IDWriteNumberSubstitution *p_nsub) {
+		_cRef = 1;
+		string = p_text;
+		locale = p_locale;
+		n_sub = p_nsub;
+		rtl = p_rtl;
+	};
+
+	virtual ~FallbackTextAnalysisSource() {}
+};
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+String OS_Windows::_get_default_fontname(const String &p_font_name) const {
 	String font_name = p_font_name;
 	if (font_name.to_lower() == "sans-serif") {
 		font_name = "Arial";
@@ -681,19 +1060,158 @@ String OS_Windows::get_system_font_path(const String &p_font_name, bool p_bold, 
 	} else if (font_name.to_lower() == "fantasy") {
 		font_name = "Gabriola";
 	}
+	return font_name;
+}
 
-	ComAutoreleaseRef<IDWriteFactory> dwrite_factory;
-	HRESULT hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown **>(&dwrite_factory.reference));
-	ERR_FAIL_COND_V(FAILED(hr) || dwrite_factory.is_null(), String());
+DWRITE_FONT_WEIGHT OS_Windows::_weight_to_dw(int p_weight) const {
+	if (p_weight < 150) {
+		return DWRITE_FONT_WEIGHT_THIN;
+	} else if (p_weight < 250) {
+		return DWRITE_FONT_WEIGHT_EXTRA_LIGHT;
+	} else if (p_weight < 325) {
+		return DWRITE_FONT_WEIGHT_LIGHT;
+	} else if (p_weight < 375) {
+		return DWRITE_FONT_WEIGHT_SEMI_LIGHT;
+	} else if (p_weight < 450) {
+		return DWRITE_FONT_WEIGHT_NORMAL;
+	} else if (p_weight < 550) {
+		return DWRITE_FONT_WEIGHT_MEDIUM;
+	} else if (p_weight < 650) {
+		return DWRITE_FONT_WEIGHT_DEMI_BOLD;
+	} else if (p_weight < 750) {
+		return DWRITE_FONT_WEIGHT_BOLD;
+	} else if (p_weight < 850) {
+		return DWRITE_FONT_WEIGHT_EXTRA_BOLD;
+	} else if (p_weight < 925) {
+		return DWRITE_FONT_WEIGHT_BLACK;
+	} else {
+		return DWRITE_FONT_WEIGHT_EXTRA_BLACK;
+	}
+}
 
-	ComAutoreleaseRef<IDWriteFontCollection> font_collection;
-	hr = dwrite_factory->GetSystemFontCollection(&font_collection.reference, false);
-	ERR_FAIL_COND_V(FAILED(hr) || font_collection.is_null(), String());
+DWRITE_FONT_STRETCH OS_Windows::_stretch_to_dw(int p_stretch) const {
+	if (p_stretch < 56) {
+		return DWRITE_FONT_STRETCH_ULTRA_CONDENSED;
+	} else if (p_stretch < 69) {
+		return DWRITE_FONT_STRETCH_EXTRA_CONDENSED;
+	} else if (p_stretch < 81) {
+		return DWRITE_FONT_STRETCH_CONDENSED;
+	} else if (p_stretch < 93) {
+		return DWRITE_FONT_STRETCH_SEMI_CONDENSED;
+	} else if (p_stretch < 106) {
+		return DWRITE_FONT_STRETCH_NORMAL;
+	} else if (p_stretch < 137) {
+		return DWRITE_FONT_STRETCH_SEMI_EXPANDED;
+	} else if (p_stretch < 144) {
+		return DWRITE_FONT_STRETCH_EXPANDED;
+	} else if (p_stretch < 162) {
+		return DWRITE_FONT_STRETCH_EXTRA_EXPANDED;
+	} else {
+		return DWRITE_FONT_STRETCH_ULTRA_EXPANDED;
+	}
+}
+
+Vector<String> OS_Windows::get_system_font_path_for_text(const String &p_font_name, const String &p_text, const String &p_locale, const String &p_script, int p_weight, int p_stretch, bool p_italic) const {
+	if (!dwrite2_init) {
+		return Vector<String>();
+	}
+
+	String font_name = _get_default_fontname(p_font_name);
+
+	bool rtl = TS->is_locale_right_to_left(p_locale);
+	Char16String text = p_text.utf16();
+	Char16String locale = p_locale.utf16();
+
+	ComAutoreleaseRef<IDWriteNumberSubstitution> number_substitution;
+	HRESULT hr = dwrite_factory->CreateNumberSubstitution(DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE, reinterpret_cast<const wchar_t *>(locale.get_data()), true, &number_substitution.reference);
+	ERR_FAIL_COND_V(FAILED(hr) || number_substitution.is_null(), Vector<String>());
+
+	FallbackTextAnalysisSource fs = FallbackTextAnalysisSource(text, locale, rtl, number_substitution.reference);
+	UINT32 mapped_length = 0;
+	FLOAT scale = 0.0;
+	ComAutoreleaseRef<IDWriteFont> dwrite_font;
+	hr = system_font_fallback->MapCharacters(
+			&fs,
+			0,
+			(UINT32)text.length(),
+			font_collection,
+			reinterpret_cast<const wchar_t *>(font_name.utf16().get_data()),
+			_weight_to_dw(p_weight),
+			p_italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL,
+			_stretch_to_dw(p_stretch),
+			&mapped_length,
+			&dwrite_font.reference,
+			&scale);
+
+	if (FAILED(hr) || dwrite_font.is_null()) {
+		return Vector<String>();
+	}
+
+	ComAutoreleaseRef<IDWriteFontFace> dwrite_face;
+	hr = dwrite_font->CreateFontFace(&dwrite_face.reference);
+	if (FAILED(hr) || dwrite_face.is_null()) {
+		return Vector<String>();
+	}
+
+	UINT32 number_of_files = 0;
+	hr = dwrite_face->GetFiles(&number_of_files, nullptr);
+	if (FAILED(hr)) {
+		return Vector<String>();
+	}
+	Vector<ComAutoreleaseRef<IDWriteFontFile>> files;
+	files.resize(number_of_files);
+	hr = dwrite_face->GetFiles(&number_of_files, (IDWriteFontFile **)files.ptrw());
+	if (FAILED(hr)) {
+		return Vector<String>();
+	}
+
+	Vector<String> ret;
+	for (UINT32 i = 0; i < number_of_files; i++) {
+		void const *reference_key = nullptr;
+		UINT32 reference_key_size = 0;
+		ComAutoreleaseRef<IDWriteLocalFontFileLoader> loader;
+
+		hr = files.write[i]->GetLoader((IDWriteFontFileLoader **)&loader.reference);
+		if (FAILED(hr) || loader.is_null()) {
+			continue;
+		}
+		hr = files.write[i]->GetReferenceKey(&reference_key, &reference_key_size);
+		if (FAILED(hr)) {
+			continue;
+		}
+
+		WCHAR file_path[MAX_PATH];
+		hr = loader->GetFilePathFromKey(reference_key, reference_key_size, &file_path[0], MAX_PATH);
+		if (FAILED(hr)) {
+			continue;
+		}
+		String fpath = String::utf16((const char16_t *)&file_path[0]).replace("\\", "/");
+
+		WIN32_FIND_DATAW d;
+		HANDLE fnd = FindFirstFileW((LPCWSTR)&file_path[0], &d);
+		if (fnd != INVALID_HANDLE_VALUE) {
+			String fname = String::utf16((const char16_t *)d.cFileName);
+			if (!fname.is_empty()) {
+				fpath = fpath.get_base_dir().path_join(fname);
+			}
+			FindClose(fnd);
+		}
+		ret.push_back(fpath);
+	}
+	return ret;
+}
+
+String OS_Windows::get_system_font_path(const String &p_font_name, int p_weight, int p_stretch, bool p_italic) const {
+	if (!dwrite_init) {
+		return String();
+	}
+
+	String font_name = _get_default_fontname(p_font_name);
 
 	UINT32 index = 0;
 	BOOL exists = false;
-	font_collection->FindFamilyName((const WCHAR *)font_name.utf16().get_data(), &index, &exists);
-	if (FAILED(hr)) {
+	HRESULT hr = font_collection->FindFamilyName((const WCHAR *)font_name.utf16().get_data(), &index, &exists);
+	if (FAILED(hr) || !exists) {
 		return String();
 	}
 
@@ -704,7 +1222,7 @@ String OS_Windows::get_system_font_path(const String &p_font_name, bool p_bold, 
 	}
 
 	ComAutoreleaseRef<IDWriteFont> dwrite_font;
-	hr = family->GetFirstMatchingFont(p_bold ? DWRITE_FONT_WEIGHT_BOLD : DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STRETCH_NORMAL, p_italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, &dwrite_font.reference);
+	hr = family->GetFirstMatchingFont(_weight_to_dw(p_weight), _stretch_to_dw(p_stretch), p_italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, &dwrite_font.reference);
 	if (FAILED(hr) || dwrite_font.is_null()) {
 		return String();
 	}
@@ -746,7 +1264,19 @@ String OS_Windows::get_system_font_path(const String &p_font_name, bool p_bold, 
 		if (FAILED(hr)) {
 			continue;
 		}
-		return String::utf16((const char16_t *)&file_path[0]);
+		String fpath = String::utf16((const char16_t *)&file_path[0]).replace("\\", "/");
+
+		WIN32_FIND_DATAW d;
+		HANDLE fnd = FindFirstFileW((LPCWSTR)&file_path[0], &d);
+		if (fnd != INVALID_HANDLE_VALUE) {
+			String fname = String::utf16((const char16_t *)d.cFileName);
+			if (!fname.is_empty()) {
+				fpath = fpath.get_base_dir().path_join(fname);
+			}
+			FindClose(fnd);
+		}
+
+		return fpath;
 	}
 	return String();
 }
@@ -780,14 +1310,24 @@ String OS_Windows::get_environment(const String &p_var) const {
 	return "";
 }
 
-bool OS_Windows::set_environment(const String &p_var, const String &p_value) const {
-	return (bool)SetEnvironmentVariableW((LPCWSTR)(p_var.utf16().get_data()), (LPCWSTR)(p_value.utf16().get_data()));
+void OS_Windows::set_environment(const String &p_var, const String &p_value) const {
+	ERR_FAIL_COND_MSG(p_var.is_empty() || p_var.contains("="), vformat("Invalid environment variable name '%s', cannot be empty or include '='.", p_var));
+	Char16String var = p_var.utf16();
+	Char16String value = p_value.utf16();
+	ERR_FAIL_COND_MSG(var.length() + value.length() + 2 > 32767, vformat("Invalid definition for environment variable '%s', cannot exceed 32767 characters.", p_var));
+	SetEnvironmentVariableW((LPCWSTR)(var.get_data()), (LPCWSTR)(value.get_data()));
 }
 
-String OS_Windows::get_stdin_string(bool p_block) {
-	if (p_block) {
-		char buff[1024];
-		return fgets(buff, 1024, stdin);
+void OS_Windows::unset_environment(const String &p_var) const {
+	ERR_FAIL_COND_MSG(p_var.is_empty() || p_var.contains("="), vformat("Invalid environment variable name '%s', cannot be empty or include '='.", p_var));
+	SetEnvironmentVariableW((LPCWSTR)(p_var.utf16().get_data()), nullptr); // Null to delete.
+}
+
+String OS_Windows::get_stdin_string() {
+	WCHAR buff[1024];
+	DWORD count = 0;
+	if (ReadConsoleW(GetStdHandle(STD_INPUT_HANDLE), buff, 1024, &count, nullptr)) {
+		return String::utf16((const char16_t *)buff, count);
 	}
 
 	return String();
@@ -795,6 +1335,46 @@ String OS_Windows::get_stdin_string(bool p_block) {
 
 Error OS_Windows::shell_open(String p_uri) {
 	INT_PTR ret = (INT_PTR)ShellExecuteW(nullptr, nullptr, (LPCWSTR)(p_uri.utf16().get_data()), nullptr, nullptr, SW_SHOWNORMAL);
+	if (ret > 32) {
+		return OK;
+	} else {
+		switch (ret) {
+			case ERROR_FILE_NOT_FOUND:
+			case SE_ERR_DLLNOTFOUND:
+				return ERR_FILE_NOT_FOUND;
+			case ERROR_PATH_NOT_FOUND:
+				return ERR_FILE_BAD_PATH;
+			case ERROR_BAD_FORMAT:
+				return ERR_FILE_CORRUPT;
+			case SE_ERR_ACCESSDENIED:
+				return ERR_UNAUTHORIZED;
+			case 0:
+			case SE_ERR_OOM:
+				return ERR_OUT_OF_MEMORY;
+			default:
+				return FAILED;
+		}
+	}
+}
+
+Error OS_Windows::shell_show_in_file_manager(String p_path, bool p_open_folder) {
+	bool open_folder = false;
+	if (DirAccess::dir_exists_absolute(p_path) && p_open_folder) {
+		open_folder = true;
+	}
+
+	if (!p_path.is_quoted()) {
+		p_path = p_path.quote();
+	}
+	p_path = p_path.replace("/", "\\");
+
+	INT_PTR ret = OK;
+	if (open_folder) {
+		ret = (INT_PTR)ShellExecuteW(nullptr, nullptr, L"explorer.exe", LPCWSTR(p_path.utf16().get_data()), nullptr, SW_SHOWNORMAL);
+	} else {
+		ret = (INT_PTR)ShellExecuteW(nullptr, nullptr, L"explorer.exe", LPCWSTR((String("/select,") + p_path).utf16().get_data()), nullptr, SW_SHOWNORMAL);
+	}
+
 	if (ret > 32) {
 		return OK;
 	} else {
@@ -864,17 +1444,6 @@ BOOL is_wow64() {
 	return wow64;
 }
 
-int OS_Windows::get_processor_count() const {
-	SYSTEM_INFO sysinfo;
-	if (is_wow64()) {
-		GetNativeSystemInfo(&sysinfo);
-	} else {
-		GetSystemInfo(&sysinfo);
-	}
-
-	return sysinfo.dwNumberOfProcessors;
-}
-
 String OS_Windows::get_processor_name() const {
 	const String id = "Hardware\\Description\\System\\CentralProcessor\\0";
 
@@ -902,7 +1471,7 @@ void OS_Windows::run() {
 
 	main_loop->initialize();
 
-	while (!force_quit) {
+	while (true) {
 		DisplayServer::get_singleton()->process_events(); // get rid of pending events
 		if (Main::iteration()) {
 			break;
@@ -969,14 +1538,6 @@ uint64_t OS_Windows::get_embedded_pck_offset() const {
 }
 
 String OS_Windows::get_config_path() const {
-	// The XDG Base Directory specification technically only applies on Linux/*BSD, but it doesn't hurt to support it on Windows as well.
-	if (has_environment("XDG_CONFIG_HOME")) {
-		if (get_environment("XDG_CONFIG_HOME").is_absolute_path()) {
-			return get_environment("XDG_CONFIG_HOME").replace("\\", "/");
-		} else {
-			WARN_PRINT_ONCE("`XDG_CONFIG_HOME` is a relative path. Ignoring its value and falling back to `%APPDATA%` or `.` per the XDG Base Directory specification.");
-		}
-	}
 	if (has_environment("APPDATA")) {
 		return get_environment("APPDATA").replace("\\", "/");
 	}
@@ -984,29 +1545,13 @@ String OS_Windows::get_config_path() const {
 }
 
 String OS_Windows::get_data_path() const {
-	// The XDG Base Directory specification technically only applies on Linux/*BSD, but it doesn't hurt to support it on Windows as well.
-	if (has_environment("XDG_DATA_HOME")) {
-		if (get_environment("XDG_DATA_HOME").is_absolute_path()) {
-			return get_environment("XDG_DATA_HOME").replace("\\", "/");
-		} else {
-			WARN_PRINT_ONCE("`XDG_DATA_HOME` is a relative path. Ignoring its value and falling back to `get_config_path()` per the XDG Base Directory specification.");
-		}
-	}
 	return get_config_path();
 }
 
 String OS_Windows::get_cache_path() const {
 	static String cache_path_cache;
 	if (cache_path_cache.is_empty()) {
-		// The XDG Base Directory specification technically only applies on Linux/*BSD, but it doesn't hurt to support it on Windows as well.
-		if (has_environment("XDG_CACHE_HOME")) {
-			if (get_environment("XDG_CACHE_HOME").is_absolute_path()) {
-				cache_path_cache = get_environment("XDG_CACHE_HOME").replace("\\", "/");
-			} else {
-				WARN_PRINT_ONCE("`XDG_CACHE_HOME` is a relative path. Ignoring its value and falling back to `%LOCALAPPDATA%\\cache`, `%TEMP%` or `get_config_path()` per the XDG Base Directory specification.");
-			}
-		}
-		if (cache_path_cache.is_empty() && has_environment("LOCALAPPDATA")) {
+		if (has_environment("LOCALAPPDATA")) {
 			cache_path_cache = get_environment("LOCALAPPDATA").replace("\\", "/");
 		}
 		if (cache_path_cache.is_empty() && has_environment("TEMP")) {
@@ -1063,21 +1608,21 @@ String OS_Windows::get_system_dir(SystemDir p_dir, bool p_shared_storage) const 
 }
 
 String OS_Windows::get_user_data_dir() const {
-	String appname = get_safe_dir_name(ProjectSettings::get_singleton()->get("application/config/name"));
+	String appname = get_safe_dir_name(GLOBAL_GET("application/config/name"));
 	if (!appname.is_empty()) {
-		bool use_custom_dir = ProjectSettings::get_singleton()->get("application/config/use_custom_user_dir");
+		bool use_custom_dir = GLOBAL_GET("application/config/use_custom_user_dir");
 		if (use_custom_dir) {
-			String custom_dir = get_safe_dir_name(ProjectSettings::get_singleton()->get("application/config/custom_user_dir_name"), true);
+			String custom_dir = get_safe_dir_name(GLOBAL_GET("application/config/custom_user_dir_name"), true);
 			if (custom_dir.is_empty()) {
 				custom_dir = appname;
 			}
-			return get_data_path().plus_file(custom_dir).replace("\\", "/");
+			return get_data_path().path_join(custom_dir).replace("\\", "/");
 		} else {
-			return get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file(appname).replace("\\", "/");
+			return get_data_path().path_join(get_godot_dir_name()).path_join("app_userdata").path_join(appname).replace("\\", "/");
 		}
 	}
 
-	return get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file("[unnamed project]");
+	return get_data_path().path_join(get_godot_dir_name()).path_join("app_userdata").path_join("[unnamed project]");
 }
 
 String OS_Windows::get_unique_id() const {
@@ -1087,7 +1632,14 @@ String OS_Windows::get_unique_id() const {
 }
 
 bool OS_Windows::_check_internal_feature_support(const String &p_feature) {
-	return p_feature == "pc";
+	if (p_feature == "system_fonts") {
+		return dwrite_init;
+	}
+	if (p_feature == "pc") {
+		return true;
+	}
+
+	return false;
 }
 
 void OS_Windows::disable_crash_handler() {
@@ -1126,18 +1678,40 @@ Error OS_Windows::move_to_trash(const String &p_path) {
 	return OK;
 }
 
+String OS_Windows::get_system_ca_certificates() {
+	HCERTSTORE cert_store = CertOpenSystemStoreA(0, "ROOT");
+	ERR_FAIL_NULL_V_MSG(cert_store, "", "Failed to read the root certificate store.");
+
+	FILETIME curr_time;
+	GetSystemTimeAsFileTime(&curr_time);
+
+	String certs;
+	PCCERT_CONTEXT curr = CertEnumCertificatesInStore(cert_store, nullptr);
+	while (curr) {
+		FILETIME ft;
+		DWORD size = sizeof(ft);
+		// Check if the certificate is disallowed.
+		if (CertGetCertificateContextProperty(curr, CERT_DISALLOWED_FILETIME_PROP_ID, &ft, &size) && CompareFileTime(&curr_time, &ft) != -1) {
+			curr = CertEnumCertificatesInStore(cert_store, curr);
+			continue;
+		}
+		// Encode and add to certificate list.
+		bool success = CryptBinaryToStringA(curr->pbCertEncoded, curr->cbCertEncoded, CRYPT_STRING_BASE64HEADER | CRYPT_STRING_NOCR, nullptr, &size);
+		ERR_CONTINUE(!success);
+		PackedByteArray pba;
+		pba.resize(size);
+		CryptBinaryToStringA(curr->pbCertEncoded, curr->cbCertEncoded, CRYPT_STRING_BASE64HEADER | CRYPT_STRING_NOCR, (char *)pba.ptrw(), &size);
+		certs += String((char *)pba.ptr(), size);
+		curr = CertEnumCertificatesInStore(cert_store, curr);
+	}
+	CertCloseStore(cert_store, 0);
+	return certs;
+}
+
 OS_Windows::OS_Windows(HINSTANCE _hInstance) {
-	ticks_per_second = 0;
-	ticks_start = 0;
-	main_loop = nullptr;
-	process_map = nullptr;
-
-	force_quit = false;
-
 	hInstance = _hInstance;
-#ifdef STDOUT_FILE
-	stdo = fopen("stdout.txt", "wb");
-#endif
+
+	CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
 #ifdef WASAPI_ENABLED
 	AudioDriverManager::add_driver(&driver_wasapi);
@@ -1148,13 +1722,23 @@ OS_Windows::OS_Windows(HINSTANCE _hInstance) {
 
 	DisplayServerWindows::register_windows_driver();
 
+	// Enable ANSI escape code support on Windows 10 v1607 (Anniversary Update) and later.
+	// This lets the engine and projects use ANSI escape codes to color text just like on macOS and Linux.
+	//
+	// NOTE: The engine does not use ANSI escape codes to color error/warning messages; it uses Windows API calls instead.
+	// Therefore, error/warning messages are still colored on Windows versions older than 10.
+	HANDLE stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+	DWORD outMode = ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	if (!SetConsoleMode(stdoutHandle, outMode)) {
+		// Windows 8.1 or below, or Windows 10 prior to Anniversary Update.
+		print_verbose("Can't set the ENABLE_VIRTUAL_TERMINAL_PROCESSING Windows console mode. `print_rich()` will not work as expected.");
+	}
+
 	Vector<Logger *> loggers;
 	loggers.push_back(memnew(WindowsTerminalLogger));
 	_set_logger(memnew(CompositeLogger(loggers)));
 }
 
 OS_Windows::~OS_Windows() {
-#ifdef STDOUT_FILE
-	fclose(stdo);
-#endif
+	CoUninitialize();
 }

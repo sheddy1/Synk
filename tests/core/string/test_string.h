@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  test_string.h                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  test_string.h                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef TEST_STRING_H
 #define TEST_STRING_H
@@ -170,10 +170,10 @@ TEST_CASE("[String] Invalid UTF8 (non-standard)") {
 	ERR_PRINT_OFF
 	static const uint8_t u8str[] = { 0x45, 0xE3, 0x81, 0x8A, 0xE3, 0x82, 0x88, 0xE3, 0x81, 0x86, 0xF0, 0x9F, 0x8E, 0xA4, 0xF0, 0x82, 0x82, 0xAC, 0xED, 0xA0, 0x81, 0 };
 	//                               +     +2                +2                +2                +3                      overlong +3             unpaired +2
-	static const char32_t u32str[] = { 0x45, 0x304A, 0x3088, 0x3046, 0x1F3A4, 0x20AC, 0xD801, 0 };
+	static const char32_t u32str[] = { 0x45, 0x304A, 0x3088, 0x3046, 0x1F3A4, 0x20AC, 0xFFFD, 0 };
 	String s;
 	Error err = s.parse_utf8((const char *)u8str);
-	CHECK(err == ERR_PARSE_ERROR);
+	CHECK(err == ERR_INVALID_DATA);
 	CHECK(s == u32str);
 
 	CharString cs = (const char *)u8str;
@@ -185,7 +185,7 @@ TEST_CASE("[String] Invalid UTF8 (unrecoverable)") {
 	ERR_PRINT_OFF
 	static const uint8_t u8str[] = { 0x45, 0xE3, 0x81, 0x8A, 0x8F, 0xE3, 0xE3, 0x98, 0x8F, 0xE3, 0x82, 0x88, 0xE3, 0x81, 0x86, 0xC0, 0x80, 0xF0, 0x9F, 0x8E, 0xA4, 0xF0, 0x82, 0x82, 0xAC, 0xED, 0xA0, 0x81, 0 };
 	//                               +     +2                inv   +2    inv   inv   inv   +2                +2                ovl NUL +1  +3                      overlong +3             unpaired +2
-	static const char32_t u32str[] = { 0x45, 0x304A, 0x20, 0x20, 0x20, 0x20, 0x3088, 0x3046, 0x20, 0x1F3A4, 0x20AC, 0xD801, 0 };
+	static const char32_t u32str[] = { 0x45, 0x304A, 0xFFFD, 0xFFFD, 0xFFFD, 0xFFFD, 0x3088, 0x3046, 0xFFFD, 0x1F3A4, 0x20AC, 0xFFFD, 0 };
 	String s;
 	Error err = s.parse_utf8((const char *)u8str);
 	CHECK(err == ERR_INVALID_DATA);
@@ -226,6 +226,12 @@ TEST_CASE("[String] Comparisons (equal)") {
 	CHECK(s == U"Test Compare");
 	CHECK(s == L"Test Compare");
 	CHECK(s == String("Test Compare"));
+
+	CharString empty = "";
+	CharString cs = "Test Compare";
+	CHECK(!(empty == cs));
+	CHECK(!(cs == empty));
+	CHECK(cs == CharString("Test Compare"));
 }
 
 TEST_CASE("[String] Comparisons (not equal)") {
@@ -295,8 +301,8 @@ TEST_CASE("[String] Test chr") {
 	CHECK(String::chr('H') == "H");
 	CHECK(String::chr(0x3012)[0] == 0x3012);
 	ERR_PRINT_OFF
-	CHECK(String::chr(0xd812)[0] == 0xd812); // Unpaired UTF-16 surrogate
-	CHECK(String::chr(0x20d812)[0] == 0x20d812); // Outside UTF-32 range
+	CHECK(String::chr(0xd812)[0] == 0xfffd); // Unpaired UTF-16 surrogate
+	CHECK(String::chr(0x20d812)[0] == 0xfffd); // Outside UTF-32 range
 	ERR_PRINT_ON
 }
 
@@ -389,6 +395,12 @@ TEST_CASE("[String] Insertion") {
 	CHECK(s == "Who is Frederic Chopin?");
 }
 
+TEST_CASE("[String] Erasing") {
+	String s = "Josephine is such a cute girl!";
+	s = s.erase(s.find("cute "), String("cute ").length());
+	CHECK(s == "Josephine is such a girl!");
+}
+
 TEST_CASE("[String] Number to string") {
 	CHECK(String::num(0) == "0");
 	CHECK(String::num(0.0) == "0"); // No trailing zeros.
@@ -411,9 +423,13 @@ TEST_CASE("[String] Number to string") {
 	CHECK(String::num_real(3.141593) == "3.141593");
 	CHECK(String::num_real(3.141) == "3.141"); // No trailing zeros.
 #ifdef REAL_T_IS_DOUBLE
+	CHECK_MESSAGE(String::num_real(123.456789) == "123.456789", "Prints the appropriate amount of digits for real_t = double.");
+	CHECK_MESSAGE(String::num_real(-123.456789) == "-123.456789", "Prints the appropriate amount of digits for real_t = double.");
 	CHECK_MESSAGE(String::num_real(Math_PI) == "3.14159265358979", "Prints the appropriate amount of digits for real_t = double.");
 	CHECK_MESSAGE(String::num_real(3.1415f) == "3.1414999961853", "Prints more digits of 32-bit float when real_t = double (ones that would be reliable for double) and no trailing zero.");
 #else
+	CHECK_MESSAGE(String::num_real(123.456789) == "123.4568", "Prints the appropriate amount of digits for real_t = float.");
+	CHECK_MESSAGE(String::num_real(-123.456789) == "-123.4568", "Prints the appropriate amount of digits for real_t = float.");
 	CHECK_MESSAGE(String::num_real(Math_PI) == "3.141593", "Prints the appropriate amount of digits for real_t = float.");
 	CHECK_MESSAGE(String::num_real(3.1415f) == "3.1415", "Prints only reliable digits of 32-bit float when real_t = float.");
 #endif // REAL_T_IS_DOUBLE
@@ -440,35 +456,93 @@ TEST_CASE("[String] Number to string") {
 }
 
 TEST_CASE("[String] String to integer") {
-	static const char *nums[4] = { "1237461283", "- 22", "0", " - 1123412" };
-	static const int num[4] = { 1237461283, -22, 0, -1123412 };
+	static const char *nums[14] = { "1237461283", "- 22", "0", " - 1123412", "", "10_000_000", "-1_2_3_4", "10__000", "  1  2  34 ", "-0", "007", "--45", "---46", "-7-2" };
+	static const int num[14] = { 1237461283, -22, 0, -1123412, 0, 10000000, -1234, 10000, 1234, 0, 7, 45, -46, -72 };
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 14; i++) {
 		CHECK(String(nums[i]).to_int() == num[i]);
 	}
+	CHECK(String("0b1011").to_int() == 1011); // Looks like a binary number, but to_int() handles this as a base-10 number, "b" is just ignored.
+	CHECK(String("0x1012").to_int() == 1012); // Looks like a hexadecimal number, but to_int() handles this as a base-10 number, "x" is just ignored.
+
+	ERR_PRINT_OFF
+	CHECK(String("999999999999999999999999999999999999999999999999999999999").to_int() == INT64_MAX); // Too large, largest possible is returned.
+	CHECK(String("-999999999999999999999999999999999999999999999999999999999").to_int() == INT64_MIN); // Too small, smallest possible is returned.
+	ERR_PRINT_ON
 }
 
 TEST_CASE("[String] Hex to integer") {
-	static const char *nums[4] = { "0xFFAE", "22", "0", "AADDAD" };
-	static const int64_t num[4] = { 0xFFAE, 0x22, 0, 0xAADDAD };
+	static const char *nums[12] = { "0xFFAE", "22", "0", "AADDAD", "0x7FFFFFFFFFFFFFFF", "-0xf", "", "000", "000f", "0xaA", "-ff", "-" };
+	static const int64_t num[12] = { 0xFFAE, 0x22, 0, 0xAADDAD, 0x7FFFFFFFFFFFFFFF, -0xf, 0, 0, 0xf, 0xaa, -0xff, 0x0 };
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 12; i++) {
 		CHECK(String(nums[i]).hex_to_int() == num[i]);
 	}
+
+	// Invalid hex strings should return 0.
+	static const char *invalid_nums[15] = { "qwerty", "QWERTY", "0xqwerty", "0x00qwerty", "qwerty00", "0x", "0x__", "__", "x12", "+", " ff", "ff ", "f f", "+ff", "--0x78" };
+
+	ERR_PRINT_OFF
+	for (int i = 0; i < 15; i++) {
+		CHECK(String(invalid_nums[i]).hex_to_int() == 0);
+	}
+
+	CHECK(String("0xFFFFFFFFFFFFFFFFFFFFFFF").hex_to_int() == INT64_MAX); // Too large, largest possible is returned.
+	CHECK(String("-0xFFFFFFFFFFFFFFFFFFFFFFF").hex_to_int() == INT64_MIN); // Too small, smallest possible is returned.
+	ERR_PRINT_ON
+}
+
+TEST_CASE("[String] Bin to integer") {
+	static const char *nums[10] = { "", "0", "0b0", "0b1", "0b", "1", "0b1010", "-0b11", "-1010", "0b0111111111111111111111111111111111111111111111111111111111111111" };
+	static const int64_t num[10] = { 0, 0, 0, 1, 0, 1, 10, -3, -10, 0x7FFFFFFFFFFFFFFF };
+
+	for (int i = 0; i < 10; i++) {
+		CHECK(String(nums[i]).bin_to_int() == num[i]);
+	}
+
+	// Invalid bin strings should return 0. The long "0x11...11" is just too long for a 64 bit int.
+	static const char *invalid_nums[16] = { "qwerty", "QWERTY", "0bqwerty", "0b00qwerty", "qwerty00", "0x__", "0b__", "__", "b12", "+", "-", "0x12ab", " 11", "11 ", "1 1", "--0b11" };
+
+	for (int i = 0; i < 16; i++) {
+		CHECK(String(invalid_nums[i]).bin_to_int() == 0);
+	}
+
+	ERR_PRINT_OFF
+	CHECK(String("0b111111111111111111111111111111111111111111111111111111111111111111111111111111111").bin_to_int() == INT64_MAX); // Too large, largest possible is returned.
+	CHECK(String("-0b111111111111111111111111111111111111111111111111111111111111111111111111111111111").bin_to_int() == INT64_MIN); // Too small, smallest possible is returned.
+	ERR_PRINT_ON
 }
 
 TEST_CASE("[String] String to float") {
-	static const char *nums[4] = { "-12348298412.2", "0.05", "2.0002", " -0.0001" };
-	static const double num[4] = { -12348298412.2, 0.05, 2.0002, -0.0001 };
+	static const char *nums[12] = { "-12348298412.2", "0.05", "2.0002", " -0.0001", "0", "000", "123", "0.0", "000.000", "000.007", "234__", "3..14" };
+	static const double num[12] = { -12348298412.2, 0.05, 2.0002, -0.0001, 0.0, 0.0, 123.0, 0.0, 0.0, 0.007, 234.0, 3.0 };
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < 12; i++) {
 		CHECK(!(ABS(String(nums[i]).to_float() - num[i]) > 0.00001));
 	}
-}
 
-TEST_CASE("[String] CamelCase to underscore") {
-	CHECK(String("TestTestStringGD").camelcase_to_underscore(false) == String("Test_Test_String_GD"));
-	CHECK(String("TestTestStringGD").camelcase_to_underscore(true) == String("test_test_string_gd"));
+	// Invalid float strings should return 0.
+	static const char *invalid_nums[6] = { "qwerty", "qwerty123", "0xffff", "0b1010", "--3.13", "__345" };
+
+	for (int i = 0; i < 6; i++) {
+		CHECK(String(invalid_nums[i]).to_float() == 0);
+	}
+
+	// Very large exponents.
+	CHECK(String("1e308").to_float() == 1e308);
+	CHECK(String("-1e308").to_float() == -1e308);
+
+	// Exponent is so high that value is INFINITY/-INFINITY.
+	CHECK(String("1e309").to_float() == INFINITY);
+	CHECK(String("1e511").to_float() == INFINITY);
+	CHECK(String("-1e309").to_float() == -INFINITY);
+	CHECK(String("-1e511").to_float() == -INFINITY);
+
+	// Exponent is so high that a warning message is printed. Value is INFINITY/-INFINITY.
+	ERR_PRINT_OFF
+	CHECK(String("1e512").to_float() == INFINITY);
+	CHECK(String("-1e512").to_float() == -INFINITY);
+	ERR_PRINT_ON
 }
 
 TEST_CASE("[String] Slicing") {
@@ -486,6 +560,7 @@ TEST_CASE("[String] Splitting") {
 
 	const char *slices_l[3] = { "Mars", "Jupiter", "Saturn,Uranus" };
 	const char *slices_r[3] = { "Mars,Jupiter", "Saturn", "Uranus" };
+	const char *slices_3[4] = { "t", "e", "s", "t" };
 
 	l = s.split(",", true, 2);
 	CHECK(l.size() == 3);
@@ -499,6 +574,21 @@ TEST_CASE("[String] Splitting") {
 		CHECK(l[i] == slices_r[i]);
 	}
 
+	s = "test";
+	l = s.split();
+	CHECK(l.size() == 4);
+	for (int i = 0; i < l.size(); i++) {
+		CHECK(l[i] == slices_3[i]);
+	}
+
+	s = "";
+	l = s.split();
+	CHECK(l.size() == 1);
+	CHECK(l[0] == "");
+
+	l = s.split("", false);
+	CHECK(l.size() == 0);
+
 	s = "Mars Jupiter Saturn Uranus";
 	const char *slices_s[4] = { "Mars", "Jupiter", "Saturn", "Uranus" };
 	l = s.split_spaces();
@@ -509,21 +599,22 @@ TEST_CASE("[String] Splitting") {
 	s = "1.2;2.3 4.5";
 	const double slices_d[3] = { 1.2, 2.3, 4.5 };
 
-	Vector<float> f;
-	f = s.split_floats(";");
-	CHECK(f.size() == 2);
-	for (int i = 0; i < f.size(); i++) {
-		CHECK(ABS(f[i] - slices_d[i]) <= 0.00001);
+	Vector<double> d_arr;
+	d_arr = s.split_floats(";");
+	CHECK(d_arr.size() == 2);
+	for (int i = 0; i < d_arr.size(); i++) {
+		CHECK(ABS(d_arr[i] - slices_d[i]) <= 0.00001);
 	}
 
 	Vector<String> keys;
 	keys.push_back(";");
 	keys.push_back(" ");
 
-	f = s.split_floats_mk(keys);
-	CHECK(f.size() == 3);
-	for (int i = 0; i < f.size(); i++) {
-		CHECK(ABS(f[i] - slices_d[i]) <= 0.00001);
+	Vector<float> f_arr;
+	f_arr = s.split_floats_mk(keys);
+	CHECK(f_arr.size() == 3);
+	for (int i = 0; i < f_arr.size(); i++) {
+		CHECK(ABS(f_arr[i] - slices_d[i]) <= 0.00001);
 	}
 
 	s = "1;2 4";
@@ -619,7 +710,7 @@ TEST_CASE("[String] sprintf") {
 	output = format.sprintf(args, &error);
 	REQUIRE(error == false);
 	CHECK(output == String("fish % frog"));
-	//////// INTS
+	///// Ints
 
 	// Int
 	format = "fish %d frog";
@@ -727,7 +818,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish 143 frog"));
 
-	////// REALS
+	///// Reals
 
 	// Real
 	format = "fish %f frog";
@@ -737,7 +828,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish 99.990000 frog"));
 
-	// Real left-padded
+	// Real left-padded.
 	format = "fish %11f frog";
 	args.clear();
 	args.push_back(99.99);
@@ -745,7 +836,15 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish   99.990000 frog"));
 
-	// Real right-padded
+	// Real (infinity) left-padded
+	format = "fish %11f frog";
+	args.clear();
+	args.push_back(INFINITY);
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish         inf frog"));
+
+	// Real right-padded.
 	format = "fish %-11f frog";
 	args.clear();
 	args.push_back(99.99);
@@ -769,7 +868,23 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish +99.990000 frog"));
 
-	// Real with 1 decimals.
+	// Real with sign (negative zero).
+	format = "fish %+f frog";
+	args.clear();
+	args.push_back(-0.0);
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish -0.000000 frog"));
+
+	// Real with sign (positive zero).
+	format = "fish %+f frog";
+	args.clear();
+	args.push_back(0.0);
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish +0.000000 frog"));
+
+	// Real with 1 decimal.
 	format = "fish %.1f frog";
 	args.clear();
 	args.push_back(99.99);
@@ -803,7 +918,105 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish -99.990000  frog"));
 
-	/////// Strings.
+	///// Vectors
+
+	// Vector2
+	format = "fish %v frog";
+	args.clear();
+	args.push_back(Variant(Vector2(19.99, 1.00)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.990000, 1.000000) frog"));
+
+	// Vector3
+	format = "fish %v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.990000, 1.000000, -2.050000) frog"));
+
+	// Vector4
+	format = "fish %v frog";
+	args.clear();
+	args.push_back(Variant(Vector4(19.99, 1.00, -2.05, 5.5)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.990000, 1.000000, -2.050000, 5.500000) frog"));
+
+	// Vector with negative values.
+	format = "fish %v frog";
+	args.clear();
+	args.push_back(Variant(Vector2(-19.99, -1.00)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (-19.990000, -1.000000) frog"));
+
+	// Vector left-padded.
+	format = "fish %11v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (  19.990000,    1.000000,   -2.050000) frog"));
+
+	// Vector left-padded with inf/nan
+	format = "fish %11v frog";
+	args.clear();
+	args.push_back(Variant(Vector2(INFINITY, NAN)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (        inf,         nan) frog"));
+
+	// Vector right-padded.
+	format = "fish %-11v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.990000  , 1.000000   , -2.050000  ) frog"));
+
+	// Vector left-padded with zeros.
+	format = "fish %011v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (0019.990000, 0001.000000, -002.050000) frog"));
+
+	// Vector given Vector3i.
+	format = "fish %v frog";
+	args.clear();
+	args.push_back(Variant(Vector3i(19, 1, -2)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.000000, 1.000000, -2.000000) frog"));
+
+	// Vector with 1 decimal.
+	format = "fish %.1v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (20.0, 1.0, -2.0) frog"));
+
+	// Vector with 12 decimals.
+	format = "fish %.12v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.00, 1.00, -2.00)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (19.000000000000, 1.000000000000, -2.000000000000) frog"));
+
+	// Vector with no decimals.
+	format = "fish %.v frog";
+	args.clear();
+	args.push_back(Variant(Vector3(19.99, 1.00, -2.05)));
+	output = format.sprintf(args, &error);
+	REQUIRE(error == false);
+	CHECK(output == String("fish (20, 1, -2) frog"));
+
+	///// Strings
 
 	// String
 	format = "fish %s frog";
@@ -813,7 +1026,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish cheese frog"));
 
-	// String left-padded
+	// String left-padded.
 	format = "fish %10s frog";
 	args.clear();
 	args.push_back("cheese");
@@ -821,7 +1034,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	CHECK(output == String("fish     cheese frog"));
 
-	// String right-padded
+	// String right-padded.
 	format = "fish %-10s frog";
 	args.clear();
 	args.push_back("cheese");
@@ -849,7 +1062,7 @@ TEST_CASE("[String] sprintf") {
 
 	///// Dynamic width
 
-	// String dynamic width
+	// String dynamic width.
 	format = "fish %*s frog";
 	args.clear();
 	args.push_back(10);
@@ -858,7 +1071,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	REQUIRE(output == String("fish     cheese frog"));
 
-	// Int dynamic width
+	// Int dynamic width.
 	format = "fish %*d frog";
 	args.clear();
 	args.push_back(10);
@@ -867,7 +1080,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error == false);
 	REQUIRE(output == String("fish         99 frog"));
 
-	// Float dynamic width
+	// Float dynamic width.
 	format = "fish %*.*f frog";
 	args.clear();
 	args.push_back(10);
@@ -904,7 +1117,7 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error);
 	CHECK(output == "incomplete format");
 
-	// Bad character in format string
+	// Bad character in format string.
 	format = "fish %&f frog";
 	args.clear();
 	args.push_back("cheese");
@@ -920,14 +1133,14 @@ TEST_CASE("[String] sprintf") {
 	REQUIRE(error);
 	CHECK(output == "too many decimal points in format");
 
-	// * not a number
+	// * not a number or vector.
 	format = "fish %*f frog";
 	args.clear();
 	args.push_back("cheese");
 	args.push_back(99.99);
 	output = format.sprintf(args, &error);
 	REQUIRE(error);
-	CHECK(output == "* wants number");
+	CHECK(output == "* wants number or vector");
 
 	// Character too long.
 	format = "fish %c frog";
@@ -961,7 +1174,9 @@ TEST_CASE("[String] pad") {
 
 	s = String("10.10");
 	CHECK(s.pad_decimals(4) == U"10.1000");
+	CHECK(s.pad_decimals(1) == U"10.1");
 	CHECK(s.pad_zeros(4) == U"0010.10");
+	CHECK(s.pad_zeros(1) == U"10.10");
 }
 
 TEST_CASE("[String] is_subsequence_of") {
@@ -1006,8 +1221,36 @@ TEST_CASE("[String] IPVX address to string") {
 }
 
 TEST_CASE("[String] Capitalize against many strings") {
-	String input = "bytes2var";
-	String output = "Bytes 2 Var";
+	String input = "2D";
+	String output = "2d";
+	CHECK(input.capitalize() == output);
+
+	input = "2d";
+	output = "2d";
+	CHECK(input.capitalize() == output);
+
+	input = "2db";
+	output = "2 Db";
+	CHECK(input.capitalize() == output);
+
+	input = "HTML5 Html5 html5 html_5";
+	output = "Html 5 Html 5 Html 5 Html 5";
+	CHECK(input.capitalize() == output);
+
+	input = "Node2D Node2d NODE2D NODE_2D node_2d";
+	output = "Node 2d Node 2d Node 2d Node 2d Node 2d";
+	CHECK(input.capitalize() == output);
+
+	input = "Node2DPosition";
+	output = "Node 2d Position";
+	CHECK(input.capitalize() == output);
+
+	input = "Number2Digits";
+	output = "Number 2 Digits";
+	CHECK(input.capitalize() == output);
+
+	input = "bytes2var";
+	output = "Bytes 2 Var";
 	CHECK(input.capitalize() == output);
 
 	input = "linear2db";
@@ -1020,10 +1263,6 @@ TEST_CASE("[String] Capitalize against many strings") {
 
 	input = "sha256";
 	output = "Sha 256";
-	CHECK(input.capitalize() == output);
-
-	input = "2db";
-	output = "2 Db";
 	CHECK(input.capitalize() == output);
 
 	input = "PascalCase";
@@ -1061,6 +1300,50 @@ TEST_CASE("[String] Capitalize against many strings") {
 	input = "snake_case_function( snake_case_arg )";
 	output = "Snake Case Function( Snake Case Arg )";
 	CHECK(input.capitalize() == output);
+}
+
+struct StringCasesTestCase {
+	const char *input;
+	const char *camel_case;
+	const char *pascal_case;
+	const char *snake_case;
+};
+
+TEST_CASE("[String] Checking case conversion methods") {
+	StringCasesTestCase test_cases[] = {
+		/* clang-format off */
+		{ "2D",                "2d",              "2d",              "2d"                },
+		{ "2d",                "2d",              "2d",              "2d"                },
+		{ "2db",               "2Db",             "2Db",             "2_db"              },
+		{ "Vector3",           "vector3",         "Vector3",         "vector_3"          },
+		{ "sha256",            "sha256",          "Sha256",          "sha_256"           },
+		{ "Node2D",            "node2d",          "Node2d",          "node_2d"           },
+		{ "RichTextLabel",     "richTextLabel",   "RichTextLabel",   "rich_text_label"   },
+		{ "HTML5",             "html5",           "Html5",           "html_5"            },
+		{ "Node2DPosition",    "node2dPosition",  "Node2dPosition",  "node_2d_position"  },
+		{ "Number2Digits",     "number2Digits",   "Number2Digits",   "number_2_digits"   },
+		{ "get_property_list", "getPropertyList", "GetPropertyList", "get_property_list" },
+		{ "get_camera_2d",     "getCamera2d",     "GetCamera2d",     "get_camera_2d"     },
+		{ "_physics_process",  "physicsProcess",  "PhysicsProcess",  "_physics_process"  },
+		{ "bytes2var",         "bytes2Var",       "Bytes2Var",       "bytes_2_var"       },
+		{ "linear2db",         "linear2Db",       "Linear2Db",       "linear_2_db"       },
+		{ "sha256sum",         "sha256Sum",       "Sha256Sum",       "sha_256_sum"       },
+		{ "camelCase",         "camelCase",       "CamelCase",       "camel_case"        },
+		{ "PascalCase",        "pascalCase",      "PascalCase",      "pascal_case"       },
+		{ "snake_case",        "snakeCase",       "SnakeCase",       "snake_case"        },
+		{ "Test TEST test",    "testTestTest",    "TestTestTest",    "test_test_test"    },
+		{ nullptr,             nullptr,           nullptr,           nullptr             },
+		/* clang-format on */
+	};
+
+	int idx = 0;
+	while (test_cases[idx].input != nullptr) {
+		String input = test_cases[idx].input;
+		CHECK(input.to_camel_case() == test_cases[idx].camel_case);
+		CHECK(input.to_pascal_case() == test_cases[idx].pascal_case);
+		CHECK(input.to_snake_case() == test_cases[idx].snake_case);
+		idx++;
+	}
 }
 
 TEST_CASE("[String] Checking string is empty when it should be") {
@@ -1168,8 +1451,8 @@ TEST_CASE("[String] Ensuring empty string into parse_utf8 passes empty string") 
 }
 
 TEST_CASE("[String] Cyrillic to_lower()") {
-	String upper = String::utf8("АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ");
-	String lower = String::utf8("абвгдеёжзийклмнопрстуфхцчшщъыьэюя");
+	String upper = U"АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ";
+	String lower = U"абвгдеёжзийклмнопрстуфхцчшщъыьэюя";
 
 	String test = upper.to_lower();
 
@@ -1255,21 +1538,23 @@ TEST_CASE("[String] dedent") {
 }
 
 TEST_CASE("[String] Path functions") {
-	static const char *path[7] = { "C:\\Godot\\project\\test.tscn", "/Godot/project/test.xscn", "../Godot/project/test.scn", "Godot\\test.doc", "C:\\test.", "res://test", "/.test" };
-	static const char *base_dir[7] = { "C:\\Godot\\project", "/Godot/project", "../Godot/project", "Godot", "C:\\", "res://", "/" };
-	static const char *base_name[7] = { "C:\\Godot\\project\\test", "/Godot/project/test", "../Godot/project/test", "Godot\\test", "C:\\test", "res://test", "/" };
-	static const char *ext[7] = { "tscn", "xscn", "scn", "doc", "", "", "test" };
-	static const char *file[7] = { "test.tscn", "test.xscn", "test.scn", "test.doc", "test.", "test", ".test" };
-	static const bool abs[7] = { true, true, false, false, true, true, true };
+	static const char *path[8] = { "C:\\Godot\\project\\test.tscn", "/Godot/project/test.xscn", "../Godot/project/test.scn", "Godot\\test.doc", "C:\\test.", "res://test", "user://test", "/.test" };
+	static const char *base_dir[8] = { "C:\\Godot\\project", "/Godot/project", "../Godot/project", "Godot", "C:\\", "res://", "user://", "/" };
+	static const char *base_name[8] = { "C:\\Godot\\project\\test", "/Godot/project/test", "../Godot/project/test", "Godot\\test", "C:\\test", "res://test", "user://test", "/" };
+	static const char *ext[8] = { "tscn", "xscn", "scn", "doc", "", "", "", "test" };
+	static const char *file[8] = { "test.tscn", "test.xscn", "test.scn", "test.doc", "test.", "test", "test", ".test" };
+	static const char *simplified[8] = { "C:/Godot/project/test.tscn", "/Godot/project/test.xscn", "Godot/project/test.scn", "Godot/test.doc", "C:/test.", "res://test", "user://test", "/.test" };
+	static const bool abs[8] = { true, true, false, false, true, true, true, true };
 
-	for (int i = 0; i < 7; i++) {
+	for (int i = 0; i < 8; i++) {
 		CHECK(String(path[i]).get_base_dir() == base_dir[i]);
 		CHECK(String(path[i]).get_basename() == base_name[i]);
 		CHECK(String(path[i]).get_extension() == ext[i]);
 		CHECK(String(path[i]).get_file() == file[i]);
 		CHECK(String(path[i]).is_absolute_path() == abs[i]);
 		CHECK(String(path[i]).is_relative_path() != abs[i]);
-		CHECK(String(path[i]).simplify_path().get_base_dir().plus_file(file[i]) == String(path[i]).simplify_path());
+		CHECK(String(path[i]).simplify_path() == String(simplified[i]));
+		CHECK(String(path[i]).simplify_path().get_base_dir().path_join(file[i]) == String(path[i]).simplify_path());
 	}
 
 	static const char *file_name[3] = { "test.tscn", "test://.xscn", "?tes*t.scn" };
@@ -1403,6 +1688,11 @@ TEST_CASE("[String] Repeat") {
 	CHECK(t == s);
 }
 
+TEST_CASE("[String] Reverse") {
+	String s = "Abcd";
+	CHECK(s.reverse() == "dcbA");
+}
+
 TEST_CASE("[String] SHA1/SHA256/MD5") {
 	String s = "Godot";
 	String sha1 = "a1e91f39b9fce6a9998b14bdbe2aa2b39dc2d201";
@@ -1480,8 +1770,8 @@ TEST_CASE("[String] validate_node_name") {
 	String name_with_kana = U"Name with kana ゴドツ";
 	CHECK(name_with_kana.validate_node_name() == U"Name with kana ゴドツ");
 
-	String name_with_invalid_chars = "Name with invalid characters :.@removed!";
-	CHECK(name_with_invalid_chars.validate_node_name() == "Name with invalid characters removed!");
+	String name_with_invalid_chars = "Name with invalid characters :.@%removed!";
+	CHECK(name_with_invalid_chars.validate_node_name() == "Name with invalid characters ____removed!");
 }
 
 TEST_CASE("[String] validate_identifier") {
@@ -1489,12 +1779,12 @@ TEST_CASE("[String] validate_identifier") {
 	CHECK(empty_string.validate_identifier() == "_");
 
 	String numeric_only = "12345";
-	CHECK(numeric_only.validate_identifier() == "_2345");
+	CHECK(numeric_only.validate_identifier() == "_12345");
 
 	String name_with_spaces = "Name with spaces";
 	CHECK(name_with_spaces.validate_identifier() == "Name_with_spaces");
 
-	String name_with_invalid_chars = String::utf8("Invalid characters:@*#&世界");
+	String name_with_invalid_chars = U"Invalid characters:@*#&世界";
 	CHECK(name_with_invalid_chars.validate_identifier() == "Invalid_characters_______");
 }
 
@@ -1573,7 +1863,7 @@ TEST_CASE("[String] Variant ptr indexed set") {
 TEST_CASE("[Stress][String] Empty via ' == String()'") {
 	for (int i = 0; i < 100000; ++i) {
 		String str = "Hello World!";
-		if (str.is_empty()) {
+		if (str == String()) {
 			continue;
 		}
 	}

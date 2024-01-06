@@ -20,13 +20,12 @@ layout(location = 0) out vec2 uv_interp;
 #endif
 
 void main() {
-	vec2 base_arr[4] = vec2[](vec2(0.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(1.0, 0.0));
-	uv_interp.xy = base_arr[gl_VertexIndex];
+	vec2 base_arr[3] = vec2[](vec2(-1.0, -1.0), vec2(-1.0, 3.0), vec2(3.0, -1.0));
+	gl_Position = vec4(base_arr[gl_VertexIndex], 0.0, 1.0);
+	uv_interp.xy = clamp(gl_Position.xy, vec2(0.0, 0.0), vec2(1.0, 1.0)) * 2.0; // saturate(x) * 2.0
 #ifdef MULTIVIEW
 	uv_interp.z = ViewIndex;
 #endif
-
-	gl_Position = vec4(uv_interp.xy * 2.0 - 1.0, 0.0, 1.0);
 }
 
 #[fragment]
@@ -63,10 +62,18 @@ void main() {
 
 #ifdef MULTIVIEW
 	vec4 color = textureLod(source_color, uv, 0.0);
+	frag_color = uint(color.r * 255.0);
 #else /* MULTIVIEW */
 	vec4 color = textureLod(source_color, uv, 0.0);
-#endif /* MULTIVIEW */
 
-	// See if we can change the sampler to one that returns int...
-	frag_color = uint(color.r * 256.0);
+	// for user supplied VRS map we do a color mapping
+	color.r *= 3.0;
+	frag_color = int(color.r) << 2;
+
+	color.g *= 3.0;
+	frag_color += int(color.g);
+
+	// note 1x4, 4x1, 1x8, 8x1, 2x8 and 8x2 are not supported
+	// 4x8, 8x4 and 8x8 are only available on some GPUs
+#endif /* MULTIVIEW */
 }

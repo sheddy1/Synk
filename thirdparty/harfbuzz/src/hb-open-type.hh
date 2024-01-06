@@ -141,27 +141,29 @@ typedef HBINT32 FWORD32;
 /* 16-bit unsigned integer (HBUINT16) that describes a quantity in FUnits. */
 typedef HBUINT16 UFWORD;
 
-/* 16-bit signed fixed number with the low 14 bits of fraction (2.14). */
-struct F2DOT14 : HBINT16
+template <typename Type, unsigned fraction_bits>
+struct HBFixed : Type
 {
-  F2DOT14& operator = (uint16_t i ) { HBINT16::operator= (i); return *this; }
-  // 16384 means 1<<14
-  float to_float () const  { return ((int32_t) v) / 16384.f; }
-  void set_float (float f) { v = roundf (f * 16384.f); }
+  static constexpr float shift = (float) (1 << fraction_bits);
+  static_assert (Type::static_size * 8 > fraction_bits, "");
+
+  operator signed () const = delete;
+  operator unsigned () const = delete;
+  typename Type::type to_int () const { return Type::v; }
+  void set_int (typename Type::type i ) { Type::v = i; }
+  float to_float (float offset = 0) const  { return ((int32_t) Type::v + offset) / shift; }
+  void set_float (float f) { Type::v = roundf (f * shift); }
   public:
-  DEFINE_SIZE_STATIC (2);
+  DEFINE_SIZE_STATIC (Type::static_size);
 };
 
+/* 16-bit signed fixed number with the low 14 bits of fraction (2.14). */
+using F2DOT14 = HBFixed<HBINT16, 14>;
+using F4DOT12 = HBFixed<HBINT16, 12>;
+using F6DOT10 = HBFixed<HBINT16, 10>;
+
 /* 32-bit signed fixed-point number (16.16). */
-struct HBFixed : HBINT32
-{
-  HBFixed& operator = (uint32_t i) { HBINT32::operator= (i); return *this; }
-  // 65536 means 1<<16
-  float to_float () const  { return ((int32_t) v) / 65536.f; }
-  void set_float (float f) { v = roundf (f * 65536.f); }
-  public:
-  DEFINE_SIZE_STATIC (4);
-};
+using F16DOT16 = HBFixed<HBINT32, 16>;
 
 /* Date represented in number of seconds since 12:00 midnight, January 1,
  * 1904. The value is represented as a signed 64-bit integer. */
@@ -212,6 +214,12 @@ typedef Index NameID;
 
 struct VarIdx : HBUINT32 {
   static constexpr unsigned NO_VARIATION = 0xFFFFFFFFu;
+  static_assert (NO_VARIATION == HB_OT_LAYOUT_NO_VARIATIONS_INDEX, "");
+  static uint32_t add (uint32_t i, unsigned short v)
+  {
+    if (i == NO_VARIATION) return i;
+    return i + v;
+  }
   VarIdx& operator = (uint32_t i) { HBUINT32::operator= (i); return *this; }
 };
 DECLARE_NULL_NAMESPACE_BYTES (OT, VarIdx);
@@ -304,6 +312,8 @@ struct _hb_has_null<Type, true>
 template <typename Type, typename OffsetType, bool has_null=true>
 struct OffsetTo : Offset<OffsetType, has_null>
 {
+  using target_t = Type;
+
   // Make sure Type is not unbounded; works only for types that are fully defined at OffsetTo time.
   static_assert (has_null == false ||
 		 (hb_has_null_size (Type) || !hb_has_min_size (Type)), "");
@@ -408,12 +418,15 @@ struct OffsetTo : Offset<OffsetType, has_null>
   {
     TRACE_SANITIZE (this);
     if (unlikely (!c->check_struct (this))) return_trace (false);
-    if (unlikely (this->is_null ())) return_trace (true);
+    //if (unlikely (this->is_null ())) return_trace (true);
     if (unlikely ((const char *) base + (unsigned) *this < (const char *) base)) return_trace (false);
     return_trace (true);
   }
 
   template <typename ...Ts>
+#ifndef HB_OPTIMIZE_SIZE
+  HB_ALWAYS_INLINE
+#endif
   bool sanitize (hb_sanitize_context_t *c, const void *base, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);
@@ -454,24 +467,16 @@ struct UnsizedArrayOf
 
   HB_DELETE_CREATE_COPY_ASSIGN (UnsizedArrayOf);
 
-  const Type& operator [] (int i_) const
+  const Type& operator [] (unsigned int i) const
   {
-    unsigned int i = (unsigned int) i_;
-    const Type *p = &arrayZ[i];
-    if (unlikely ((const void *) p < (const void *) arrayZ)) return Null (Type); /* Overflowed. */
-    _hb_compiler_memory_r_barrier ();
-    return *p;
+    return arrayZ[i];
   }
-  Type& operator [] (int i_)
+  Type& operator [] (unsigned int i)
   {
-    unsigned int i = (unsigned int) i_;
-    Type *p = &arrayZ[i];
-    if (unlikely ((const void *) p < (const void *) arrayZ)) return Crap (Type); /* Overflowed. */
-    _hb_compiler_memory_r_barrier ();
-    return *p;
+    return arrayZ[i];
   }
 
-  unsigned int get_size (unsigned int len) const
+  static unsigned int get_size (unsigned int len)
   { return len * Type::static_size; }
 
   template <typename T> operator T * () { return arrayZ; }
@@ -496,10 +501,10 @@ struct UnsizedArrayOf
   void qsort (unsigned int len, unsigned int start = 0, unsigned int end = (unsigned int) -1)
   { as_array (len).qsort (start, end); }
 
-  bool serialize (hb_serialize_context_t *c, unsigned int items_len)
+  bool serialize (hb_serialize_context_t *c, unsigned int items_len, bool clear = true)
   {
     TRACE_SERIALIZE (this);
-    if (unlikely (!c->extend (this, items_len))) return_trace (false);
+    if (unlikely (!c->extend_size (this, get_size (items_len), clear))) return_trace (false);
     return_trace (true);
   }
   template <typename Iterator,
@@ -507,8 +512,8 @@ struct UnsizedArrayOf
   bool serialize (hb_serialize_context_t *c, Iterator items)
   {
     TRACE_SERIALIZE (this);
-    unsigned count = items.len ();
-    if (unlikely (!serialize (c, count))) return_trace (false);
+    unsigned count = hb_len (items);
+    if (unlikely (!serialize (c, count, false))) return_trace (false);
     /* TODO Umm. Just exhaust the iterator instead?  Being extra
      * cautious right now.. */
     for (unsigned i = 0; i < count; i++, ++items)
@@ -525,6 +530,7 @@ struct UnsizedArrayOf
   }
 
   template <typename ...Ts>
+  HB_ALWAYS_INLINE
   bool sanitize (hb_sanitize_context_t *c, unsigned int count, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);
@@ -649,14 +655,9 @@ struct ArrayOf
   operator   iter_t () const { return   iter (); }
   operator writer_t ()       { return writer (); }
 
-  hb_array_t<const Type> sub_array (unsigned int start_offset, unsigned int count) const
-  { return as_array ().sub_array (start_offset, count); }
-  hb_array_t<const Type> sub_array (unsigned int start_offset, unsigned int *count = nullptr /* IN/OUT */) const
-  { return as_array ().sub_array (start_offset, count); }
-  hb_array_t<Type> sub_array (unsigned int start_offset, unsigned int count)
-  { return as_array ().sub_array (start_offset, count); }
-  hb_array_t<Type> sub_array (unsigned int start_offset, unsigned int *count = nullptr /* IN/OUT */)
-  { return as_array ().sub_array (start_offset, count); }
+  /* Faster range-based for loop. */
+  const Type *begin () const { return arrayZ; }
+  const Type *end () const { return arrayZ + len; }
 
   template <typename T>
   Type &lsearch (const T &x, Type &not_found = Crap (Type))
@@ -670,15 +671,15 @@ struct ArrayOf
 	      unsigned int to_store = (unsigned int) -1) const
   { return as_array ().lfind (x, i, not_found, to_store); }
 
-  void qsort (unsigned int start = 0, unsigned int end = (unsigned int) -1)
-  { as_array ().qsort (start, end); }
+  void qsort ()
+  { as_array ().qsort (); }
 
-  HB_NODISCARD bool serialize (hb_serialize_context_t *c, unsigned items_len)
+  HB_NODISCARD bool serialize (hb_serialize_context_t *c, unsigned items_len, bool clear = true)
   {
     TRACE_SERIALIZE (this);
     if (unlikely (!c->extend_min (this))) return_trace (false);
     c->check_assign (len, items_len, HB_SERIALIZE_ERROR_ARRAY_OVERFLOW);
-    if (unlikely (!c->extend (this))) return_trace (false);
+    if (unlikely (!c->extend_size (this, get_size (), clear))) return_trace (false);
     return_trace (true);
   }
   template <typename Iterator,
@@ -686,8 +687,8 @@ struct ArrayOf
   HB_NODISCARD bool serialize (hb_serialize_context_t *c, Iterator items)
   {
     TRACE_SERIALIZE (this);
-    unsigned count = items.len ();
-    if (unlikely (!serialize (c, count))) return_trace (false);
+    unsigned count = hb_len (items);
+    if (unlikely (!serialize (c, count, false))) return_trace (false);
     /* TODO Umm. Just exhaust the iterator instead?  Being extra
      * cautious right now.. */
     for (unsigned i = 0; i < count; i++, ++items)
@@ -718,6 +719,7 @@ struct ArrayOf
   }
 
   template <typename ...Ts>
+  HB_ALWAYS_INLINE
   bool sanitize (hb_sanitize_context_t *c, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);
@@ -733,7 +735,7 @@ struct ArrayOf
   bool sanitize_shallow (hb_sanitize_context_t *c) const
   {
     TRACE_SANITIZE (this);
-    return_trace (len.sanitize (c) && c->check_array (arrayZ, len));
+    return_trace (len.sanitize (c) && c->check_array_sized (arrayZ, len, sizeof (LenType)));
   }
 
   public:
@@ -794,7 +796,7 @@ template <typename Type>
 using List16OfOffset16To = List16OfOffsetTo<Type, HBUINT16>;
 
 /* An array starting at second element. */
-template <typename Type, typename LenType=HBUINT16>
+template <typename Type, typename LenType>
 struct HeadlessArrayOf
 {
   static constexpr unsigned item_size = Type::static_size;
@@ -831,21 +833,25 @@ struct HeadlessArrayOf
   operator   iter_t () const { return   iter (); }
   operator writer_t ()       { return writer (); }
 
-  bool serialize (hb_serialize_context_t *c, unsigned int items_len)
+  /* Faster range-based for loop. */
+  const Type *begin () const { return arrayZ; }
+  const Type *end () const { return arrayZ + get_length (); }
+
+  HB_NODISCARD bool serialize (hb_serialize_context_t *c, unsigned int items_len, bool clear = true)
   {
     TRACE_SERIALIZE (this);
     if (unlikely (!c->extend_min (this))) return_trace (false);
     c->check_assign (lenP1, items_len + 1, HB_SERIALIZE_ERROR_ARRAY_OVERFLOW);
-    if (unlikely (!c->extend (this))) return_trace (false);
+    if (unlikely (!c->extend_size (this, get_size (), clear))) return_trace (false);
     return_trace (true);
   }
   template <typename Iterator,
 	    hb_requires (hb_is_source_of (Iterator, Type))>
-  bool serialize (hb_serialize_context_t *c, Iterator items)
+  HB_NODISCARD bool serialize (hb_serialize_context_t *c, Iterator items)
   {
     TRACE_SERIALIZE (this);
-    unsigned count = items.len ();
-    if (unlikely (!serialize (c, count))) return_trace (false);
+    unsigned count = hb_len (items);
+    if (unlikely (!serialize (c, count, false))) return_trace (false);
     /* TODO Umm. Just exhaust the iterator instead?  Being extra
      * cautious right now.. */
     for (unsigned i = 0; i < count; i++, ++items)
@@ -854,6 +860,7 @@ struct HeadlessArrayOf
   }
 
   template <typename ...Ts>
+  HB_ALWAYS_INLINE
   bool sanitize (hb_sanitize_context_t *c, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);
@@ -871,7 +878,7 @@ struct HeadlessArrayOf
   {
     TRACE_SANITIZE (this);
     return_trace (lenP1.sanitize (c) &&
-		  (!lenP1 || c->check_array (arrayZ, lenP1 - 1)));
+		  (!lenP1 || c->check_array_sized (arrayZ, lenP1 - 1, sizeof (LenType))));
   }
 
   public:
@@ -880,6 +887,7 @@ struct HeadlessArrayOf
   public:
   DEFINE_SIZE_ARRAY (sizeof (LenType), arrayZ);
 };
+template <typename Type> using HeadlessArray16Of = HeadlessArrayOf<Type, HBUINT16>;
 
 /* An array storing length-1. */
 template <typename Type, typename LenType=HBUINT16>
@@ -905,6 +913,7 @@ struct ArrayOfM1
   { return lenM1.static_size + (lenM1 + 1) * Type::static_size; }
 
   template <typename ...Ts>
+  HB_ALWAYS_INLINE
   bool sanitize (hb_sanitize_context_t *c, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);
@@ -922,7 +931,7 @@ struct ArrayOfM1
   {
     TRACE_SANITIZE (this);
     return_trace (lenM1.sanitize (c) &&
-		  (c->check_array (arrayZ, lenM1 + 1)));
+		  (c->check_array_sized (arrayZ, lenM1 + 1, sizeof (LenType))));
   }
 
   public:
@@ -947,14 +956,9 @@ struct SortedArrayOf : ArrayOf<Type, LenType>
   operator   iter_t () const { return   iter (); }
   operator writer_t ()       { return writer (); }
 
-  hb_sorted_array_t<const Type> sub_array (unsigned int start_offset, unsigned int count) const
-  { return as_array ().sub_array (start_offset, count); }
-  hb_sorted_array_t<const Type> sub_array (unsigned int start_offset, unsigned int *count = nullptr /* IN/OUT */) const
-  { return as_array ().sub_array (start_offset, count); }
-  hb_sorted_array_t<Type> sub_array (unsigned int start_offset, unsigned int count)
-  { return as_array ().sub_array (start_offset, count); }
-  hb_sorted_array_t<Type> sub_array (unsigned int start_offset, unsigned int *count = nullptr /* IN/OUT */)
-  { return as_array ().sub_array (start_offset, count); }
+  /* Faster range-based for loop. */
+  const Type *begin () const { return this->arrayZ; }
+  const Type *end () const { return this->arrayZ + this->len; }
 
   bool serialize (hb_serialize_context_t *c, unsigned int items_len)
   {
@@ -1094,6 +1098,7 @@ struct VarSizedBinSearchArrayOf
   { return header.static_size + header.nUnits * header.unitSize; }
 
   template <typename ...Ts>
+  HB_ALWAYS_INLINE
   bool sanitize (hb_sanitize_context_t *c, Ts&&... ds) const
   {
     TRACE_SANITIZE (this);

@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  remote_debugger.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  remote_debugger.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "remote_debugger.h"
 
@@ -38,89 +38,6 @@
 #include "core/input/input.h"
 #include "core/object/script_language.h"
 #include "core/os/os.h"
-
-class RemoteDebugger::MultiplayerProfiler : public EngineProfiler {
-	struct BandwidthFrame {
-		uint32_t timestamp;
-		int packet_size;
-	};
-
-	int bandwidth_in_ptr = 0;
-	Vector<BandwidthFrame> bandwidth_in;
-	int bandwidth_out_ptr = 0;
-	Vector<BandwidthFrame> bandwidth_out;
-	uint64_t last_bandwidth_time = 0;
-
-	int bandwidth_usage(const Vector<BandwidthFrame> &p_buffer, int p_pointer) {
-		ERR_FAIL_COND_V(p_buffer.size() == 0, 0);
-		int total_bandwidth = 0;
-
-		uint64_t timestamp = OS::get_singleton()->get_ticks_msec();
-		uint64_t final_timestamp = timestamp - 1000;
-
-		int i = (p_pointer + p_buffer.size() - 1) % p_buffer.size();
-
-		while (i != p_pointer && p_buffer[i].packet_size > 0) {
-			if (p_buffer[i].timestamp < final_timestamp) {
-				return total_bandwidth;
-			}
-			total_bandwidth += p_buffer[i].packet_size;
-			i = (i + p_buffer.size() - 1) % p_buffer.size();
-		}
-
-		ERR_FAIL_COND_V_MSG(i == p_pointer, total_bandwidth, "Reached the end of the bandwidth profiler buffer, values might be inaccurate.");
-		return total_bandwidth;
-	}
-
-public:
-	void toggle(bool p_enable, const Array &p_opts) {
-		if (!p_enable) {
-			bandwidth_in.clear();
-			bandwidth_out.clear();
-		} else {
-			bandwidth_in_ptr = 0;
-			bandwidth_in.resize(16384); // ~128kB
-			for (int i = 0; i < bandwidth_in.size(); ++i) {
-				bandwidth_in.write[i].packet_size = -1;
-			}
-			bandwidth_out_ptr = 0;
-			bandwidth_out.resize(16384); // ~128kB
-			for (int i = 0; i < bandwidth_out.size(); ++i) {
-				bandwidth_out.write[i].packet_size = -1;
-			}
-		}
-	}
-
-	void add(const Array &p_data) {
-		ERR_FAIL_COND(p_data.size() < 3);
-		const String inout = p_data[0];
-		int time = p_data[1];
-		int size = p_data[2];
-		if (inout == "in") {
-			bandwidth_in.write[bandwidth_in_ptr].timestamp = time;
-			bandwidth_in.write[bandwidth_in_ptr].packet_size = size;
-			bandwidth_in_ptr = (bandwidth_in_ptr + 1) % bandwidth_in.size();
-		} else if (inout == "out") {
-			bandwidth_out.write[bandwidth_out_ptr].timestamp = time;
-			bandwidth_out.write[bandwidth_out_ptr].packet_size = size;
-			bandwidth_out_ptr = (bandwidth_out_ptr + 1) % bandwidth_out.size();
-		}
-	}
-
-	void tick(double p_frame_time, double p_process_time, double p_physics_time, double p_physics_frame_time) {
-		uint64_t pt = OS::get_singleton()->get_ticks_msec();
-		if (pt - last_bandwidth_time > 200) {
-			last_bandwidth_time = pt;
-			int incoming_bandwidth = bandwidth_usage(bandwidth_in, bandwidth_in_ptr);
-			int outgoing_bandwidth = bandwidth_usage(bandwidth_out, bandwidth_out_ptr);
-
-			Array arr;
-			arr.push_back(incoming_bandwidth);
-			arr.push_back(outgoing_bandwidth);
-			EngineDebugger::get_singleton()->send_message("multiplayer:bandwidth", arr);
-		}
-	}
-};
 
 class RemoteDebugger::PerformanceProfiler : public EngineProfiler {
 	Object *performance = nullptr;
@@ -177,6 +94,7 @@ public:
 Error RemoteDebugger::_put_msg(String p_message, Array p_data) {
 	Array msg;
 	msg.push_back(p_message);
+	msg.push_back(Thread::get_caller_id());
 	msg.push_back(p_data);
 	Error err = peer->put_message(msg);
 	if (err != OK) {
@@ -268,9 +186,9 @@ RemoteDebugger::ErrorMessage RemoteDebugger::_create_overflow_error(const String
 }
 
 void RemoteDebugger::flush_output() {
+	MutexLock lock(mutex);
 	flush_thread = Thread::get_caller_id();
 	flushing = true;
-	MutexLock lock(mutex);
 	if (!is_peer_connected()) {
 		return;
 	}
@@ -431,18 +349,65 @@ Error RemoteDebugger::_try_capture(const String &p_msg, const Array &p_data, boo
 	return capture_parse(cap, msg, p_data, r_captured);
 }
 
+void RemoteDebugger::_poll_messages() {
+	MutexLock mutex_lock(mutex);
+
+	peer->poll();
+	while (peer->has_message()) {
+		Array cmd = peer->get_message();
+		ERR_CONTINUE(cmd.size() != 3);
+		ERR_CONTINUE(cmd[0].get_type() != Variant::STRING);
+		ERR_CONTINUE(cmd[1].get_type() != Variant::INT);
+		ERR_CONTINUE(cmd[2].get_type() != Variant::ARRAY);
+
+		Thread::ID thread = cmd[1];
+
+		if (!messages.has(thread)) {
+			continue; // This thread is not around to receive the messages
+		}
+
+		Message msg;
+		msg.message = cmd[0];
+		msg.data = cmd[2];
+		messages[thread].push_back(msg);
+	}
+}
+
+bool RemoteDebugger::_has_messages() {
+	MutexLock mutex_lock(mutex);
+	return messages.has(Thread::get_caller_id()) && !messages[Thread::get_caller_id()].is_empty();
+}
+
+Array RemoteDebugger::_get_message() {
+	MutexLock mutex_lock(mutex);
+	ERR_FAIL_COND_V(!messages.has(Thread::get_caller_id()), Array());
+	List<Message> &message_list = messages[Thread::get_caller_id()];
+	ERR_FAIL_COND_V(message_list.is_empty(), Array());
+
+	Array msg;
+	msg.resize(2);
+	msg[0] = message_list.front()->get().message;
+	msg[1] = message_list.front()->get().data;
+	message_list.pop_front();
+	return msg;
+}
+
 void RemoteDebugger::debug(bool p_can_continue, bool p_is_error_breakpoint) {
 	//this function is called when there is a debugger break (bug on script)
 	//or when execution is paused from editor
 
-	if (script_debugger->is_skipping_breakpoints() && !p_is_error_breakpoint) {
-		return;
-	}
+	{
+		MutexLock lock(mutex);
+		// Tests that require mutex.
+		if (script_debugger->is_skipping_breakpoints() && !p_is_error_breakpoint) {
+			return;
+		}
 
-	ERR_FAIL_COND_MSG(!is_peer_connected(), "Script Debugger failed to connect, but being used anyway.");
+		ERR_FAIL_COND_MSG(!is_peer_connected(), "Script Debugger failed to connect, but being used anyway.");
 
-	if (!peer->can_block()) {
-		return; // Peer does not support blocking IO. We could at least send the error though.
+		if (!peer->can_block()) {
+			return; // Peer does not support blocking IO. We could at least send the error though.
+		}
 	}
 
 	ScriptLanguage *script_lang = script_debugger->get_break_language();
@@ -450,24 +415,35 @@ void RemoteDebugger::debug(bool p_can_continue, bool p_is_error_breakpoint) {
 	Array msg;
 	msg.push_back(p_can_continue);
 	msg.push_back(error_str);
-	ERR_FAIL_COND(!script_lang);
+	ERR_FAIL_NULL(script_lang);
 	msg.push_back(script_lang->debug_get_stack_level_count() > 0);
+	msg.push_back(Thread::get_caller_id() == Thread::get_main_id() ? String(RTR("Main Thread")) : itos(Thread::get_caller_id()));
 	if (allow_focus_steal_fn) {
 		allow_focus_steal_fn();
 	}
 	send_message("debug_enter", msg);
 
-	Input::MouseMode mouse_mode = Input::get_singleton()->get_mouse_mode();
-	if (mouse_mode != Input::MOUSE_MODE_VISIBLE) {
-		Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_VISIBLE);
+	Input::MouseMode mouse_mode = Input::MOUSE_MODE_VISIBLE;
+
+	if (Thread::get_caller_id() == Thread::get_main_id()) {
+		mouse_mode = Input::get_singleton()->get_mouse_mode();
+		if (mouse_mode != Input::MOUSE_MODE_VISIBLE) {
+			Input::get_singleton()->set_mouse_mode(Input::MOUSE_MODE_VISIBLE);
+		}
+	} else {
+		MutexLock mutex_lock(mutex);
+		messages.insert(Thread::get_caller_id(), List<Message>());
 	}
 
+	mutex.lock();
 	while (is_peer_connected()) {
+		mutex.unlock();
 		flush_output();
-		peer->poll();
 
-		if (peer->has_message()) {
-			Array cmd = peer->get_message();
+		_poll_messages();
+
+		if (_has_messages()) {
+			Array cmd = _get_message();
 
 			ERR_CONTINUE(cmd.size() != 2);
 			ERR_CONTINUE(cmd[0].get_type() != Variant::STRING);
@@ -509,7 +485,7 @@ void RemoteDebugger::debug(bool p_can_continue, bool p_is_error_breakpoint) {
 
 			} else if (command == "get_stack_frame_vars") {
 				ERR_FAIL_COND(data.size() != 1);
-				ERR_FAIL_COND(!script_lang);
+				ERR_FAIL_NULL(script_lang);
 				int lv = data[0];
 
 				List<String> members;
@@ -562,14 +538,22 @@ void RemoteDebugger::debug(bool p_can_continue, bool p_is_error_breakpoint) {
 			}
 		} else {
 			OS::get_singleton()->delay_usec(10000);
-			OS::get_singleton()->process_and_drop_events();
+			if (Thread::get_caller_id() == Thread::get_main_id()) {
+				// If this is a busy loop on the main thread, events still need to be processed.
+				OS::get_singleton()->process_and_drop_events();
+			}
 		}
 	}
 
 	send_message("debug_exit", Array());
 
-	if (mouse_mode != Input::MOUSE_MODE_VISIBLE) {
-		Input::get_singleton()->set_mouse_mode(mouse_mode);
+	if (Thread::get_caller_id() == Thread::get_main_id()) {
+		if (mouse_mode != Input::MOUSE_MODE_VISIBLE) {
+			Input::get_singleton()->set_mouse_mode(mouse_mode);
+		}
+	} else {
+		MutexLock mutex_lock(mutex);
+		messages.erase(Thread::get_caller_id());
 	}
 }
 
@@ -579,9 +563,11 @@ void RemoteDebugger::poll_events(bool p_is_idle) {
 	}
 
 	flush_output();
-	peer->poll();
-	while (peer->has_message()) {
-		Array arr = peer->get_message();
+
+	_poll_messages();
+
+	while (_has_messages()) {
+		Array arr = _get_message();
 
 		ERR_CONTINUE(arr.size() != 2);
 		ERR_CONTINUE(arr[0].get_type() != Variant::STRING);
@@ -659,10 +645,6 @@ RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
 	max_errors_per_second = GLOBAL_GET("network/limits/debugger/max_errors_per_second");
 	max_warnings_per_second = GLOBAL_GET("network/limits/debugger/max_warnings_per_second");
 
-	// Multiplayer Profiler
-	multiplayer_profiler.instantiate();
-	multiplayer_profiler->bind("multiplayer");
-
 	// Performance Profiler
 	Object *perf = Engine::get_singleton()->get_singleton_object("Performance");
 	if (perf) {
@@ -691,6 +673,8 @@ RemoteDebugger::RemoteDebugger(Ref<RemoteDebuggerPeer> p_peer) {
 	eh.errfunc = _err_handler;
 	eh.userdata = this;
 	add_error_handler(&eh);
+
+	messages.insert(Thread::get_main_id(), List<Message>());
 }
 
 RemoteDebugger::~RemoteDebugger() {

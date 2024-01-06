@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  physical_bone_2d.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  physical_bone_2d.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "physical_bone_2d.h"
 
@@ -35,7 +35,7 @@
 void PhysicalBone2D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
-			// Position the RigidDynamicBody in the correct position.
+			// Position the RigidBody in the correct position.
 			if (follow_bone_when_simulating) {
 				_position_at_bone2d();
 			}
@@ -71,7 +71,7 @@ void PhysicalBone2D::_position_at_bone2d() {
 	// Reset to Bone2D position
 	if (parent_skeleton) {
 		Bone2D *bone_to_use = parent_skeleton->get_bone(bone2d_index);
-		ERR_FAIL_COND_MSG(bone_to_use == nullptr, "It's not possible to position the bone with ID: " + itos(bone2d_index));
+		ERR_FAIL_NULL_MSG(bone_to_use, "It's not possible to position the bone with ID: " + itos(bone2d_index) + ".");
 		set_global_transform(bone_to_use->get_global_transform());
 	}
 }
@@ -106,8 +106,8 @@ void PhysicalBone2D::_find_joint_child() {
 	}
 }
 
-TypedArray<String> PhysicalBone2D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray PhysicalBone2D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 
 	if (!parent_skeleton) {
 		warnings.push_back(RTR("A PhysicalBone2D only works with a Skeleton2D or another PhysicalBone2D as a parent node!"));
@@ -158,6 +158,7 @@ void PhysicalBone2D::_start_physics_simulation() {
 	// Apply the layers and masks.
 	PhysicsServer2D::get_singleton()->body_set_collision_layer(get_rid(), get_collision_layer());
 	PhysicsServer2D::get_singleton()->body_set_collision_mask(get_rid(), get_collision_mask());
+	PhysicsServer2D::get_singleton()->body_set_collision_priority(get_rid(), get_collision_priority());
 
 	// Apply the correct mode.
 	_apply_body_mode();
@@ -176,6 +177,7 @@ void PhysicalBone2D::_stop_physics_simulation() {
 		set_physics_process_internal(false);
 		PhysicsServer2D::get_singleton()->body_set_collision_layer(get_rid(), 0);
 		PhysicsServer2D::get_singleton()->body_set_collision_mask(get_rid(), 0);
+		PhysicsServer2D::get_singleton()->body_set_collision_priority(get_rid(), 1.0);
 		PhysicsServer2D::get_singleton()->body_set_mode(get_rid(), PhysicsServer2D::BodyMode::BODY_MODE_STATIC);
 	}
 }
@@ -285,7 +287,7 @@ void PhysicalBone2D::_bind_methods() {
 }
 
 PhysicalBone2D::PhysicalBone2D() {
-	// Stop the RigidDynamicBody from executing its force integration.
+	// Stop the RigidBody from executing its force integration.
 	PhysicsServer2D::get_singleton()->body_set_collision_layer(get_rid(), 0);
 	PhysicsServer2D::get_singleton()->body_set_collision_mask(get_rid(), 0);
 	PhysicsServer2D::get_singleton()->body_set_mode(get_rid(), PhysicsServer2D::BodyMode::BODY_MODE_STATIC);

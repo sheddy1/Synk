@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  dialogs.h                                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  dialogs.h                                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef DIALOGS_H
 #define DIALOGS_H
@@ -45,26 +45,35 @@ class AcceptDialog : public Window {
 	GDCLASS(AcceptDialog, Window);
 
 	Window *parent_visible = nullptr;
-	Panel *bg = nullptr;
-	HBoxContainer *hbc = nullptr;
-	Label *label = nullptr;
-	Button *ok = nullptr;
+
+	Panel *bg_panel = nullptr;
+	Label *message_label = nullptr;
+	HBoxContainer *buttons_hbox = nullptr;
+	Button *ok_button = nullptr;
+
 	bool hide_on_ok = true;
 	bool close_on_escape = true;
 
+	struct ThemeCache {
+		Ref<StyleBox> panel_style;
+		int buttons_separation = 0;
+	} theme_cache;
+
 	void _custom_action(const String &p_action);
+	void _custom_button_visibility_changed(Button *button);
 	void _update_child_rects();
 
 	static bool swap_cancel_ok;
 
-	void _input_from_window(const Ref<InputEvent> &p_event);
 	void _parent_focused();
 
 protected:
 	virtual Size2 _get_contents_minimum_size() const override;
+	virtual void _input_from_window(const Ref<InputEvent> &p_event) override;
 
 	void _notification(int p_what);
 	static void _bind_methods();
+
 	virtual void ok_pressed() {}
 	virtual void cancel_pressed() {}
 	virtual void custom_action(const String &) {}
@@ -75,12 +84,12 @@ protected:
 	void _cancel_pressed();
 
 public:
-	Label *get_label() { return label; }
+	Label *get_label() { return message_label; }
 	static void set_swap_cancel_ok(bool p_swap);
 
 	void register_text_enter(Control *p_line_edit);
 
-	Button *get_ok_button() { return ok; }
+	Button *get_ok_button() { return ok_button; }
 	Button *add_button(const String &p_text, bool p_right = false, const String &p_action = "");
 	Button *add_cancel_button(const String &p_cancel = "");
 	void remove_button(Control *p_button);

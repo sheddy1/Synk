@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  skeleton_2d.cpp                                                      */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  skeleton_2d.cpp                                                       */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "skeleton_2d.h"
 
@@ -44,16 +44,18 @@ bool Bone2D::_set(const StringName &p_path, const Variant &p_value) {
 	} else if (path.begins_with("length")) {
 		set_length(p_value);
 	} else if (path.begins_with("bone_angle")) {
-		set_bone_angle(Math::deg2rad(real_t(p_value)));
+		set_bone_angle(Math::deg_to_rad(real_t(p_value)));
 	} else if (path.begins_with("default_length")) {
 		set_length(p_value);
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor_settings/show_bone_gizmo")) {
+	else if (path.begins_with("editor_settings/show_bone_gizmo")) {
 		_editor_set_show_bone_gizmo(p_value);
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }
@@ -66,16 +68,18 @@ bool Bone2D::_get(const StringName &p_path, Variant &r_ret) const {
 	} else if (path.begins_with("length")) {
 		r_ret = get_length();
 	} else if (path.begins_with("bone_angle")) {
-		r_ret = Math::rad2deg(get_bone_angle());
+		r_ret = Math::rad_to_deg(get_bone_angle());
 	} else if (path.begins_with("default_length")) {
 		r_ret = get_length();
 	}
-
 #ifdef TOOLS_ENABLED
-	if (path.begins_with("editor_settings/show_bone_gizmo")) {
+	else if (path.begins_with("editor_settings/show_bone_gizmo")) {
 		r_ret = _editor_get_show_bone_gizmo();
 	}
 #endif // TOOLS_ENABLED
+	else {
+		return false;
+	}
 
 	return true;
 }
@@ -115,6 +119,7 @@ void Bone2D::_notification(int p_what) {
 				bone.bone = this;
 				skeleton->bones.push_back(bone);
 				skeleton->_make_bone_setup_dirty();
+				get_parent()->connect(SNAME("child_order_changed"), callable_mp(skeleton, &Skeleton2D::_make_bone_setup_dirty), CONNECT_REFERENCE_COUNTED);
 			}
 
 			cache_transform = get_transform();
@@ -126,7 +131,7 @@ void Bone2D::_notification(int p_what) {
 				return;
 			}
 
-			update();
+			queue_redraw();
 #endif // TOOLS_ENABLED
 		} break;
 
@@ -143,24 +148,15 @@ void Bone2D::_notification(int p_what) {
 				return;
 			}
 
-			update();
+			queue_redraw();
 
 			if (get_parent()) {
-				Bone2D *parent_bone = Object::cast_to<Bone2D>(get_parent());
-				if (parent_bone) {
-					parent_bone->update();
+				Bone2D *p_bone = Object::cast_to<Bone2D>(get_parent());
+				if (p_bone) {
+					p_bone->queue_redraw();
 				}
 			}
 #endif // TOOLS_ENABLED
-		} break;
-
-		case NOTIFICATION_MOVED_IN_PARENT: {
-			if (skeleton) {
-				skeleton->_make_bone_setup_dirty();
-			}
-			if (copy_transform_to_cache) {
-				cache_transform = get_transform();
-			}
 		} break;
 
 		case NOTIFICATION_EXIT_TREE: {
@@ -172,7 +168,7 @@ void Bone2D::_notification(int p_what) {
 					}
 				}
 				skeleton->_make_bone_setup_dirty();
-				skeleton = nullptr;
+				get_parent()->disconnect(SNAME("child_order_changed"), callable_mp(skeleton, &Skeleton2D::_make_bone_setup_dirty));
 			}
 			parent_bone = nullptr;
 			set_transform(cache_transform);
@@ -192,10 +188,8 @@ void Bone2D::_notification(int p_what) {
 			cache_transform = tmp_trans;
 		} break;
 
-		// Bone2D Editor gizmo drawing:
-#ifndef _MSC_VER
-#warning TODO Bone2D gizmo drawing needs to be moved to an editor plugin
-#endif
+		// Bone2D Editor gizmo drawing.
+		// TODO: Bone2D gizmo drawing needs to be moved to an editor plugin.
 		case NOTIFICATION_DRAW: {
 			// Only draw the gizmo in the editor!
 			if (Engine::get_singleton()->is_editor_hint() == false) {
@@ -215,15 +209,15 @@ void Bone2D::_notification(int p_what) {
 			}
 
 			// Undo scaling
-			Transform2D editor_gizmo_trans = Transform2D();
+			Transform2D editor_gizmo_trans;
 			editor_gizmo_trans.set_scale(Vector2(1, 1) / get_global_scale());
 			RenderingServer::get_singleton()->canvas_item_set_transform(editor_gizmo_rid, editor_gizmo_trans);
 
-			Color bone_color1 = EditorSettings::get_singleton()->get("editors/2d/bone_color1");
-			Color bone_color2 = EditorSettings::get_singleton()->get("editors/2d/bone_color2");
-			Color bone_ik_color = EditorSettings::get_singleton()->get("editors/2d/bone_ik_color");
-			Color bone_outline_color = EditorSettings::get_singleton()->get("editors/2d/bone_outline_color");
-			Color bone_selected_color = EditorSettings::get_singleton()->get("editors/2d/bone_selected_color");
+			Color bone_color1 = EDITOR_GET("editors/2d/bone_color1");
+			Color bone_color2 = EDITOR_GET("editors/2d/bone_color2");
+			Color bone_ik_color = EDITOR_GET("editors/2d/bone_ik_color");
+			Color bone_outline_color = EDITOR_GET("editors/2d/bone_outline_color");
+			Color bone_selected_color = EDITOR_GET("editors/2d/bone_selected_color");
 
 			bool Bone2D_found = false;
 			for (int i = 0; i < get_child_count(); i++) {
@@ -319,8 +313,8 @@ void Bone2D::_notification(int p_what) {
 
 #ifdef TOOLS_ENABLED
 bool Bone2D::_editor_get_bone_shape(Vector<Vector2> *p_shape, Vector<Vector2> *p_outline_shape, Bone2D *p_other_bone) {
-	int bone_width = EditorSettings::get_singleton()->get("editors/2d/bone_width");
-	int bone_outline_width = EditorSettings::get_singleton()->get("editors/2d/bone_outline_size");
+	float bone_width = EDITOR_GET("editors/2d/bone_width");
+	float bone_outline_width = EDITOR_GET("editors/2d/bone_outline_size");
 
 	if (!is_inside_tree()) {
 		return false; //may have been removed
@@ -365,7 +359,7 @@ bool Bone2D::_editor_get_bone_shape(Vector<Vector2> *p_shape, Vector<Vector2> *p
 
 void Bone2D::_editor_set_show_bone_gizmo(bool p_show_gizmo) {
 	_editor_show_bone_gizmo = p_show_gizmo;
-	update();
+	queue_redraw();
 }
 
 bool Bone2D::_editor_get_show_bone_gizmo() const {
@@ -379,9 +373,6 @@ void Bone2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("apply_rest"), &Bone2D::apply_rest);
 	ClassDB::bind_method(D_METHOD("get_skeleton_rest"), &Bone2D::get_skeleton_rest);
 	ClassDB::bind_method(D_METHOD("get_index_in_skeleton"), &Bone2D::get_index_in_skeleton);
-
-	ClassDB::bind_method(D_METHOD("set_default_length", "default_length"), &Bone2D::set_default_length);
-	ClassDB::bind_method(D_METHOD("get_default_length"), &Bone2D::get_default_length);
 
 	ClassDB::bind_method(D_METHOD("set_autocalculate_length_and_angle", "auto_calculate"), &Bone2D::set_autocalculate_length_and_angle);
 	ClassDB::bind_method(D_METHOD("get_autocalculate_length_and_angle"), &Bone2D::get_autocalculate_length_and_angle);
@@ -418,24 +409,14 @@ void Bone2D::apply_rest() {
 	set_transform(rest);
 }
 
-void Bone2D::set_default_length(real_t p_length) {
-	WARN_DEPRECATED_MSG("set_default_length is deprecated. Please use set_length instead!");
-	set_length(p_length);
-}
-
-real_t Bone2D::get_default_length() const {
-	WARN_DEPRECATED_MSG("get_default_length is deprecated. Please use get_length instead!");
-	return get_length();
-}
-
 int Bone2D::get_index_in_skeleton() const {
-	ERR_FAIL_COND_V(!skeleton, -1);
+	ERR_FAIL_NULL_V(skeleton, -1);
 	skeleton->_update_bone_setup();
 	return skeleton_index;
 }
 
-TypedArray<String> Bone2D::get_configuration_warnings() const {
-	TypedArray<String> warnings = Node::get_configuration_warnings();
+PackedStringArray Bone2D::get_configuration_warnings() const {
+	PackedStringArray warnings = Node::get_configuration_warnings();
 	if (!skeleton) {
 		if (parent_bone) {
 			warnings.push_back(RTR("This Bone2D chain should end at a Skeleton2D node."));
@@ -493,7 +474,7 @@ void Bone2D::set_length(real_t p_length) {
 	length = p_length;
 
 #ifdef TOOLS_ENABLED
-	update();
+	queue_redraw();
 #endif // TOOLS_ENABLED
 }
 
@@ -505,7 +486,7 @@ void Bone2D::set_bone_angle(real_t p_angle) {
 	bone_angle = p_angle;
 
 #ifdef TOOLS_ENABLED
-	update();
+	queue_redraw();
 #endif // TOOLS_ENABLED
 }
 
@@ -521,6 +502,7 @@ Bone2D::Bone2D() {
 	bone_angle = 0;
 	autocalculate_length_and_angle = true;
 	set_notify_local_transform(true);
+	set_hide_clip_children(true);
 	//this is a clever hack so the bone knows no rest has been set yet, allowing to show an error.
 	for (int i = 0; i < 3; i++) {
 		rest[i] = Vector2(0, 0);
@@ -531,6 +513,7 @@ Bone2D::Bone2D() {
 Bone2D::~Bone2D() {
 #ifdef TOOLS_ENABLED
 	if (!editor_gizmo_rid.is_null()) {
+		ERR_FAIL_NULL(RenderingServer::get_singleton());
 		RenderingServer::get_singleton()->free(editor_gizmo_rid);
 	}
 #endif // TOOLS_ENABLED
@@ -563,7 +546,7 @@ void Skeleton2D::_get_property_list(List<PropertyInfo> *p_list) const {
 			PropertyInfo(Variant::OBJECT, PNAME("modification_stack"),
 					PROPERTY_HINT_RESOURCE_TYPE,
 					"SkeletonModificationStack2D",
-					PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_DEFERRED_SET_RESOURCE | PROPERTY_USAGE_DO_NOT_SHARE_ON_DUPLICATE));
+					PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_ALWAYS_DUPLICATE));
 }
 
 void Skeleton2D::_make_bone_setup_dirty() {
@@ -802,8 +785,10 @@ void Skeleton2D::_bind_methods() {
 Skeleton2D::Skeleton2D() {
 	skeleton = RS::get_singleton()->skeleton_create();
 	set_notify_transform(true);
+	set_hide_clip_children(true);
 }
 
 Skeleton2D::~Skeleton2D() {
+	ERR_FAIL_NULL(RenderingServer::get_singleton());
 	RS::get_singleton()->free(skeleton);
 }

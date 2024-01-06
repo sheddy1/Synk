@@ -1,36 +1,36 @@
-/*************************************************************************/
-/*  dir_access_unix.cpp                                                  */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  dir_access_unix.cpp                                                   */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "dir_access_unix.h"
 
-#if defined(UNIX_ENABLED) || defined(LIBC_FILEIO_ENABLED)
+#if defined(UNIX_ENABLED)
 
 #include "core/os/memory.h"
 #include "core/os/os.h"
@@ -38,13 +38,12 @@
 #include "core/templates/list.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef ANDROID_ENABLED
+#include <sys/ioctl.h>
 #include <sys/statvfs.h>
-#endif
 
 #ifdef HAVE_MNTENT
 #include <mntent.h>
@@ -69,12 +68,12 @@ bool DirAccessUnix::file_exists(String p_file) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_file.is_relative_path()) {
-		p_file = current_dir.plus_file(p_file);
+		p_file = current_dir.path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_file.utf8().get_data(), &flags) == 0);
 
 	if (success && S_ISDIR(flags.st_mode)) {
@@ -88,12 +87,12 @@ bool DirAccessUnix::dir_exists(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_dir.utf8().get_data(), &flags) == 0);
 
 	return (success && S_ISDIR(flags.st_mode));
@@ -103,7 +102,7 @@ bool DirAccessUnix::is_readable(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -114,7 +113,7 @@ bool DirAccessUnix::is_writable(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -123,12 +122,12 @@ bool DirAccessUnix::is_writable(String p_dir) {
 
 uint64_t DirAccessUnix::get_modified_time(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = current_dir.plus_file(p_file);
+		p_file = current_dir.path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	bool success = (stat(p_file.utf8().get_data(), &flags) == 0);
 
 	if (success) {
@@ -159,9 +158,9 @@ String DirAccessUnix::get_next() {
 	// known if it points to a directory. stat() will resolve the link
 	// for us.
 	if (entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) {
-		String f = current_dir.plus_file(fname);
+		String f = current_dir.path_join(fname);
 
-		struct stat flags;
+		struct stat flags = {};
 		if (stat(f.utf8().get_data(), &flags) == 0) {
 			_cisdir = S_ISDIR(flags.st_mode);
 		} else {
@@ -192,7 +191,7 @@ void DirAccessUnix::list_dir_end() {
 	_cisdir = false;
 }
 
-#if defined(HAVE_MNTENT) && defined(X11_ENABLED)
+#if defined(HAVE_MNTENT) && defined(LINUXBSD_ENABLED)
 static bool _filter_drive(struct mntent *mnt) {
 	// Ignore devices that don't point to /dev
 	if (strncmp(mnt->mnt_fsname, "/dev", 4) != 0) {
@@ -216,7 +215,7 @@ static void _get_drives(List<String> *list) {
 	// Add root.
 	list->push_back("/");
 
-#if defined(HAVE_MNTENT) && defined(X11_ENABLED)
+#if defined(HAVE_MNTENT) && defined(LINUXBSD_ENABLED)
 	// Check /etc/mtab for the list of mounted partitions.
 	FILE *mtab = setmntent("/etc/mtab", "r");
 	if (mtab) {
@@ -315,7 +314,7 @@ Error DirAccessUnix::make_dir(String p_dir) {
 	GLOBAL_LOCK_FUNCTION
 
 	if (p_dir.is_relative_path()) {
-		p_dir = get_current_dir().plus_file(p_dir);
+		p_dir = get_current_dir().path_join(p_dir);
 	}
 
 	p_dir = fix_path(p_dir);
@@ -342,7 +341,7 @@ Error DirAccessUnix::change_dir(String p_dir) {
 	// prev_dir is the directory we are changing out of
 	String prev_dir;
 	char real_current_dir_name[2048];
-	ERR_FAIL_COND_V(getcwd(real_current_dir_name, 2048) == nullptr, ERR_BUG);
+	ERR_FAIL_NULL_V(getcwd(real_current_dir_name, 2048), ERR_BUG);
 	if (prev_dir.parse_utf8(real_current_dir_name) != OK) {
 		prev_dir = real_current_dir_name; //no utf8, maybe latin?
 	}
@@ -350,7 +349,7 @@ Error DirAccessUnix::change_dir(String p_dir) {
 	// try_dir is the directory we are trying to change into
 	String try_dir = "";
 	if (p_dir.is_relative_path()) {
-		String next_dir = current_dir.plus_file(p_dir);
+		String next_dir = current_dir.path_join(p_dir);
 		next_dir = next_dir.simplify_path();
 		try_dir = next_dir;
 	} else {
@@ -364,7 +363,7 @@ Error DirAccessUnix::change_dir(String p_dir) {
 
 	String base = _get_root_path();
 	if (!base.is_empty() && !try_dir.begins_with(base)) {
-		ERR_FAIL_COND_V(getcwd(real_current_dir_name, 2048) == nullptr, ERR_BUG);
+		ERR_FAIL_NULL_V(getcwd(real_current_dir_name, 2048), ERR_BUG);
 		String new_dir;
 		new_dir.parse_utf8(real_current_dir_name);
 
@@ -394,13 +393,13 @@ String DirAccessUnix::get_current_dir(bool p_include_drive) const {
 
 Error DirAccessUnix::rename(String p_path, String p_new_path) {
 	if (p_path.is_relative_path()) {
-		p_path = get_current_dir().plus_file(p_path);
+		p_path = get_current_dir().path_join(p_path);
 	}
 
 	p_path = fix_path(p_path);
 
 	if (p_new_path.is_relative_path()) {
-		p_new_path = get_current_dir().plus_file(p_new_path);
+		p_new_path = get_current_dir().path_join(p_new_path);
 	}
 
 	p_new_path = fix_path(p_new_path);
@@ -410,12 +409,12 @@ Error DirAccessUnix::rename(String p_path, String p_new_path) {
 
 Error DirAccessUnix::remove(String p_path) {
 	if (p_path.is_relative_path()) {
-		p_path = get_current_dir().plus_file(p_path);
+		p_path = get_current_dir().path_join(p_path);
 	}
 
 	p_path = fix_path(p_path);
 
-	struct stat flags;
+	struct stat flags = {};
 	if ((stat(p_path.utf8().get_data(), &flags) != 0)) {
 		return FAILED;
 	}
@@ -429,12 +428,12 @@ Error DirAccessUnix::remove(String p_path) {
 
 bool DirAccessUnix::is_link(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = get_current_dir().plus_file(p_file);
+		p_file = get_current_dir().path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
 
-	struct stat flags;
+	struct stat flags = {};
 	if ((lstat(p_file.utf8().get_data(), &flags) != 0)) {
 		return FAILED;
 	}
@@ -444,7 +443,7 @@ bool DirAccessUnix::is_link(String p_file) {
 
 String DirAccessUnix::read_link(String p_file) {
 	if (p_file.is_relative_path()) {
-		p_file = get_current_dir().plus_file(p_file);
+		p_file = get_current_dir().path_join(p_file);
 	}
 
 	p_file = fix_path(p_file);
@@ -461,7 +460,7 @@ String DirAccessUnix::read_link(String p_file) {
 
 Error DirAccessUnix::create_link(String p_source, String p_target) {
 	if (p_target.is_relative_path()) {
-		p_target = get_current_dir().plus_file(p_target);
+		p_target = get_current_dir().path_join(p_target);
 	}
 
 	p_source = fix_path(p_source);
@@ -475,17 +474,12 @@ Error DirAccessUnix::create_link(String p_source, String p_target) {
 }
 
 uint64_t DirAccessUnix::get_space_left() {
-#ifndef NO_STATVFS
 	struct statvfs vfs;
 	if (statvfs(current_dir.utf8().get_data(), &vfs) != 0) {
 		return 0;
 	}
 
 	return (uint64_t)vfs.f_bavail * (uint64_t)vfs.f_frsize;
-#else
-	// FIXME: Implement this.
-	return 0;
-#endif
 }
 
 String DirAccessUnix::get_filesystem_type() const {
@@ -496,6 +490,27 @@ bool DirAccessUnix::is_hidden(const String &p_name) {
 	return p_name != "." && p_name != ".." && p_name.begins_with(".");
 }
 
+bool DirAccessUnix::is_case_sensitive(const String &p_path) const {
+#if defined(LINUXBSD_ENABLED)
+	String f = p_path;
+	if (!f.is_absolute_path()) {
+		f = get_current_dir().path_join(f);
+	}
+	f = fix_path(f);
+
+	int fd = ::open(f.utf8().get_data(), O_RDONLY | O_NONBLOCK);
+	if (fd) {
+		long flags = 0;
+		if (ioctl(fd, _IOR('f', 1, long), &flags) >= 0) {
+			::close(fd);
+			return !(flags & 0x40000000 /* FS_CASEFOLD_FL */);
+		}
+		::close(fd);
+	}
+#endif
+	return true;
+}
+
 DirAccessUnix::DirAccessUnix() {
 	dir_stream = nullptr;
 	_cisdir = false;
@@ -504,7 +519,7 @@ DirAccessUnix::DirAccessUnix() {
 
 	// set current directory to an absolute path of the current directory
 	char real_current_dir_name[2048];
-	ERR_FAIL_COND(getcwd(real_current_dir_name, 2048) == nullptr);
+	ERR_FAIL_NULL(getcwd(real_current_dir_name, 2048));
 	if (current_dir.parse_utf8(real_current_dir_name) != OK) {
 		current_dir = real_current_dir_name;
 	}
@@ -516,4 +531,4 @@ DirAccessUnix::~DirAccessUnix() {
 	list_dir_end();
 }
 
-#endif // UNIX_ENABLED || LIBC_FILEIO_ENABLED
+#endif // UNIX_ENABLED

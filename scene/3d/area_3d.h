@@ -1,38 +1,39 @@
-/*************************************************************************/
-/*  area_3d.h                                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  area_3d.h                                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef AREA_3D_H
 #define AREA_3D_H
 
 #include "core/templates/vset.h"
 #include "scene/3d/collision_object_3d.h"
+#include "scene/scene_string_names.h"
 
 class Area3D : public CollisionObject3D {
 	GDCLASS(Area3D, CollisionObject3D);
@@ -51,7 +52,7 @@ private:
 	Vector3 gravity_vec;
 	real_t gravity = 0.0;
 	bool gravity_is_point = false;
-	real_t gravity_distance_scale = 0.0;
+	real_t gravity_point_unit_distance = 0.0;
 
 	SpaceOverride linear_damp_space_override = SPACE_OVERRIDE_DISABLED;
 	SpaceOverride angular_damp_space_override = SPACE_OVERRIDE_DISABLED;
@@ -134,20 +135,21 @@ private:
 	void _clear_monitoring();
 
 	bool audio_bus_override = false;
-	StringName audio_bus = "Master";
+	StringName audio_bus = SceneStringNames::get_singleton()->Master;
 
 	bool use_reverb_bus = false;
-	StringName reverb_bus = "Master";
+	StringName reverb_bus = SceneStringNames::get_singleton()->Master;
 	float reverb_amount = 0.0;
 	float reverb_uniformity = 0.0;
-
-	void _validate_property(PropertyInfo &property) const override;
 
 	void _initialize_wind();
 
 protected:
 	void _notification(int p_what);
 	static void _bind_methods();
+	void _validate_property(PropertyInfo &p_property) const;
+
+	virtual void _space_changed(const RID &p_new_space) override;
 
 public:
 	void set_gravity_space_override_mode(SpaceOverride p_mode);
@@ -156,8 +158,8 @@ public:
 	void set_gravity_is_point(bool p_enabled);
 	bool is_gravity_a_point() const;
 
-	void set_gravity_point_distance_scale(real_t p_scale);
-	real_t get_gravity_point_distance_scale() const;
+	void set_gravity_point_unit_distance(real_t p_scale);
+	real_t get_gravity_point_unit_distance() const;
 
 	void set_gravity_point_center(const Vector3 &p_center);
 	const Vector3 &get_gravity_point_center() const;
@@ -180,8 +182,8 @@ public:
 	void set_linear_damp(real_t p_linear_damp);
 	real_t get_linear_damp() const;
 
-	void set_priority(real_t p_priority);
-	real_t get_priority() const;
+	void set_priority(int p_priority);
+	int get_priority() const;
 
 	void set_wind_force_magnitude(real_t p_wind_force_magnitude);
 	real_t get_wind_force_magnitude() const;
@@ -201,6 +203,9 @@ public:
 	TypedArray<Node3D> get_overlapping_bodies() const;
 	TypedArray<Area3D> get_overlapping_areas() const; //function for script
 
+	bool has_overlapping_bodies() const;
+	bool has_overlapping_areas() const;
+
 	bool overlaps_area(Node *p_area) const;
 	bool overlaps_body(Node *p_body) const;
 
@@ -213,8 +218,8 @@ public:
 	void set_use_reverb_bus(bool p_enable);
 	bool is_using_reverb_bus() const;
 
-	void set_reverb_bus(const StringName &p_audio_bus);
-	StringName get_reverb_bus() const;
+	void set_reverb_bus_name(const StringName &p_audio_bus);
+	StringName get_reverb_bus_name() const;
 
 	void set_reverb_amount(float p_amount);
 	float get_reverb_amount() const;

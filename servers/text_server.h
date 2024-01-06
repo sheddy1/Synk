@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  text_server.h                                                        */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  text_server.h                                                         */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef TEXT_SERVER_H
 #define TEXT_SERVER_H
@@ -37,6 +37,9 @@
 #include "core/variant/native_ptr.h"
 #include "core/variant/variant.h"
 
+template <typename T>
+class TypedArray;
+
 struct Glyph;
 struct CaretInfo;
 
@@ -44,10 +47,26 @@ class TextServer : public RefCounted {
 	GDCLASS(TextServer, RefCounted);
 
 public:
+	enum FontAntialiasing {
+		FONT_ANTIALIASING_NONE,
+		FONT_ANTIALIASING_GRAY,
+		FONT_ANTIALIASING_LCD,
+	};
+
+	enum FontLCDSubpixelLayout {
+		FONT_LCD_SUBPIXEL_LAYOUT_NONE,
+		FONT_LCD_SUBPIXEL_LAYOUT_HRGB,
+		FONT_LCD_SUBPIXEL_LAYOUT_HBGR,
+		FONT_LCD_SUBPIXEL_LAYOUT_VRGB,
+		FONT_LCD_SUBPIXEL_LAYOUT_VBGR,
+		FONT_LCD_SUBPIXEL_LAYOUT_MAX,
+	};
+
 	enum Direction {
 		DIRECTION_AUTO,
 		DIRECTION_LTR,
-		DIRECTION_RTL
+		DIRECTION_RTL,
+		DIRECTION_INHERITED,
 	};
 
 	enum Orientation {
@@ -62,6 +81,9 @@ public:
 		JUSTIFICATION_TRIM_EDGE_SPACES = 1 << 2,
 		JUSTIFICATION_AFTER_LAST_TAB = 1 << 3,
 		JUSTIFICATION_CONSTRAIN_ELLIPSIS = 1 << 4,
+		JUSTIFICATION_SKIP_LAST_LINE = 1 << 5,
+		JUSTIFICATION_SKIP_LAST_LINE_WITH_VISIBLE_CHARS = 1 << 6,
+		JUSTIFICATION_DO_NOT_SKIP_SINGLE_LINE = 1 << 7,
 	};
 
 	enum VisibleCharactersBehavior {
@@ -85,6 +107,7 @@ public:
 		BREAK_WORD_BOUND = 1 << 1,
 		BREAK_GRAPHEME_BOUND = 1 << 2,
 		BREAK_ADAPTIVE = 1 << 3,
+		BREAK_TRIM_EDGE_SPACES = 1 << 4,
 	};
 
 	enum OverrunBehavior {
@@ -105,18 +128,19 @@ public:
 	};
 
 	enum GraphemeFlag {
-		GRAPHEME_IS_VALID = 1 << 0, // Glyph is valid.
-		GRAPHEME_IS_RTL = 1 << 1, // Glyph is right-to-left.
-		GRAPHEME_IS_VIRTUAL = 1 << 2, // Glyph is not part of source string (added by fit_to_width function, do not affect caret movement).
+		GRAPHEME_IS_VALID = 1 << 0, // Grapheme is valid.
+		GRAPHEME_IS_RTL = 1 << 1, // Grapheme is right-to-left.
+		GRAPHEME_IS_VIRTUAL = 1 << 2, // Grapheme is not part of source string (added by fit_to_width function, do not affect caret movement).
 		GRAPHEME_IS_SPACE = 1 << 3, // Is whitespace (for justification and word breaks).
 		GRAPHEME_IS_BREAK_HARD = 1 << 4, // Is line break (mandatory break, e.g. "\n").
 		GRAPHEME_IS_BREAK_SOFT = 1 << 5, // Is line break (optional break, e.g. space).
 		GRAPHEME_IS_TAB = 1 << 6, // Is tab or vertical tab.
-		GRAPHEME_IS_ELONGATION = 1 << 7, // Elongation (e.g. kashida), glyph can be duplicated or truncated to fit line to width.
+		GRAPHEME_IS_ELONGATION = 1 << 7, // Elongation (e.g. kashida), grapheme can be duplicated or truncated to fit line to width.
 		GRAPHEME_IS_PUNCTUATION = 1 << 8, // Punctuation, except underscore (can be used as word break, but not line break or justifiction).
 		GRAPHEME_IS_UNDERSCORE = 1 << 9, // Underscore (can be used as word break).
 		GRAPHEME_IS_CONNECTED = 1 << 10, // Connected to previous grapheme.
 		GRAPHEME_IS_SAFE_TO_INSERT_TATWEEL = 1 << 11, // It is safe to insert a U+0640 before this grapheme for elongation.
+		GRAPHEME_IS_EMBEDDED_OBJECT = 1 << 12, // Grapheme is an object replacement character for the embedded object.
 	};
 
 	enum Hinting {
@@ -179,8 +203,14 @@ public:
 		STRUCTURED_TEXT_FILE,
 		STRUCTURED_TEXT_EMAIL,
 		STRUCTURED_TEXT_LIST,
-		STRUCTURED_TEXT_NONE,
+		STRUCTURED_TEXT_GDSCRIPT,
 		STRUCTURED_TEXT_CUSTOM
+	};
+
+	enum FixedSizeScaleMode {
+		FIXED_SIZE_SCALE_DISABLE,
+		FIXED_SIZE_SCALE_INTEGER_ONLY,
+		FIXED_SIZE_SCALE_ENABLED,
 	};
 
 	void _draw_hex_code_box_number(const RID &p_canvas, int64_t p_size, const Vector2 &p_pos, uint8_t p_index, const Color &p_color) const;
@@ -211,7 +241,9 @@ public:
 	virtual String tag_to_name(int64_t p_tag) const { return ""; };
 
 	/* Font interface */
+
 	virtual RID create_font() = 0;
+	virtual RID create_font_linked_variation(const RID &p_font_rid) = 0;
 
 	virtual void font_set_data(const RID &p_font_rid, const PackedByteArray &p_data) = 0;
 	virtual void font_set_data_ptr(const RID &p_font_rid, const uint8_t *p_data_ptr, int64_t p_data_size) = 0;
@@ -226,12 +258,19 @@ public:
 
 	virtual void font_set_name(const RID &p_font_rid, const String &p_name) = 0;
 	virtual String font_get_name(const RID &p_font_rid) const = 0;
+	virtual Dictionary font_get_ot_name_strings(const RID &p_font_rid) const { return Dictionary(); }
 
 	virtual void font_set_style_name(const RID &p_font_rid, const String &p_name) = 0;
 	virtual String font_get_style_name(const RID &p_font_rid) const = 0;
 
-	virtual void font_set_antialiased(const RID &p_font_rid, bool p_antialiased) = 0;
-	virtual bool font_is_antialiased(const RID &p_font_rid) const = 0;
+	virtual void font_set_weight(const RID &p_font_rid, int64_t p_weight) = 0;
+	virtual int64_t font_get_weight(const RID &p_font_rid) const = 0;
+
+	virtual void font_set_stretch(const RID &p_font_rid, int64_t p_stretch) = 0;
+	virtual int64_t font_get_stretch(const RID &p_font_rid) const = 0;
+
+	virtual void font_set_antialiasing(const RID &p_font_rid, FontAntialiasing p_antialiasing) = 0;
+	virtual FontAntialiasing font_get_antialiasing(const RID &p_font_rid) const = 0;
 
 	virtual void font_set_generate_mipmaps(const RID &p_font_rid, bool p_generate_mipmaps) = 0;
 	virtual bool font_get_generate_mipmaps(const RID &p_font_rid) const = 0;
@@ -248,6 +287,12 @@ public:
 	virtual void font_set_fixed_size(const RID &p_font_rid, int64_t p_fixed_size) = 0;
 	virtual int64_t font_get_fixed_size(const RID &p_font_rid) const = 0;
 
+	virtual void font_set_fixed_size_scale_mode(const RID &p_font_rid, FixedSizeScaleMode p_fixed_size_scale) = 0;
+	virtual FixedSizeScaleMode font_get_fixed_size_scale_mode(const RID &p_font_rid) const = 0;
+
+	virtual void font_set_allow_system_fallback(const RID &p_font_rid, bool p_allow_system_fallback) = 0;
+	virtual bool font_is_allow_system_fallback(const RID &p_font_rid) const = 0;
+
 	virtual void font_set_force_autohinter(const RID &p_font_rid, bool p_force_autohinter) = 0;
 	virtual bool font_is_force_autohinter(const RID &p_font_rid) const = 0;
 
@@ -260,6 +305,9 @@ public:
 	virtual void font_set_embolden(const RID &p_font_rid, double p_strength) = 0;
 	virtual double font_get_embolden(const RID &p_font_rid) const = 0;
 
+	virtual void font_set_spacing(const RID &p_font_rid, SpacingType p_spacing, int64_t p_value) = 0;
+	virtual int64_t font_get_spacing(const RID &p_font_rid, SpacingType p_spacing) const = 0;
+
 	virtual void font_set_transform(const RID &p_font_rid, const Transform2D &p_transform) = 0;
 	virtual Transform2D font_get_transform(const RID &p_font_rid) const = 0;
 
@@ -269,7 +317,7 @@ public:
 	virtual void font_set_oversampling(const RID &p_font_rid, double p_oversampling) = 0;
 	virtual double font_get_oversampling(const RID &p_font_rid) const = 0;
 
-	virtual Array font_get_size_cache_list(const RID &p_font_rid) const = 0;
+	virtual TypedArray<Vector2i> font_get_size_cache_list(const RID &p_font_rid) const = 0;
 	virtual void font_clear_size_cache(const RID &p_font_rid) = 0;
 	virtual void font_remove_size_cache(const RID &p_font_rid, const Vector2i &p_size) = 0;
 
@@ -298,7 +346,7 @@ public:
 	virtual void font_set_texture_offsets(const RID &p_font_rid, const Vector2i &p_size, int64_t p_texture_index, const PackedInt32Array &p_offset) = 0;
 	virtual PackedInt32Array font_get_texture_offsets(const RID &p_font_rid, const Vector2i &p_size, int64_t p_texture_index) const = 0;
 
-	virtual Array font_get_glyph_list(const RID &p_font_rid, const Vector2i &p_size) const = 0;
+	virtual PackedInt32Array font_get_glyph_list(const RID &p_font_rid, const Vector2i &p_size) const = 0;
 	virtual void font_clear_glyphs(const RID &p_font_rid, const Vector2i &p_size) = 0;
 	virtual void font_remove_glyph(const RID &p_font_rid, const Vector2i &p_size, int64_t p_glyph) = 0;
 
@@ -321,7 +369,7 @@ public:
 
 	virtual Dictionary font_get_glyph_contours(const RID &p_font, int64_t p_size, int64_t p_index) const = 0;
 
-	virtual Array font_get_kerning_list(const RID &p_font_rid, int64_t p_size) const = 0;
+	virtual TypedArray<Vector2i> font_get_kerning_list(const RID &p_font_rid, int64_t p_size) const = 0;
 	virtual void font_clear_kerning_map(const RID &p_font_rid, int64_t p_size) = 0;
 	virtual void font_remove_kerning(const RID &p_font_rid, int64_t p_size, const Vector2i &p_glyph_pair) = 0;
 
@@ -329,6 +377,7 @@ public:
 	virtual Vector2 font_get_kerning(const RID &p_font_rid, int64_t p_size, const Vector2i &p_glyph_pair) const = 0;
 
 	virtual int64_t font_get_glyph_index(const RID &p_font_rid, int64_t p_size, int64_t p_char, int64_t p_variation_selector) const = 0;
+	virtual int64_t font_get_char_from_glyph_index(const RID &p_font_rid, int64_t p_size, int64_t p_glyph_index) const = 0;
 
 	virtual bool font_has_char(const RID &p_font_rid, int64_t p_char) const = 0;
 	virtual String font_get_supported_chars(const RID &p_font_rid) const = 0;
@@ -378,6 +427,9 @@ public:
 	virtual void shaped_text_set_custom_punctuation(const RID &p_shaped, const String &p_punct) = 0;
 	virtual String shaped_text_get_custom_punctuation(const RID &p_shaped) const = 0;
 
+	virtual void shaped_text_set_custom_ellipsis(const RID &p_shaped, int64_t p_char) = 0;
+	virtual int64_t shaped_text_get_custom_ellipsis(const RID &p_shaped) const = 0;
+
 	virtual void shaped_text_set_orientation(const RID &p_shaped, Orientation p_orientation = ORIENTATION_HORIZONTAL) = 0;
 	virtual Orientation shaped_text_get_orientation(const RID &p_shaped) const = 0;
 
@@ -390,13 +442,13 @@ public:
 	virtual void shaped_text_set_spacing(const RID &p_shaped, SpacingType p_spacing, int64_t p_value) = 0;
 	virtual int64_t shaped_text_get_spacing(const RID &p_shaped, SpacingType p_spacing) const = 0;
 
-	virtual bool shaped_text_add_string(const RID &p_shaped, const String &p_text, const Array &p_fonts, int64_t p_size, const Dictionary &p_opentype_features = Dictionary(), const String &p_language = "", const Variant &p_meta = Variant()) = 0;
-	virtual bool shaped_text_add_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align = INLINE_ALIGNMENT_CENTER, int64_t p_length = 1) = 0;
-	virtual bool shaped_text_resize_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align = INLINE_ALIGNMENT_CENTER) = 0;
+	virtual bool shaped_text_add_string(const RID &p_shaped, const String &p_text, const TypedArray<RID> &p_fonts, int64_t p_size, const Dictionary &p_opentype_features = Dictionary(), const String &p_language = "", const Variant &p_meta = Variant()) = 0;
+	virtual bool shaped_text_add_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align = INLINE_ALIGNMENT_CENTER, int64_t p_length = 1, double p_baseline = 0.0) = 0;
+	virtual bool shaped_text_resize_object(const RID &p_shaped, const Variant &p_key, const Size2 &p_size, InlineAlignment p_inline_align = INLINE_ALIGNMENT_CENTER, double p_baseline = 0.0) = 0;
 
 	virtual int64_t shaped_get_span_count(const RID &p_shaped) const = 0;
 	virtual Variant shaped_get_span_meta(const RID &p_shaped, int64_t p_index) const = 0;
-	virtual void shaped_set_span_update_font(const RID &p_shaped, int64_t p_index, const Array &p_fonts, int64_t p_size, const Dictionary &p_opentype_features = Dictionary()) = 0;
+	virtual void shaped_set_span_update_font(const RID &p_shaped, int64_t p_index, const TypedArray<RID> &p_fonts, int64_t p_size, const Dictionary &p_opentype_features = Dictionary()) = 0;
 
 	virtual RID shaped_text_substr(const RID &p_shaped, int64_t p_start, int64_t p_length) const = 0; // Copy shaped substring (e.g. line break) without reshaping, but correctly reordered, preservers range.
 	virtual RID shaped_text_get_parent(const RID &p_shaped) const = 0;
@@ -409,11 +461,12 @@ public:
 	virtual bool shaped_text_update_justification_ops(const RID &p_shaped) = 0;
 
 	virtual bool shaped_text_is_ready(const RID &p_shaped) const = 0;
+	bool shaped_text_has_visible_chars(const RID &p_shaped) const;
 
 	virtual const Glyph *shaped_text_get_glyphs(const RID &p_shaped) const = 0;
-	Array _shaped_text_get_glyphs_wrapper(const RID &p_shaped) const;
+	TypedArray<Dictionary> _shaped_text_get_glyphs_wrapper(const RID &p_shaped) const;
 	virtual const Glyph *shaped_text_sort_logical(const RID &p_shaped) = 0;
-	Array _shaped_text_sort_logical_wrapper(const RID &p_shaped);
+	TypedArray<Dictionary> _shaped_text_sort_logical_wrapper(const RID &p_shaped);
 	virtual int64_t shaped_text_get_glyph_count(const RID &p_shaped) const = 0;
 
 	virtual Vector2i shaped_text_get_range(const RID &p_shaped) const = 0;
@@ -425,7 +478,7 @@ public:
 	virtual int64_t shaped_text_get_trim_pos(const RID &p_shaped) const = 0;
 	virtual int64_t shaped_text_get_ellipsis_pos(const RID &p_shaped) const = 0;
 	virtual const Glyph *shaped_text_get_ellipsis_glyphs(const RID &p_shaped) const = 0;
-	Array _shaped_text_get_ellipsis_glyphs_wrapper(const RID &p_shaped) const;
+	TypedArray<Dictionary> _shaped_text_get_ellipsis_glyphs_wrapper(const RID &p_shaped) const;
 	virtual int64_t shaped_text_get_ellipsis_glyph_count(const RID &p_shaped) const = 0;
 
 	virtual void shaped_text_overrun_trim_to_width(const RID &p_shaped, double p_width, BitField<TextServer::TextOverrunFlag> p_trim_flags) = 0;
@@ -454,6 +507,11 @@ public:
 	virtual int64_t shaped_text_next_grapheme_pos(const RID &p_shaped, int64_t p_pos) const;
 	virtual int64_t shaped_text_prev_grapheme_pos(const RID &p_shaped, int64_t p_pos) const;
 
+	virtual PackedInt32Array shaped_text_get_character_breaks(const RID &p_shaped) const = 0;
+	virtual int64_t shaped_text_next_character_pos(const RID &p_shaped, int64_t p_pos) const;
+	virtual int64_t shaped_text_prev_character_pos(const RID &p_shaped, int64_t p_pos) const;
+	virtual int64_t shaped_text_closest_character_pos(const RID &p_shaped, int64_t p_pos) const;
+
 	// The pen position is always placed on the baseline and moveing left to right.
 	virtual void shaped_text_draw(const RID &p_shaped, const RID &p_canvas, const Vector2 &p_pos, double p_clip_l = -1.0, double p_clip_r = -1.0, const Color &p_color = Color(1, 1, 1)) const;
 	virtual void shaped_text_draw_outline(const RID &p_shaped, const RID &p_canvas, const Vector2 &p_pos, double p_clip_l = -1.0, double p_clip_r = -1.0, int64_t p_outline_size = 1, const Color &p_color = Color(1, 1, 1)) const;
@@ -464,9 +522,10 @@ public:
 	virtual String percent_sign(const String &p_language = "") const = 0;
 
 	// String functions.
-	virtual PackedInt32Array string_get_word_breaks(const String &p_string, const String &p_language = "") const = 0;
+	virtual PackedInt32Array string_get_word_breaks(const String &p_string, const String &p_language = "", int64_t p_chars_per_line = 0) const = 0;
+	virtual PackedInt32Array string_get_character_breaks(const String &p_string, const String &p_language = "") const;
 
-	virtual int is_confusable(const String &p_string, const PackedStringArray &p_dict) const { return -1; };
+	virtual int64_t is_confusable(const String &p_string, const PackedStringArray &p_dict) const { return -1; };
 	virtual bool spoof_check(const String &p_string) const { return false; };
 
 	virtual String strip_diacritics(const String &p_string) const;
@@ -476,7 +535,9 @@ public:
 	virtual String string_to_upper(const String &p_string, const String &p_language = "") const = 0;
 	virtual String string_to_lower(const String &p_string, const String &p_language = "") const = 0;
 
-	Array parse_structured_text(StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const;
+	TypedArray<Vector3i> parse_structured_text(StructuredTextParser p_parser_type, const Array &p_args, const String &p_text) const;
+
+	virtual void cleanup() {}
 
 	TextServer();
 	~TextServer();
@@ -538,7 +599,7 @@ public:
 	int get_interface_count() const;
 	Ref<TextServer> get_interface(int p_index) const;
 	Ref<TextServer> find_interface(const String &p_name) const;
-	Array get_interfaces() const;
+	TypedArray<Dictionary> get_interfaces() const;
 
 	_FORCE_INLINE_ Ref<TextServer> get_primary_interface() const {
 		return primary_interface;
@@ -569,6 +630,9 @@ VARIANT_ENUM_CAST(TextServer::ContourPointTag);
 VARIANT_ENUM_CAST(TextServer::SpacingType);
 VARIANT_BITFIELD_CAST(TextServer::FontStyle);
 VARIANT_ENUM_CAST(TextServer::StructuredTextParser);
+VARIANT_ENUM_CAST(TextServer::FontAntialiasing);
+VARIANT_ENUM_CAST(TextServer::FontLCDSubpixelLayout);
+VARIANT_ENUM_CAST(TextServer::FixedSizeScaleMode);
 
 GDVIRTUAL_NATIVE_PTR(Glyph);
 GDVIRTUAL_NATIVE_PTR(CaretInfo);

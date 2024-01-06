@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  method_ptrcall.h                                                     */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  method_ptrcall.h                                                      */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef METHOD_PTRCALL_H
 #define METHOD_PTRCALL_H
@@ -38,26 +38,26 @@
 template <class T>
 struct PtrToArg {};
 
-#define MAKE_PTRARG(m_type)                                            \
-	template <>                                                        \
-	struct PtrToArg<m_type> {                                          \
-		_FORCE_INLINE_ static m_type convert(const void *p_ptr) {      \
-			return *reinterpret_cast<const m_type *>(p_ptr);           \
-		}                                                              \
-		typedef m_type EncodeT;                                        \
-		_FORCE_INLINE_ static void encode(m_type p_val, void *p_ptr) { \
-			*((m_type *)p_ptr) = p_val;                                \
-		}                                                              \
-	};                                                                 \
-	template <>                                                        \
-	struct PtrToArg<const m_type &> {                                  \
-		_FORCE_INLINE_ static m_type convert(const void *p_ptr) {      \
-			return *reinterpret_cast<const m_type *>(p_ptr);           \
-		}                                                              \
-		typedef m_type EncodeT;                                        \
-		_FORCE_INLINE_ static void encode(m_type p_val, void *p_ptr) { \
-			*((m_type *)p_ptr) = p_val;                                \
-		}                                                              \
+#define MAKE_PTRARG(m_type)                                              \
+	template <>                                                          \
+	struct PtrToArg<m_type> {                                            \
+		_FORCE_INLINE_ static const m_type &convert(const void *p_ptr) { \
+			return *reinterpret_cast<const m_type *>(p_ptr);             \
+		}                                                                \
+		typedef m_type EncodeT;                                          \
+		_FORCE_INLINE_ static void encode(m_type p_val, void *p_ptr) {   \
+			*((m_type *)p_ptr) = p_val;                                  \
+		}                                                                \
+	};                                                                   \
+	template <>                                                          \
+	struct PtrToArg<const m_type &> {                                    \
+		_FORCE_INLINE_ static const m_type &convert(const void *p_ptr) { \
+			return *reinterpret_cast<const m_type *>(p_ptr);             \
+		}                                                                \
+		typedef m_type EncodeT;                                          \
+		_FORCE_INLINE_ static void encode(m_type p_val, void *p_ptr) {   \
+			*((m_type *)p_ptr) = p_val;                                  \
+		}                                                                \
 	}
 
 #define MAKE_PTRARGCONV(m_type, m_conv)                                           \
@@ -85,7 +85,7 @@ struct PtrToArg {};
 #define MAKE_PTRARG_BY_REFERENCE(m_type)                                      \
 	template <>                                                               \
 	struct PtrToArg<m_type> {                                                 \
-		_FORCE_INLINE_ static m_type convert(const void *p_ptr) {             \
+		_FORCE_INLINE_ static const m_type &convert(const void *p_ptr) {      \
 			return *reinterpret_cast<const m_type *>(p_ptr);                  \
 		}                                                                     \
 		typedef m_type EncodeT;                                               \
@@ -95,7 +95,7 @@ struct PtrToArg {};
 	};                                                                        \
 	template <>                                                               \
 	struct PtrToArg<const m_type &> {                                         \
-		_FORCE_INLINE_ static m_type convert(const void *p_ptr) {             \
+		_FORCE_INLINE_ static const m_type &convert(const void *p_ptr) {      \
 			return *reinterpret_cast<const m_type *>(p_ptr);                  \
 		}                                                                     \
 		typedef m_type EncodeT;                                               \
@@ -159,7 +159,10 @@ MAKE_PTRARG_BY_REFERENCE(Variant);
 template <class T>
 struct PtrToArg<T *> {
 	_FORCE_INLINE_ static T *convert(const void *p_ptr) {
-		return const_cast<T *>(reinterpret_cast<const T *>(p_ptr));
+		if (p_ptr == nullptr) {
+			return nullptr;
+		}
+		return const_cast<T *>(*reinterpret_cast<T *const *>(p_ptr));
 	}
 	typedef Object *EncodeT;
 	_FORCE_INLINE_ static void encode(T *p_var, void *p_ptr) {
@@ -170,7 +173,10 @@ struct PtrToArg<T *> {
 template <class T>
 struct PtrToArg<const T *> {
 	_FORCE_INLINE_ static const T *convert(const void *p_ptr) {
-		return reinterpret_cast<const T *>(p_ptr);
+		if (p_ptr == nullptr) {
+			return nullptr;
+		}
+		return *reinterpret_cast<T *const *>(p_ptr);
 	}
 	typedef const Object *EncodeT;
 	_FORCE_INLINE_ static void encode(T *p_var, void *p_ptr) {

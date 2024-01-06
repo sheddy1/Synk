@@ -1,37 +1,38 @@
-/*************************************************************************/
-/*  shader_globals_editor.cpp                                            */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  shader_globals_editor.cpp                                             */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "shader_globals_editor.h"
 
 #include "core/config/project_settings.h"
 #include "editor/editor_node.h"
+#include "editor/editor_undo_redo_manager.h"
 #include "servers/rendering/shader_language.h"
 
 static const char *global_var_type_names[RS::GLOBAL_VAR_TYPE_MAX] = {
@@ -68,29 +69,13 @@ static const char *global_var_type_names[RS::GLOBAL_VAR_TYPE_MAX] = {
 class ShaderGlobalsEditorInterface : public Object {
 	GDCLASS(ShaderGlobalsEditorInterface, Object)
 
-	void _var_changed() {
-		emit_signal(SNAME("var_changed"));
-	}
-
-protected:
-	static void _bind_methods() {
-		ClassDB::bind_method("_var_changed", &ShaderGlobalsEditorInterface::_var_changed);
-		ADD_SIGNAL(MethodInfo("var_changed"));
-	}
-
-	bool _set(const StringName &p_name, const Variant &p_value) {
-		Variant existing = RS::get_singleton()->global_shader_uniform_get(p_name);
-
-		if (existing.get_type() == Variant::NIL) {
-			return false;
-		}
-
-		UndoRedo *undo_redo = EditorNode::get_singleton()->get_undo_redo();
+	void _set_var(const StringName &p_name, const Variant &p_value, const Variant &p_prev_value) {
+		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 
 		undo_redo->create_action(TTR("Set Shader Global Variable"));
-		undo_redo->add_do_method(RS::get_singleton(), "global_shader_uniform_set", p_name, p_value);
-		undo_redo->add_undo_method(RS::get_singleton(), "global_shader_uniform_set", p_name, existing);
-		RS::GlobalShaderUniformType type = RS::get_singleton()->global_shader_uniform_get_type(p_name);
+		undo_redo->add_do_method(RS::get_singleton(), "global_shader_parameter_set", p_name, p_value);
+		undo_redo->add_undo_method(RS::get_singleton(), "global_shader_parameter_set", p_name, p_prev_value);
+		RS::GlobalShaderParameterType type = RS::get_singleton()->global_shader_parameter_get_type(p_name);
 		Dictionary gv;
 		gv["type"] = global_var_type_names[type];
 		if (type >= RS::GLOBAL_VAR_TYPE_SAMPLER2D) {
@@ -106,28 +91,49 @@ protected:
 
 		String path = "shader_globals/" + String(p_name);
 		undo_redo->add_do_property(ProjectSettings::get_singleton(), path, gv);
-		undo_redo->add_undo_property(ProjectSettings::get_singleton(), path, ProjectSettings::get_singleton()->get(path));
+		undo_redo->add_undo_property(ProjectSettings::get_singleton(), path, GLOBAL_GET(path));
 		undo_redo->add_do_method(this, "_var_changed");
 		undo_redo->add_undo_method(this, "_var_changed");
 		block_update = true;
 		undo_redo->commit_action();
 		block_update = false;
+	}
+
+	void _var_changed() {
+		emit_signal(SNAME("var_changed"));
+	}
+
+protected:
+	static void _bind_methods() {
+		ClassDB::bind_method("_set_var", &ShaderGlobalsEditorInterface::_set_var);
+		ClassDB::bind_method("_var_changed", &ShaderGlobalsEditorInterface::_var_changed);
+		ADD_SIGNAL(MethodInfo("var_changed"));
+	}
+
+	bool _set(const StringName &p_name, const Variant &p_value) {
+		Variant existing = RS::get_singleton()->global_shader_parameter_get(p_name);
+
+		if (existing.get_type() == Variant::NIL) {
+			return false;
+		}
+
+		call_deferred("_set_var", p_name, p_value, existing);
 
 		return true;
 	}
 
 	bool _get(const StringName &p_name, Variant &r_ret) const {
-		r_ret = RS::get_singleton()->global_shader_uniform_get(p_name);
+		r_ret = RS::get_singleton()->global_shader_parameter_get(p_name);
 		return r_ret.get_type() != Variant::NIL;
 	}
 	void _get_property_list(List<PropertyInfo> *p_list) const {
 		Vector<StringName> variables;
-		variables = RS::get_singleton()->global_shader_uniform_get_list();
+		variables = RS::get_singleton()->global_shader_parameter_get_list();
 		for (int i = 0; i < variables.size(); i++) {
 			PropertyInfo pinfo;
 			pinfo.name = variables[i];
 
-			switch (RS::get_singleton()->global_shader_uniform_get_type(variables[i])) {
+			switch (RS::get_singleton()->global_shader_parameter_get_type(variables[i])) {
 				case RS::GLOBAL_VAR_TYPE_BOOL: {
 					pinfo.type = Variant::BOOL;
 				} break;
@@ -192,7 +198,7 @@ protected:
 					pinfo.type = Variant::COLOR;
 				} break;
 				case RS::GLOBAL_VAR_TYPE_MAT2: {
-					pinfo.type = Variant::PACKED_INT32_ARRAY;
+					pinfo.type = Variant::PACKED_FLOAT32_ARRAY;
 				} break;
 				case RS::GLOBAL_VAR_TYPE_MAT3: {
 					pinfo.type = Variant::BASIS;
@@ -241,7 +247,7 @@ public:
 	}
 };
 
-static Variant create_var(RS::GlobalShaderUniformType p_type) {
+static Variant create_var(RS::GlobalShaderParameterType p_type) {
 	switch (p_type) {
 		case RS::GLOBAL_VAR_TYPE_BOOL: {
 			return false;
@@ -265,13 +271,7 @@ static Variant create_var(RS::GlobalShaderUniformType p_type) {
 			return Vector3i();
 		}
 		case RS::GLOBAL_VAR_TYPE_IVEC4: {
-			Vector<int> v4;
-			v4.resize(4);
-			v4.write[0] = 0;
-			v4.write[1] = 0;
-			v4.write[2] = 0;
-			v4.write[3] = 0;
-			return v4;
+			return Vector4i();
 		}
 		case RS::GLOBAL_VAR_TYPE_RECT2I: {
 			return Rect2i();
@@ -286,13 +286,7 @@ static Variant create_var(RS::GlobalShaderUniformType p_type) {
 			return Vector3i();
 		}
 		case RS::GLOBAL_VAR_TYPE_UVEC4: {
-			Vector<int> v4;
-			v4.resize(4);
-			v4.write[0] = 0;
-			v4.write[1] = 0;
-			v4.write[2] = 0;
-			v4.write[3] = 0;
-			return v4;
+			return Vector4i();
 		}
 		case RS::GLOBAL_VAR_TYPE_FLOAT: {
 			return 0.0;
@@ -304,7 +298,7 @@ static Variant create_var(RS::GlobalShaderUniformType p_type) {
 			return Vector3();
 		}
 		case RS::GLOBAL_VAR_TYPE_VEC4: {
-			return Quaternion();
+			return Vector4();
 		}
 		case RS::GLOBAL_VAR_TYPE_RECT2: {
 			return Rect2();
@@ -313,7 +307,7 @@ static Variant create_var(RS::GlobalShaderUniformType p_type) {
 			return Color();
 		}
 		case RS::GLOBAL_VAR_TYPE_MAT2: {
-			Vector<real_t> xform;
+			Vector<float> xform;
 			xform.resize(4);
 			xform.write[0] = 1;
 			xform.write[1] = 0;
@@ -331,29 +325,7 @@ static Variant create_var(RS::GlobalShaderUniformType p_type) {
 			return Transform3D();
 		}
 		case RS::GLOBAL_VAR_TYPE_MAT4: {
-			Vector<real_t> xform;
-			xform.resize(16);
-			xform.write[0] = 1;
-			xform.write[1] = 0;
-			xform.write[2] = 0;
-			xform.write[3] = 0;
-
-			xform.write[4] = 0;
-			xform.write[5] = 1;
-			xform.write[6] = 0;
-			xform.write[7] = 0;
-
-			xform.write[8] = 0;
-			xform.write[9] = 0;
-			xform.write[10] = 1;
-			xform.write[11] = 0;
-
-			xform.write[12] = 0;
-			xform.write[13] = 0;
-			xform.write[14] = 0;
-			xform.write[15] = 1;
-
-			return xform;
+			return Projection();
 		}
 		case RS::GLOBAL_VAR_TYPE_SAMPLER2D: {
 			return "";
@@ -380,8 +352,8 @@ void ShaderGlobalsEditor::_variable_added() {
 		return;
 	}
 
-	if (RenderingServer::get_singleton()->global_shader_uniform_get(var).get_type() != Variant::NIL) {
-		EditorNode::get_singleton()->show_warning(vformat(TTR("Global shader uniform '%s' already exists'"), var));
+	if (RenderingServer::get_singleton()->global_shader_parameter_get(var).get_type() != Variant::NIL) {
+		EditorNode::get_singleton()->show_warning(vformat(TTR("Global shader parameter '%s' already exists'"), var));
 		return;
 	}
 
@@ -393,13 +365,13 @@ void ShaderGlobalsEditor::_variable_added() {
 		return;
 	}
 
-	UndoRedo *undo_redo = EditorNode::get_singleton()->get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 
-	Variant value = create_var(RS::GlobalShaderUniformType(variable_type->get_selected()));
+	Variant value = create_var(RS::GlobalShaderParameterType(variable_type->get_selected()));
 
-	undo_redo->create_action(TTR("Add Shader Global Uniform"));
-	undo_redo->add_do_method(RS::get_singleton(), "global_shader_uniform_add", var, RS::GlobalShaderUniformType(variable_type->get_selected()), value);
-	undo_redo->add_undo_method(RS::get_singleton(), "global_shader_uniform_remove", var);
+	undo_redo->create_action(TTR("Add Shader Global Parameter"));
+	undo_redo->add_do_method(RS::get_singleton(), "global_shader_parameter_add", var, RS::GlobalShaderParameterType(variable_type->get_selected()), value);
+	undo_redo->add_undo_method(RS::get_singleton(), "global_shader_parameter_remove", var);
 	Dictionary gv;
 	gv["type"] = global_var_type_names[variable_type->get_selected()];
 	gv["value"] = value;
@@ -412,14 +384,14 @@ void ShaderGlobalsEditor::_variable_added() {
 }
 
 void ShaderGlobalsEditor::_variable_deleted(const String &p_variable) {
-	UndoRedo *undo_redo = EditorNode::get_singleton()->get_undo_redo();
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 
-	undo_redo->create_action(TTR("Add Shader Global Uniform"));
-	undo_redo->add_do_method(RS::get_singleton(), "global_shader_uniform_remove", p_variable);
-	undo_redo->add_undo_method(RS::get_singleton(), "global_shader_uniform_add", p_variable, RS::get_singleton()->global_shader_uniform_get_type(p_variable), RS::get_singleton()->global_shader_uniform_get(p_variable));
+	undo_redo->create_action(TTR("Add Shader Global Parameter"));
+	undo_redo->add_do_method(RS::get_singleton(), "global_shader_parameter_remove", p_variable);
+	undo_redo->add_undo_method(RS::get_singleton(), "global_shader_parameter_add", p_variable, RS::get_singleton()->global_shader_parameter_get_type(p_variable), RS::get_singleton()->global_shader_parameter_get(p_variable));
 
 	undo_redo->add_do_property(ProjectSettings::get_singleton(), "shader_globals/" + p_variable, Variant());
-	undo_redo->add_undo_property(ProjectSettings::get_singleton(), "shader_globals/" + p_variable, ProjectSettings::get_singleton()->get("shader_globals/" + p_variable));
+	undo_redo->add_undo_property(ProjectSettings::get_singleton(), "shader_globals/" + p_variable, GLOBAL_GET("shader_globals/" + p_variable));
 	undo_redo->add_do_method(this, "_changed");
 	undo_redo->add_undo_method(this, "_changed");
 	undo_redo->commit_action();
@@ -452,6 +424,8 @@ void ShaderGlobalsEditor::_notification(int p_what) {
 }
 
 ShaderGlobalsEditor::ShaderGlobalsEditor() {
+	ProjectSettings::get_singleton()->add_hidden_prefix("shader_globals/");
+
 	HBoxContainer *add_menu_hb = memnew(HBoxContainer);
 	add_child(add_menu_hb);
 
@@ -482,7 +456,7 @@ ShaderGlobalsEditor::ShaderGlobalsEditor() {
 	inspector->connect("property_deleted", callable_mp(this, &ShaderGlobalsEditor::_variable_deleted), CONNECT_DEFERRED);
 
 	interface = memnew(ShaderGlobalsEditorInterface);
-	interface->connect("var_changed", Callable(this, "_changed"));
+	interface->connect("var_changed", callable_mp(this, &ShaderGlobalsEditor::_changed));
 }
 
 ShaderGlobalsEditor::~ShaderGlobalsEditor() {

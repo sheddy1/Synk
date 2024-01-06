@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  basis.h                                                              */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  basis.h                                                               */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef BASIS_H
 #define BASIS_H
@@ -56,30 +56,19 @@ struct _NO_DISCARD_ Basis {
 
 	_FORCE_INLINE_ real_t determinant() const;
 
-	enum EulerOrder {
-		EULER_ORDER_XYZ,
-		EULER_ORDER_XZY,
-		EULER_ORDER_YXZ,
-		EULER_ORDER_YZX,
-		EULER_ORDER_ZXY,
-		EULER_ORDER_ZYX
-	};
-
-	void from_z(const Vector3 &p_z);
-
 	void rotate(const Vector3 &p_axis, real_t p_angle);
 	Basis rotated(const Vector3 &p_axis, real_t p_angle) const;
 
 	void rotate_local(const Vector3 &p_axis, real_t p_angle);
 	Basis rotated_local(const Vector3 &p_axis, real_t p_angle) const;
 
-	void rotate(const Vector3 &p_euler, EulerOrder p_order = EULER_ORDER_YXZ);
-	Basis rotated(const Vector3 &p_euler, EulerOrder p_order = EULER_ORDER_YXZ) const;
+	void rotate(const Vector3 &p_euler, EulerOrder p_order = EulerOrder::YXZ);
+	Basis rotated(const Vector3 &p_euler, EulerOrder p_order = EulerOrder::YXZ) const;
 
 	void rotate(const Quaternion &p_quaternion);
 	Basis rotated(const Quaternion &p_quaternion) const;
 
-	Vector3 get_euler_normalized(EulerOrder p_order = EULER_ORDER_YXZ) const;
+	Vector3 get_euler_normalized(EulerOrder p_order = EulerOrder::YXZ) const;
 	void get_rotation_axis_angle(Vector3 &p_axis, real_t &p_angle) const;
 	void get_rotation_axis_angle_local(Vector3 &p_axis, real_t &p_angle) const;
 	Quaternion get_rotation_quaternion() const;
@@ -88,9 +77,9 @@ struct _NO_DISCARD_ Basis {
 
 	Vector3 rotref_posscale_decomposition(Basis &rotref) const;
 
-	Vector3 get_euler(EulerOrder p_order = EULER_ORDER_YXZ) const;
-	void set_euler(const Vector3 &p_euler, EulerOrder p_order = EULER_ORDER_YXZ);
-	static Basis from_euler(const Vector3 &p_euler, EulerOrder p_order = EULER_ORDER_YXZ) {
+	Vector3 get_euler(EulerOrder p_order = EulerOrder::YXZ) const;
+	void set_euler(const Vector3 &p_euler, EulerOrder p_order = EulerOrder::YXZ);
+	static Basis from_euler(const Vector3 &p_euler, EulerOrder p_order = EulerOrder::YXZ) {
 		Basis b;
 		b.set_euler(p_euler, p_order);
 		return b;
@@ -110,8 +99,6 @@ struct _NO_DISCARD_ Basis {
 
 	void scale_orthogonal(const Vector3 &p_scale);
 	Basis scaled_orthogonal(const Vector3 &p_scale) const;
-
-	void make_scale_uniform();
 	float get_uniform_scale() const;
 
 	Vector3 get_scale() const;
@@ -119,7 +106,7 @@ struct _NO_DISCARD_ Basis {
 	Vector3 get_scale_local() const;
 
 	void set_axis_angle_scale(const Vector3 &p_axis, real_t p_angle, const Vector3 &p_scale);
-	void set_euler_scale(const Vector3 &p_euler, const Vector3 &p_scale, EulerOrder p_order = EULER_ORDER_YXZ);
+	void set_euler_scale(const Vector3 &p_euler, const Vector3 &p_scale, EulerOrder p_order = EulerOrder::YXZ);
 	void set_quaternion_scale(const Quaternion &p_quaternion, const Vector3 &p_scale);
 
 	// transposed dot products
@@ -134,6 +121,7 @@ struct _NO_DISCARD_ Basis {
 	}
 
 	bool is_equal_approx(const Basis &p_basis) const;
+	bool is_finite() const;
 
 	bool operator==(const Basis &p_matrix) const;
 	bool operator!=(const Basis &p_matrix) const;
@@ -148,11 +136,12 @@ struct _NO_DISCARD_ Basis {
 	_FORCE_INLINE_ Basis operator-(const Basis &p_matrix) const;
 	_FORCE_INLINE_ void operator*=(const real_t p_val);
 	_FORCE_INLINE_ Basis operator*(const real_t p_val) const;
-
-	int get_orthogonal_index() const;
-	void set_orthogonal_index(int p_index);
+	_FORCE_INLINE_ void operator/=(const real_t p_val);
+	_FORCE_INLINE_ Basis operator/(const real_t p_val) const;
 
 	bool is_orthogonal() const;
+	bool is_orthonormal() const;
+	bool is_conformal() const;
 	bool is_diagonal() const;
 	bool is_rotation() const;
 
@@ -232,7 +221,7 @@ struct _NO_DISCARD_ Basis {
 
 	operator Quaternion() const { return get_quaternion(); }
 
-	static Basis looking_at(const Vector3 &p_target, const Vector3 &p_up = Vector3(0, 1, 0));
+	static Basis looking_at(const Vector3 &p_target, const Vector3 &p_up = Vector3(0, 1, 0), bool p_use_model_front = false);
 
 	Basis(const Quaternion &p_quaternion) { set_quaternion(p_quaternion); };
 	Basis(const Quaternion &p_quaternion, const Vector3 &p_scale) { set_quaternion_scale(p_quaternion, p_scale); }
@@ -241,10 +230,8 @@ struct _NO_DISCARD_ Basis {
 	Basis(const Vector3 &p_axis, real_t p_angle, const Vector3 &p_scale) { set_axis_angle_scale(p_axis, p_angle, p_scale); }
 	static Basis from_scale(const Vector3 &p_scale);
 
-	_FORCE_INLINE_ Basis(const Vector3 &row0, const Vector3 &row1, const Vector3 &row2) {
-		rows[0] = row0;
-		rows[1] = row1;
-		rows[2] = row2;
+	_FORCE_INLINE_ Basis(const Vector3 &p_x_axis, const Vector3 &p_y_axis, const Vector3 &p_z_axis) {
+		set_columns(p_x_axis, p_y_axis, p_z_axis);
 	}
 
 	_FORCE_INLINE_ Basis() {}
@@ -301,6 +288,18 @@ _FORCE_INLINE_ void Basis::operator*=(const real_t p_val) {
 _FORCE_INLINE_ Basis Basis::operator*(const real_t p_val) const {
 	Basis ret(*this);
 	ret *= p_val;
+	return ret;
+}
+
+_FORCE_INLINE_ void Basis::operator/=(const real_t p_val) {
+	rows[0] /= p_val;
+	rows[1] /= p_val;
+	rows[2] /= p_val;
+}
+
+_FORCE_INLINE_ Basis Basis::operator/(const real_t p_val) const {
+	Basis ret(*this);
+	ret /= p_val;
 	return ret;
 }
 

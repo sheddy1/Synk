@@ -1,36 +1,38 @@
-/*************************************************************************/
-/*  gdscript_highlighter.cpp                                             */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  gdscript_highlighter.cpp                                              */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "gdscript_highlighter.h"
+
 #include "../gdscript.h"
 #include "../gdscript_tokenizer.h"
+
 #include "core/config/project_settings.h"
 #include "editor/editor_settings.h"
 
@@ -39,28 +41,35 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 
 	Type next_type = NONE;
 	Type current_type = NONE;
-	Type previous_type = NONE;
+	Type prev_type = NONE;
 
-	String previous_text = "";
-	int previous_column = 0;
-
+	String prev_text = "";
+	int prev_column = 0;
 	bool prev_is_char = false;
-	bool prev_is_number = false;
+	bool prev_is_digit = false;
+	bool prev_is_binary_op = false;
+
 	bool in_keyword = false;
 	bool in_word = false;
-	bool in_function_name = false;
-	bool in_lambda = false;
-	bool in_variable_declaration = false;
-	bool in_signal_declaration = false;
-	bool in_function_args = false;
-	bool in_member_variable = false;
+	bool in_number = false;
+	bool in_raw_string = false;
 	bool in_node_path = false;
 	bool in_node_ref = false;
 	bool in_annotation = false;
 	bool in_string_name = false;
 	bool is_hex_notation = false;
 	bool is_bin_notation = false;
+	bool in_member_variable = false;
+	bool in_lambda = false;
+
+	bool in_function_name = false;
+	bool in_variable_declaration = false;
+	bool in_signal_declaration = false;
 	bool expect_type = false;
+
+	int in_function_args = 0;
+	int in_function_arg_dicts = 0;
+
 	Color keyword_color;
 	Color color;
 
@@ -84,16 +93,17 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 	const int line_length = str.length();
 	Color prev_color;
 
-	if (in_region != -1 && str.length() == 0) {
+	if (in_region != -1 && line_length == 0) {
 		color_region_cache[p_line] = in_region;
 	}
-	for (int j = 0; j < str.length(); j++) {
+	for (int j = 0; j < line_length; j++) {
 		Dictionary highlighter_info;
 
 		color = font_color;
 		bool is_char = !is_symbol(str[j]);
 		bool is_a_symbol = is_symbol(str[j]);
-		bool is_number = is_digit(str[j]);
+		bool is_a_digit = is_digit(str[j]);
+		bool is_binary_op = false;
 
 		/* color regions */
 		if (is_a_symbol || in_region != -1) {
@@ -110,10 +120,10 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			}
 
 			if (from != line_length) {
-				/* check if we are in entering a region */
+				// Check if we are in entering a region.
 				if (in_region == -1) {
 					for (int c = 0; c < color_regions.size(); c++) {
-						/* check there is enough room */
+						// Check there is enough room.
 						int chars_left = line_length - from;
 						int start_key_length = color_regions[c].start_key.length();
 						int end_key_length = color_regions[c].end_key.length();
@@ -121,7 +131,7 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 							continue;
 						}
 
-						/* search the line */
+						// Search the line.
 						bool match = true;
 						const char32_t *start_key = color_regions[c].start_key.get_data();
 						for (int k = 0; k < start_key_length; k++) {
@@ -136,8 +146,12 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 						in_region = c;
 						from += start_key_length;
 
-						/* check if it's the whole line */
+						// Check if it's the whole line.
 						if (end_key_length == 0 || color_regions[c].line_only || from + end_key_length > line_length) {
+							// Don't skip comments, for highlighting markers.
+							if (color_regions[in_region].start_key.begins_with("#")) {
+								break;
+							}
 							if (from + end_key_length > line_length) {
 								// If it's key length and there is a '\', dont skip to highlight esc chars.
 								if (str.find("\\", from) >= 0) {
@@ -156,12 +170,13 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 						break;
 					}
 
-					if (j == line_length) {
+					// Don't skip comments, for highlighting markers.
+					if (j == line_length && !color_regions[in_region].start_key.begins_with("#")) {
 						continue;
 					}
 				}
 
-				/* if we are in one find the end key */
+				// If we are in one, find the end key.
 				if (in_region != -1) {
 					Color region_color = color_regions[in_region].color;
 					if (in_node_path && (color_regions[in_region].start_key == "\"" || color_regions[in_region].start_key == "\'")) {
@@ -178,121 +193,220 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 					highlighter_info["color"] = region_color;
 					color_map[j] = highlighter_info;
 
-					/* search the line */
-					int region_end_index = -1;
-					int end_key_length = color_regions[in_region].end_key.length();
-					const char32_t *end_key = color_regions[in_region].end_key.get_data();
-					for (; from < line_length; from++) {
-						if (line_length - from < end_key_length) {
-							// Don't break if '\' to highlight esc chars.
-							if (str.find("\\", from) < 0) {
-								break;
+					if (color_regions[in_region].start_key.begins_with("#")) {
+						int marker_start_pos = from;
+						int marker_len = 0;
+						while (from <= line_length) {
+							if (from < line_length && is_unicode_identifier_continue(str[from])) {
+								marker_len++;
+							} else {
+								if (marker_len > 0) {
+									HashMap<String, CommentMarkerLevel>::ConstIterator E = comment_markers.find(str.substr(marker_start_pos, marker_len));
+									if (E) {
+										Dictionary marker_highlighter_info;
+										marker_highlighter_info["color"] = comment_marker_colors[E->value];
+										color_map[marker_start_pos] = marker_highlighter_info;
+
+										Dictionary marker_continue_highlighter_info;
+										marker_continue_highlighter_info["color"] = region_color;
+										color_map[from] = marker_continue_highlighter_info;
+									}
+								}
+								marker_start_pos = from + 1;
+								marker_len = 0;
 							}
-						}
-
-						if (!is_symbol(str[from])) {
-							continue;
-						}
-
-						if (str[from] == '\\') {
-							Dictionary escape_char_highlighter_info;
-							escape_char_highlighter_info["color"] = symbol_color;
-							color_map[from] = escape_char_highlighter_info;
-
 							from++;
-
-							Dictionary region_continue_highlighter_info;
-							prev_color = region_color;
-							region_continue_highlighter_info["color"] = region_color;
-							color_map[from + 1] = region_continue_highlighter_info;
-							continue;
 						}
+						from = line_length - 1;
+						j = from;
+					} else {
+						// Search the line.
+						int region_end_index = -1;
+						int end_key_length = color_regions[in_region].end_key.length();
+						const char32_t *end_key = color_regions[in_region].end_key.get_data();
+						for (; from < line_length; from++) {
+							if (line_length - from < end_key_length) {
+								// Don't break if '\' to highlight esc chars.
+								if (str.find("\\", from) < 0) {
+									break;
+								}
+							}
 
-						region_end_index = from;
-						for (int k = 0; k < end_key_length; k++) {
-							if (end_key[k] != str[from + k]) {
-								region_end_index = -1;
+							if (!is_symbol(str[from])) {
+								continue;
+							}
+
+							if (str[from] == '\\') {
+								if (!in_raw_string) {
+									Dictionary escape_char_highlighter_info;
+									escape_char_highlighter_info["color"] = symbol_color;
+									color_map[from] = escape_char_highlighter_info;
+								}
+
+								from++;
+
+								if (!in_raw_string) {
+									int esc_len = 0;
+									if (str[from] == 'u') {
+										esc_len = 4;
+									} else if (str[from] == 'U') {
+										esc_len = 6;
+									}
+									for (int k = 0; k < esc_len && from < line_length - 1; k++) {
+										if (!is_hex_digit(str[from + 1])) {
+											break;
+										}
+										from++;
+									}
+
+									Dictionary region_continue_highlighter_info;
+									region_continue_highlighter_info["color"] = region_color;
+									color_map[from + 1] = region_continue_highlighter_info;
+								}
+
+								continue;
+							}
+
+							region_end_index = from;
+							for (int k = 0; k < end_key_length; k++) {
+								if (end_key[k] != str[from + k]) {
+									region_end_index = -1;
+									break;
+								}
+							}
+
+							if (region_end_index != -1) {
 								break;
 							}
 						}
-
-						if (region_end_index != -1) {
-							break;
+						j = from + (end_key_length - 1);
+						if (region_end_index == -1) {
+							color_region_cache[p_line] = in_region;
 						}
 					}
 
-					previous_type = REGION;
-					previous_text = "";
-					previous_column = j;
-					j = from + (end_key_length - 1);
-					if (region_end_index == -1) {
-						color_region_cache[p_line] = in_region;
-					}
+					prev_type = REGION;
+					prev_text = "";
+					prev_column = j;
 
 					in_region = -1;
 					prev_is_char = false;
-					prev_is_number = false;
+					prev_is_digit = false;
+					prev_is_binary_op = false;
 					continue;
 				}
 			}
 		}
 
-		// allow ABCDEF in hex notation
-		if (is_hex_notation && (is_hex_digit(str[j]) || is_number)) {
-			is_number = true;
-		} else {
-			is_hex_notation = false;
-		}
-
-		// disallow anything not a 0 or 1
-		if (is_bin_notation && (is_binary_digit(str[j]))) {
-			is_number = true;
-		} else if (is_bin_notation) {
-			is_bin_notation = false;
-			is_number = false;
-		} else {
-			is_bin_notation = false;
-		}
-
-		// check for dot or underscore or 'x' for hex notation in floating point number or 'e' for scientific notation
-		if ((str[j] == '.' || str[j] == 'x' || str[j] == 'b' || str[j] == '_' || str[j] == 'e') && !in_word && prev_is_number && !is_number) {
-			is_number = true;
-			is_a_symbol = false;
-			is_char = false;
-
-			if (str[j] == 'x' && str[j - 1] == '0') {
-				is_hex_notation = true;
-			} else if (str[j] == 'b' && str[j - 1] == '0') {
-				is_bin_notation = true;
+		// VERY hacky... but couldn't come up with anything better.
+		if (j > 0 && (str[j] == '&' || str[j] == '^' || str[j] == '%' || str[j] == '+' || str[j] == '-' || str[j] == '~' || str[j] == '.')) {
+			int to = j - 1;
+			// Find what the last text was (prev_text won't work if there's no whitespace, so we need to do it manually).
+			while (to > 0 && is_whitespace(str[to])) {
+				to--;
 			}
-		}
-
-		if (!in_word && (is_ascii_char(str[j]) || is_underscore(str[j])) && !is_number) {
-			in_word = true;
-		}
-
-		if ((in_keyword || in_word) && !is_hex_notation) {
-			is_number = false;
-		}
-
-		if (is_a_symbol && str[j] != '.' && in_word) {
-			in_word = false;
+			int from = to;
+			while (from > 0 && !is_symbol(str[from])) {
+				from--;
+			}
+			String word = str.substr(from + 1, to - from);
+			// Keywords need to be exceptions, except for keywords that represent a value.
+			if (word == "true" || word == "false" || word == "null" || word == "PI" || word == "TAU" || word == "INF" || word == "NAN" || word == "self" || word == "super" || !reserved_keywords.has(word)) {
+				if (!is_symbol(str[to]) || str[to] == '"' || str[to] == '\'' || str[to] == ')' || str[to] == ']' || str[to] == '}') {
+					is_binary_op = true;
+				}
+			}
 		}
 
 		if (!is_char) {
 			in_keyword = false;
 		}
 
+		// Allow ABCDEF in hex notation.
+		if (is_hex_notation && (is_hex_digit(str[j]) || is_a_digit)) {
+			is_a_digit = true;
+		} else if (str[j] != '_') {
+			is_hex_notation = false;
+		}
+
+		// Disallow anything not a 0 or 1 in binary notation.
+		if (is_bin_notation && !is_binary_digit(str[j])) {
+			is_a_digit = false;
+			is_bin_notation = false;
+		}
+
+		if (!in_number && !in_word && is_a_digit) {
+			in_number = true;
+		}
+
+		// Special cases for numbers.
+		if (in_number && !is_a_digit) {
+			if (str[j] == 'b' && str[j - 1] == '0') {
+				is_bin_notation = true;
+			} else if (str[j] == 'x' && str[j - 1] == '0') {
+				is_hex_notation = true;
+			} else if (!((str[j] == '-' || str[j] == '+') && str[j - 1] == 'e' && !prev_is_digit) &&
+					!(str[j] == '_' && (prev_is_digit || str[j - 1] == 'b' || str[j - 1] == 'x' || str[j - 1] == '.')) &&
+					!(str[j] == 'e' && (prev_is_digit || str[j - 1] == '_')) &&
+					!(str[j] == '.' && (prev_is_digit || (!prev_is_binary_op && (j > 0 && (str[j - 1] == '_' || str[j - 1] == '-' || str[j - 1] == '+' || str[j - 1] == '~'))))) &&
+					!((str[j] == '-' || str[j] == '+' || str[j] == '~') && !is_binary_op && !prev_is_binary_op && str[j - 1] != 'e')) {
+				/* This condition continues number highlighting in special cases.
+				1st row: '+' or '-' after scientific notation (like 3e-4);
+				2nd row: '_' as a numeric separator;
+				3rd row: Scientific notation 'e' and floating points;
+				4th row: Floating points inside the number, or leading if after a unary mathematical operator;
+				5th row: Multiple unary mathematical operators (like ~-7) */
+				in_number = false;
+			}
+		} else if (str[j] == '.' && !is_binary_op && is_digit(str[j + 1]) && (j == 0 || (j > 0 && str[j - 1] != '.'))) {
+			// Start number highlighting from leading decimal points (like .42)
+			in_number = true;
+		} else if ((str[j] == '-' || str[j] == '+' || str[j] == '~') && !is_binary_op) {
+			// Only start number highlighting on unary operators if a digit follows them.
+			int non_op = j + 1;
+			while (str[non_op] == '-' || str[non_op] == '+' || str[non_op] == '~') {
+				non_op++;
+			}
+			if (is_digit(str[non_op]) || (str[non_op] == '.' && non_op < line_length && is_digit(str[non_op + 1]))) {
+				in_number = true;
+			}
+		}
+
+		if (!in_word && is_unicode_identifier_start(str[j]) && !in_number) {
+			in_word = true;
+		}
+
+		if (is_a_symbol && str[j] != '.' && in_word) {
+			in_word = false;
+		}
+
 		if (!in_keyword && is_char && !prev_is_char) {
 			int to = j;
-			while (to < str.length() && !is_symbol(str[to])) {
+			while (to < line_length && !is_symbol(str[to])) {
 				to++;
 			}
 
 			String word = str.substr(j, to - j);
-			Color col = Color();
-			if (keywords.has(word)) {
-				col = keywords[word];
+			Color col;
+			if (global_functions.has(word)) {
+				// "assert" and "preload" are reserved, so highlight even if not followed by a bracket.
+				if (word == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::ASSERT) || word == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::PRELOAD)) {
+					col = global_function_color;
+				} else {
+					// For other global functions, check if followed by bracket.
+					int k = to;
+					while (k < line_length && is_whitespace(str[k])) {
+						k++;
+					}
+
+					if (str[k] == '(') {
+						col = global_function_color;
+					}
+				}
+			} else if (class_names.has(word)) {
+				col = class_names[word];
+			} else if (reserved_keywords.has(word)) {
+				col = reserved_keywords[word];
 			} else if (member_keywords.has(word)) {
 				col = member_keywords[word];
 			}
@@ -300,12 +414,13 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			if (col != Color()) {
 				for (int k = j - 1; k >= 0; k--) {
 					if (str[k] == '.') {
-						col = Color(); // keyword & member indexing not allowed
+						col = Color(); // Keyword, member & global func indexing not allowed.
 						break;
 					} else if (str[k] > 32) {
 						break;
 					}
 				}
+
 				if (col != Color()) {
 					in_keyword = true;
 					keyword_color = col;
@@ -314,29 +429,29 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 		}
 
 		if (!in_function_name && in_word && !in_keyword) {
-			if (previous_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::SIGNAL)) {
+			if (prev_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::SIGNAL)) {
 				in_signal_declaration = true;
 			} else {
 				int k = j;
-				while (k < str.length() && !is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
+				while (k < line_length && !is_symbol(str[k]) && !is_whitespace(str[k])) {
 					k++;
 				}
 
-				// check for space between name and bracket
-				while (k < str.length() && (str[k] == '\t' || str[k] == ' ')) {
+				// Check for space between name and bracket.
+				while (k < line_length && is_whitespace(str[k])) {
 					k++;
 				}
 
 				if (str[k] == '(') {
 					in_function_name = true;
-				} else if (previous_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::VAR)) {
+				} else if (prev_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::VAR) || prev_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::FOR)) {
 					in_variable_declaration = true;
 				}
 
 				// Check for lambda.
-				if (in_function_name && previous_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::FUNC)) {
+				if (in_function_name && prev_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::FUNC)) {
 					k = j - 1;
-					while (k > 0 && (str[k] == '\t' || str[k] == ' ')) {
+					while (k > 0 && is_whitespace(str[k])) {
 						k--;
 					}
 
@@ -347,9 +462,9 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			}
 		}
 
-		if (!in_function_name && !in_member_variable && !in_keyword && !is_number && in_word) {
+		if (!in_function_name && !in_member_variable && !in_keyword && !in_number && in_word) {
 			int k = j;
-			while (k > 0 && !is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
+			while (k > 0 && !is_symbol(str[k]) && !is_whitespace(str[k])) {
 				k--;
 			}
 
@@ -359,31 +474,43 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 		}
 
 		if (is_a_symbol) {
-			if (in_function_name) {
-				in_function_args = true;
+			if (in_function_args > 0) {
+				switch (str[j]) {
+					case '(':
+						in_function_args += 1;
+						break;
+					case ')':
+						in_function_args -= 1;
+						break;
+					case '{':
+						in_function_arg_dicts += 1;
+						break;
+					case '}':
+						in_function_arg_dicts -= 1;
+						break;
+				}
+			} else if (in_function_name && str[j] == '(') {
+				in_function_args = 1;
+				in_function_arg_dicts = 0;
 			}
 
-			if (in_function_args && str[j] == ')') {
-				in_function_args = false;
-			}
-
-			if (expect_type && (prev_is_char || str[j] == '=')) {
+			if (expect_type && (prev_is_char || str[j] == '=') && str[j] != '[' && str[j] != ',' && str[j] != '.') {
 				expect_type = false;
 			}
 
-			if (j > 0 && str[j] == '>' && str[j - 1] == '-') {
+			if (j > 0 && str[j - 1] == '-' && str[j] == '>') {
 				expect_type = true;
 			}
 
-			if (in_variable_declaration || in_function_args) {
+			if (in_variable_declaration || in_function_args > 0) {
 				int k = j;
-				// Skip space
-				while (k < str.length() && (str[k] == '\t' || str[k] == ' ')) {
+				// Skip space.
+				while (k < line_length && is_whitespace(str[k])) {
 					k++;
 				}
 
-				if (str[k] == ':') {
-					// has type hint
+				if (str[k] == ':' && in_function_arg_dicts == 0) {
+					// Has type hint.
 					expect_type = true;
 				}
 			}
@@ -395,15 +522,34 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			in_member_variable = false;
 		}
 
-		if (!in_node_path && in_region == -1 && (str[j] == '^')) {
+		if (!in_raw_string && in_region == -1 && str[j] == 'r' && j < line_length - 1 && (str[j + 1] == '"' || str[j + 1] == '\'')) {
+			in_raw_string = true;
+		} else if (in_raw_string && in_region == -1) {
+			in_raw_string = false;
+		}
+
+		// Keep symbol color for binary '&&'. In the case of '&&&' use StringName color for the last ampersand.
+		if (!in_string_name && in_region == -1 && str[j] == '&' && !is_binary_op) {
+			if (j >= 2 && str[j - 1] == '&' && str[j - 2] != '&' && prev_is_binary_op) {
+				is_binary_op = true;
+			} else if (j == 0 || (j > 0 && str[j - 1] != '&') || prev_is_binary_op) {
+				in_string_name = true;
+			}
+		} else if (in_region != -1 || is_a_symbol) {
+			in_string_name = false;
+		}
+
+		// '^^' has no special meaning, so unlike StringName, when binary, use NodePath color for the last caret.
+		if (!in_node_path && in_region == -1 && str[j] == '^' && !is_binary_op && (j == 0 || (j > 0 && str[j - 1] != '^') || prev_is_binary_op)) {
 			in_node_path = true;
-		} else if (in_region != -1 || (is_a_symbol && str[j] != '/' && str[j] != '%')) {
+		} else if (in_region != -1 || is_a_symbol) {
 			in_node_path = false;
 		}
 
-		if (!in_node_ref && in_region == -1 && (str[j] == '$' || str[j] == '%')) {
+		if (!in_node_ref && in_region == -1 && (str[j] == '$' || (str[j] == '%' && !is_binary_op))) {
 			in_node_ref = true;
-		} else if (in_region != -1 || (is_a_symbol && str[j] != '/' && str[j] != '%')) {
+		} else if (in_region != -1 || (is_a_symbol && str[j] != '/' && str[j] != '%') || (is_a_digit && j > 0 && (str[j - 1] == '$' || str[j - 1] == '/' || str[j - 1] == '%'))) {
+			// NodeRefs can't start with digits, so point out wrong syntax immediately.
 			in_node_ref = false;
 		}
 
@@ -413,15 +559,8 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			in_annotation = false;
 		}
 
-		if (!in_string_name && in_region == -1 && str[j] == '&') {
-			in_string_name = true;
-		} else if (in_region != -1 || is_a_symbol) {
-			in_string_name = false;
-		}
-
-		if (in_node_path) {
-			next_type = NODE_PATH;
-			color = node_path_color;
+		if (in_raw_string) {
+			color = string_color;
 		} else if (in_node_ref) {
 			next_type = NODE_REF;
 			color = node_ref_color;
@@ -431,33 +570,34 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 		} else if (in_string_name) {
 			next_type = STRING_NAME;
 			color = string_name_color;
+		} else if (in_node_path) {
+			next_type = NODE_PATH;
+			color = node_path_color;
 		} else if (in_keyword) {
 			next_type = KEYWORD;
 			color = keyword_color;
-		} else if (in_member_variable) {
-			next_type = MEMBER;
-			color = member_color;
 		} else if (in_signal_declaration) {
 			next_type = SIGNAL;
-
 			color = member_color;
 		} else if (in_function_name) {
 			next_type = FUNCTION;
-
-			if (!in_lambda && previous_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::FUNC)) {
+			if (!in_lambda && prev_text == GDScriptTokenizer::get_token_name(GDScriptTokenizer::Token::FUNC)) {
 				color = function_definition_color;
 			} else {
 				color = function_color;
 			}
+		} else if (in_number) {
+			next_type = NUMBER;
+			color = number_color;
 		} else if (is_a_symbol) {
 			next_type = SYMBOL;
 			color = symbol_color;
-		} else if (is_number) {
-			next_type = NUMBER;
-			color = number_color;
 		} else if (expect_type) {
 			next_type = TYPE;
 			color = type_color;
+		} else if (in_member_variable) {
+			next_type = MEMBER;
+			color = member_color;
 		} else {
 			next_type = IDENTIFIER;
 		}
@@ -466,27 +606,28 @@ Dictionary GDScriptSyntaxHighlighter::_get_line_syntax_highlighting_impl(int p_l
 			if (current_type == NONE) {
 				current_type = next_type;
 			} else {
-				previous_type = current_type;
+				prev_type = current_type;
 				current_type = next_type;
 
-				// no need to store regions...
-				if (previous_type == REGION) {
-					previous_text = "";
-					previous_column = j;
+				// No need to store regions...
+				if (prev_type == REGION) {
+					prev_text = "";
+					prev_column = j;
 				} else {
-					String text = str.substr(previous_column, j - previous_column).strip_edges();
-					previous_column = j;
+					String text = str.substr(prev_column, j - prev_column).strip_edges();
+					prev_column = j;
 
-					// ignore if just whitespace
+					// Ignore if just whitespace.
 					if (!text.is_empty()) {
-						previous_text = text;
+						prev_text = text;
 					}
 				}
 			}
 		}
 
 		prev_is_char = is_char;
-		prev_is_number = is_number;
+		prev_is_digit = is_a_digit;
+		prev_is_binary_op = is_binary_op;
 
 		if (color != prev_color) {
 			prev_color = color;
@@ -501,15 +642,17 @@ String GDScriptSyntaxHighlighter::_get_name() const {
 	return "GDScript";
 }
 
-Array GDScriptSyntaxHighlighter::_get_supported_languages() const {
-	Array languages;
+PackedStringArray GDScriptSyntaxHighlighter::_get_supported_languages() const {
+	PackedStringArray languages;
 	languages.push_back("GDScript");
 	return languages;
 }
 
 void GDScriptSyntaxHighlighter::_update_cache() {
-	keywords.clear();
+	class_names.clear();
+	reserved_keywords.clear();
 	member_keywords.clear();
+	global_functions.clear();
 	color_regions.clear();
 	color_region_cache.clear();
 
@@ -524,7 +667,7 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 	List<StringName> types;
 	ClassDB::get_class_list(&types);
 	for (const StringName &E : types) {
-		keywords[E] = types_color;
+		class_names[E] = types_color;
 	}
 
 	/* User types. */
@@ -532,14 +675,14 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 	List<StringName> global_classes;
 	ScriptServer::get_global_class_list(&global_classes);
 	for (const StringName &E : global_classes) {
-		keywords[E] = usertype_color;
+		class_names[E] = usertype_color;
 	}
 
 	/* Autoloads. */
 	for (const KeyValue<StringName, ProjectSettings::AutoloadInfo> &E : ProjectSettings::get_singleton()->get_autoload_list()) {
 		const ProjectSettings::AutoloadInfo &info = E.value;
 		if (info.is_singleton) {
-			keywords[info.name] = usertype_color;
+			class_names[info.name] = usertype_color;
 		}
 	}
 
@@ -550,8 +693,14 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 	List<String> core_types;
 	gdscript->get_core_type_words(&core_types);
 	for (const String &E : core_types) {
-		keywords[StringName(E)] = basetype_color;
+		class_names[StringName(E)] = basetype_color;
 	}
+	class_names[SNAME("Variant")] = basetype_color;
+	class_names[SNAME("void")] = basetype_color;
+	// `get_core_type_words()` doesn't return primitive types.
+	class_names[SNAME("bool")] = basetype_color;
+	class_names[SNAME("int")] = basetype_color;
+	class_names[SNAME("float")] = basetype_color;
 
 	/* Reserved words. */
 	const Color keyword_color = EDITOR_GET("text_editor/theme/highlighting/keyword_color");
@@ -560,10 +709,25 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 	gdscript->get_reserved_words(&keyword_list);
 	for (const String &E : keyword_list) {
 		if (gdscript->is_control_flow_keyword(E)) {
-			keywords[StringName(E)] = control_flow_keyword_color;
+			reserved_keywords[StringName(E)] = control_flow_keyword_color;
 		} else {
-			keywords[StringName(E)] = keyword_color;
+			reserved_keywords[StringName(E)] = keyword_color;
 		}
+	}
+
+	// Highlight `set` and `get` as "keywords" with the function color to avoid conflicts with method calls.
+	reserved_keywords[SNAME("set")] = function_color;
+	reserved_keywords[SNAME("get")] = function_color;
+
+	/* Global functions. */
+	List<StringName> global_function_list;
+	GDScriptUtilityFunctions::get_function_list(&global_function_list);
+	Variant::get_utility_function_list(&global_function_list);
+	// "assert" and "preload" are not utility functions, but are global nonetheless, so insert them.
+	global_functions.insert(SNAME("assert"));
+	global_functions.insert(SNAME("preload"));
+	for (const StringName &E : global_function_list) {
+		global_functions.insert(E);
 	}
 
 	/* Comments */
@@ -576,8 +740,18 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 		add_color_region(beg, end, comment_color, end.is_empty());
 	}
 
+	/* Doc comments */
+	const Color doc_comment_color = EDITOR_GET("text_editor/theme/highlighting/doc_comment_color");
+	List<String> doc_comments;
+	gdscript->get_doc_comment_delimiters(&doc_comments);
+	for (const String &doc_comment : doc_comments) {
+		String beg = doc_comment.get_slice(" ", 0);
+		String end = doc_comment.get_slice_count(" ") > 1 ? doc_comment.get_slice(" ", 1) : String();
+		add_color_region(beg, end, doc_comment_color, end.is_empty());
+	}
+
 	/* Strings */
-	const Color string_color = EDITOR_GET("text_editor/theme/highlighting/string_color");
+	string_color = EDITOR_GET("text_editor/theme/highlighting/string_color");
 	List<String> strings;
 	gdscript->get_string_delimiters(&strings);
 	for (const String &string : strings) {
@@ -586,23 +760,23 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 		add_color_region(beg, end, string_color, end.is_empty());
 	}
 
-	const Ref<Script> script = _get_edited_resource();
-	if (script.is_valid()) {
+	const Ref<Script> scr = _get_edited_resource();
+	if (scr.is_valid()) {
 		/* Member types. */
 		const Color member_variable_color = EDITOR_GET("text_editor/theme/highlighting/member_variable_color");
-		StringName instance_base = script->get_instance_base_type();
+		StringName instance_base = scr->get_instance_base_type();
 		if (instance_base != StringName()) {
 			List<PropertyInfo> plist;
 			ClassDB::get_property_list(instance_base, &plist);
 			for (const PropertyInfo &E : plist) {
-				String name = E.name;
+				String prop_name = E.name;
 				if (E.usage & PROPERTY_USAGE_CATEGORY || E.usage & PROPERTY_USAGE_GROUP || E.usage & PROPERTY_USAGE_SUBGROUP) {
 					continue;
 				}
-				if (name.contains("/")) {
+				if (prop_name.contains("/")) {
 					continue;
 				}
-				member_keywords[name] = member_variable_color;
+				member_keywords[prop_name] = member_variable_color;
 			}
 
 			List<String> clist;
@@ -613,32 +787,53 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 		}
 	}
 
-	const String text_edit_color_theme = EditorSettings::get_singleton()->get("text_editor/theme/color_theme");
+	const String text_edit_color_theme = EDITOR_GET("text_editor/theme/color_theme");
 	const bool godot_2_theme = text_edit_color_theme == "Godot 2";
 
 	if (godot_2_theme || EditorSettings::get_singleton()->is_dark_theme()) {
 		function_definition_color = Color(0.4, 0.9, 1.0);
+		global_function_color = Color(0.64, 0.64, 0.96);
 		node_path_color = Color(0.72, 0.77, 0.49);
 		node_ref_color = Color(0.39, 0.76, 0.35);
 		annotation_color = Color(1.0, 0.7, 0.45);
-		string_name_color = Color(1.0, 0.66, 0.72);
+		string_name_color = Color(1.0, 0.76, 0.65);
+		comment_marker_colors[COMMENT_MARKER_CRITICAL] = Color(0.77, 0.35, 0.35);
+		comment_marker_colors[COMMENT_MARKER_WARNING] = Color(0.72, 0.61, 0.48);
+		comment_marker_colors[COMMENT_MARKER_NOTICE] = Color(0.56, 0.67, 0.51);
 	} else {
 		function_definition_color = Color(0, 0.6, 0.6);
+		global_function_color = Color(0.36, 0.18, 0.72);
 		node_path_color = Color(0.18, 0.55, 0);
 		node_ref_color = Color(0.0, 0.5, 0);
 		annotation_color = Color(0.8, 0.37, 0);
-		string_name_color = Color(0.8, 0.46, 0.52);
+		string_name_color = Color(0.8, 0.56, 0.45);
+		comment_marker_colors[COMMENT_MARKER_CRITICAL] = Color(0.8, 0.14, 0.14);
+		comment_marker_colors[COMMENT_MARKER_WARNING] = Color(0.75, 0.39, 0.03);
+		comment_marker_colors[COMMENT_MARKER_NOTICE] = Color(0.24, 0.54, 0.09);
 	}
 
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/function_definition_color", function_definition_color);
+	EDITOR_DEF("text_editor/theme/highlighting/gdscript/global_function_color", global_function_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/node_path_color", node_path_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/node_reference_color", node_ref_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/annotation_color", annotation_color);
 	EDITOR_DEF("text_editor/theme/highlighting/gdscript/string_name_color", string_name_color);
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/critical_color", comment_marker_colors[COMMENT_MARKER_CRITICAL]);
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/warning_color", comment_marker_colors[COMMENT_MARKER_WARNING]);
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/notice_color", comment_marker_colors[COMMENT_MARKER_NOTICE]);
+	// The list is based on <https://github.com/KDE/syntax-highlighting/blob/master/data/syntax/alert.xml>.
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/critical_list", "ALERT,ATTENTION,CAUTION,CRITICAL,DANGER,SECURITY");
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/warning_list", "BUG,DEPRECATED,FIXME,HACK,TASK,TBD,TODO,WARNING");
+	EDITOR_DEF("text_editor/theme/highlighting/comment_markers/notice_list", "INFO,NOTE,NOTICE,TEST,TESTING");
+
 	if (text_edit_color_theme == "Default" || godot_2_theme) {
 		EditorSettings::get_singleton()->set_initial_value(
 				"text_editor/theme/highlighting/gdscript/function_definition_color",
 				function_definition_color,
+				true);
+		EditorSettings::get_singleton()->set_initial_value(
+				"text_editor/theme/highlighting/gdscript/global_function_color",
+				global_function_color,
 				true);
 		EditorSettings::get_singleton()->set_initial_value(
 				"text_editor/theme/highlighting/gdscript/node_path_color",
@@ -656,14 +851,44 @@ void GDScriptSyntaxHighlighter::_update_cache() {
 				"text_editor/theme/highlighting/gdscript/string_name_color",
 				string_name_color,
 				true);
+		EditorSettings::get_singleton()->set_initial_value(
+				"text_editor/theme/highlighting/comment_markers/critical_color",
+				comment_marker_colors[COMMENT_MARKER_CRITICAL],
+				true);
+		EditorSettings::get_singleton()->set_initial_value(
+				"text_editor/theme/highlighting/comment_markers/warning_color",
+				comment_marker_colors[COMMENT_MARKER_WARNING],
+				true);
+		EditorSettings::get_singleton()->set_initial_value(
+				"text_editor/theme/highlighting/comment_markers/notice_color",
+				comment_marker_colors[COMMENT_MARKER_NOTICE],
+				true);
 	}
 
 	function_definition_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/function_definition_color");
+	global_function_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/global_function_color");
 	node_path_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/node_path_color");
 	node_ref_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/node_reference_color");
 	annotation_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/annotation_color");
 	string_name_color = EDITOR_GET("text_editor/theme/highlighting/gdscript/string_name_color");
 	type_color = EDITOR_GET("text_editor/theme/highlighting/base_type_color");
+	comment_marker_colors[COMMENT_MARKER_CRITICAL] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/critical_color");
+	comment_marker_colors[COMMENT_MARKER_WARNING] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/warning_color");
+	comment_marker_colors[COMMENT_MARKER_NOTICE] = EDITOR_GET("text_editor/theme/highlighting/comment_markers/notice_color");
+
+	comment_markers.clear();
+	Vector<String> critical_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/critical_list").operator String().split(",", false);
+	for (int i = 0; i < critical_list.size(); i++) {
+		comment_markers[critical_list[i]] = COMMENT_MARKER_CRITICAL;
+	}
+	Vector<String> warning_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/warning_list").operator String().split(",", false);
+	for (int i = 0; i < warning_list.size(); i++) {
+		comment_markers[warning_list[i]] = COMMENT_MARKER_WARNING;
+	}
+	Vector<String> notice_list = EDITOR_GET("text_editor/theme/highlighting/comment_markers/notice_list").operator String().split(",", false);
+	for (int i = 0; i < notice_list.size(); i++) {
+		comment_markers[notice_list[i]] = COMMENT_MARKER_NOTICE;
+	}
 }
 
 void GDScriptSyntaxHighlighter::add_color_region(const String &p_start_key, const String &p_end_key, const Color &p_color, bool p_line_only) {
@@ -682,6 +907,8 @@ void GDScriptSyntaxHighlighter::add_color_region(const String &p_start_key, cons
 		ERR_FAIL_COND_MSG(color_regions[i].start_key == p_start_key, "color region with start key '" + p_start_key + "' already exists.");
 		if (p_start_key.length() < color_regions[i].start_key.length()) {
 			at++;
+		} else {
+			break;
 		}
 	}
 

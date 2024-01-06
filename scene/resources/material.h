@@ -1,32 +1,32 @@
-/*************************************************************************/
-/*  material.h                                                           */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  material.h                                                            */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #ifndef MATERIAL_H
 #define MATERIAL_H
@@ -46,6 +46,12 @@ class Material : public Resource {
 	Ref<Material> next_pass;
 	int render_priority;
 
+	enum {
+		INIT_STATE_UNINITIALIZED,
+		INIT_STATE_INITIALIZING,
+		INIT_STATE_READY,
+	} init_state = INIT_STATE_UNINITIALIZED;
+
 	void inspect_native_shader_code();
 
 protected:
@@ -54,7 +60,10 @@ protected:
 	virtual bool _can_do_next_pass() const;
 	virtual bool _can_use_render_priority() const;
 
-	void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
+
+	void _mark_initialized(const Callable &p_queue_shader_change_callable);
+	bool _is_initialized() { return init_state == INIT_STATE_READY; }
 
 	GDVIRTUAL0RC(RID, _get_shader_rid)
 	GDVIRTUAL0RC(Shader::Mode, _get_shader_mode)
@@ -74,6 +83,9 @@ public:
 	virtual RID get_rid() const override;
 	virtual RID get_shader_rid() const;
 	virtual Shader::Mode get_shader_mode() const;
+
+	virtual Ref<Resource> create_placeholder() const;
+
 	Material();
 	virtual ~Material();
 };
@@ -82,25 +94,15 @@ class ShaderMaterial : public Material {
 	GDCLASS(ShaderMaterial, Material);
 	Ref<Shader> shader;
 
-	HashMap<StringName, Variant> param_cache;
-
-	struct UniformProp {
-		String str;
-		PropertyInfo info;
-	};
-
-	struct UniformPropComparator {
-		bool operator()(const UniformProp &p_a, const UniformProp &p_b) const {
-			return p_a.str.naturalnocasecmp_to(p_b.str) < 0;
-		}
-	};
+	mutable HashMap<StringName, StringName> remap_cache;
+	mutable HashMap<StringName, Variant> param_cache;
 
 protected:
 	bool _set(const StringName &p_name, const Variant &p_value);
 	bool _get(const StringName &p_name, Variant &r_ret) const;
 	void _get_property_list(List<PropertyInfo> *p_list) const;
-	bool property_can_revert(const String &p_name);
-	Variant property_get_revert(const String &p_name);
+	bool _property_can_revert(const StringName &p_name) const;
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
 
 	static void _bind_methods();
 
@@ -115,8 +117,8 @@ public:
 	void set_shader(const Ref<Shader> &p_shader);
 	Ref<Shader> get_shader() const;
 
-	void set_shader_uniform(const StringName &p_param, const Variant &p_value);
-	Variant get_shader_uniform(const StringName &p_param) const;
+	void set_shader_parameter(const StringName &p_param, const Variant &p_value);
+	Variant get_shader_parameter(const StringName &p_param) const;
 
 	virtual Shader::Mode get_shader_mode() const override;
 
@@ -254,6 +256,7 @@ public:
 		FLAG_SUBSURFACE_MODE_SKIN,
 		FLAG_PARTICLE_TRAILS_MODE,
 		FLAG_ALBEDO_TEXTURE_MSDF,
+		FLAG_DISABLE_FOG,
 		FLAG_MAX
 	};
 
@@ -322,9 +325,11 @@ private:
 		uint64_t emission_op : get_num_bits(EMISSION_OP_MAX - 1);
 		uint64_t distance_fade : get_num_bits(DISTANCE_FADE_MAX - 1);
 		// booleans
+		uint64_t invalid_key : 1;
 		uint64_t deep_parallax : 1;
 		uint64_t grow : 1;
 		uint64_t proximity_fade : 1;
+		uint64_t orm : 1;
 
 		// flag bitfield
 		uint32_t feature_mask;
@@ -376,6 +381,7 @@ private:
 		mk.distance_fade = distance_fade;
 		mk.emission_op = emission_op;
 		mk.alpha_antialiasing_mode = alpha_antialiasing_mode;
+		mk.orm = orm;
 
 		for (int i = 0; i < FEATURE_MAX; i++) {
 			if (features[i]) {
@@ -450,7 +456,7 @@ private:
 	};
 
 	static Mutex material_mutex;
-	static SelfList<BaseMaterial3D>::List *dirty_materials;
+	static SelfList<BaseMaterial3D>::List dirty_materials;
 	static ShaderNames *shader_names;
 
 	SelfList<BaseMaterial3D> element;
@@ -459,7 +465,6 @@ private:
 	_FORCE_INLINE_ void _queue_shader_change();
 	_FORCE_INLINE_ bool _is_shader_dirty() const;
 
-	bool is_initialized = false;
 	bool orm;
 
 	Color albedo;
@@ -467,7 +472,8 @@ private:
 	float metallic = 0.0f;
 	float roughness = 0.0f;
 	Color emission;
-	float emission_energy = 0.0f;
+	float emission_energy_multiplier = 1.0f;
+	float emission_intensity = 1000.0f; // In nits, equivalent to indoor lighting.
 	float normal_scale = 0.0f;
 	float rim = 0.0f;
 	float rim_tint = 0.0f;
@@ -549,11 +555,9 @@ private:
 
 	static HashMap<uint64_t, Ref<StandardMaterial3D>> materials_for_2d; //used by Sprite3D, Label3D and other stuff
 
-	void _validate_high_end(const String &text, PropertyInfo &property) const;
-
 protected:
 	static void _bind_methods();
-	void _validate_property(PropertyInfo &property) const override;
+	void _validate_property(PropertyInfo &p_property) const;
 	virtual bool _can_do_next_pass() const override { return true; }
 	virtual bool _can_use_render_priority() const override { return true; }
 
@@ -573,8 +577,11 @@ public:
 	void set_emission(const Color &p_emission);
 	Color get_emission() const;
 
-	void set_emission_energy(float p_emission_energy);
-	float get_emission_energy() const;
+	void set_emission_energy_multiplier(float p_emission_energy_multiplier);
+	float get_emission_energy_multiplier() const;
+
+	void set_emission_intensity(float p_emission_intensity);
+	float get_emission_intensity() const;
 
 	void set_normal_scale(float p_normal_scale);
 	float get_normal_scale() const;
@@ -726,7 +733,7 @@ public:
 
 	void set_on_top_of_alpha();
 
-	void set_proximity_fade(bool p_enable);
+	void set_proximity_fade_enabled(bool p_enable);
 	bool is_proximity_fade_enabled() const;
 
 	void set_proximity_fade_distance(float p_distance);
@@ -763,7 +770,7 @@ public:
 	static void finish_shaders();
 	static void flush_changes();
 
-	static Ref<Material> get_material_for_2d(bool p_shaded, bool p_transparent, bool p_double_sided, bool p_cut_alpha, bool p_opaque_prepass, bool p_billboard = false, bool p_billboard_y = false, bool p_msdf = false, bool p_no_depth = false, bool p_fixed_size = false, TextureFilter p_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, RID *r_shader_rid = nullptr);
+	static Ref<Material> get_material_for_2d(bool p_shaded, Transparency p_transparency, bool p_double_sided, bool p_billboard = false, bool p_billboard_y = false, bool p_msdf = false, bool p_no_depth = false, bool p_fixed_size = false, TextureFilter p_filter = TEXTURE_FILTER_LINEAR_WITH_MIPMAPS, AlphaAntiAliasing p_alpha_antialiasing_mode = ALPHA_ANTIALIASING_OFF, RID *r_shader_rid = nullptr);
 
 	virtual RID get_shader_rid() const override;
 

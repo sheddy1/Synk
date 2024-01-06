@@ -1,39 +1,39 @@
-/*************************************************************************/
-/*  audio_stream_wav.cpp                                                 */
-/*************************************************************************/
-/*                       This file is part of:                           */
-/*                           GODOT ENGINE                                */
-/*                      https://godotengine.org                          */
-/*************************************************************************/
-/* Copyright (c) 2007-2022 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2022 Godot Engine contributors (cf. AUTHORS.md).   */
-/*                                                                       */
-/* Permission is hereby granted, free of charge, to any person obtaining */
-/* a copy of this software and associated documentation files (the       */
-/* "Software"), to deal in the Software without restriction, including   */
-/* without limitation the rights to use, copy, modify, merge, publish,   */
-/* distribute, sublicense, and/or sell copies of the Software, and to    */
-/* permit persons to whom the Software is furnished to do so, subject to */
-/* the following conditions:                                             */
-/*                                                                       */
-/* The above copyright notice and this permission notice shall be        */
-/* included in all copies or substantial portions of the Software.       */
-/*                                                                       */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,       */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF    */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.*/
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY  */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,  */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE     */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                */
-/*************************************************************************/
+/**************************************************************************/
+/*  audio_stream_wav.cpp                                                  */
+/**************************************************************************/
+/*                         This file is part of:                          */
+/*                             GODOT ENGINE                               */
+/*                        https://godotengine.org                         */
+/**************************************************************************/
+/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
+/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
+/*                                                                        */
+/* Permission is hereby granted, free of charge, to any person obtaining  */
+/* a copy of this software and associated documentation files (the        */
+/* "Software"), to deal in the Software without restriction, including    */
+/* without limitation the rights to use, copy, modify, merge, publish,    */
+/* distribute, sublicense, and/or sell copies of the Software, and to     */
+/* permit persons to whom the Software is furnished to do so, subject to  */
+/* the following conditions:                                              */
+/*                                                                        */
+/* The above copyright notice and this permission notice shall be         */
+/* included in all copies or substantial portions of the Software.        */
+/*                                                                        */
+/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
+/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
+/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
+/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
+/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
+/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
+/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
+/**************************************************************************/
 
 #include "audio_stream_wav.h"
 
 #include "core/io/file_access.h"
 #include "core/io/marshalls.h"
 
-void AudioStreamPlaybackWAV::start(float p_from_pos) {
+void AudioStreamPlaybackWAV::start(double p_from_pos) {
 	if (base->format == AudioStreamWAV::FORMAT_IMA_ADPCM) {
 		//no seeking in IMA_ADPCM
 		for (int i = 0; i < 2; i++) {
@@ -67,16 +67,16 @@ int AudioStreamPlaybackWAV::get_loop_count() const {
 	return 0;
 }
 
-float AudioStreamPlaybackWAV::get_playback_position() const {
+double AudioStreamPlaybackWAV::get_playback_position() const {
 	return float(offset >> MIX_FRAC_BITS) / base->mix_rate;
 }
 
-void AudioStreamPlaybackWAV::seek(float p_time) {
+void AudioStreamPlaybackWAV::seek(double p_time) {
 	if (base->format == AudioStreamWAV::FORMAT_IMA_ADPCM) {
 		return; //no seeking in ima-adpcm
 	}
 
-	float max = base->get_length();
+	double max = base->get_length();
 	if (p_time < 0) {
 		p_time = 0;
 	} else if (p_time >= max) {
@@ -87,21 +87,21 @@ void AudioStreamPlaybackWAV::seek(float p_time) {
 }
 
 template <class Depth, bool is_stereo, bool is_ima_adpcm>
-void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, int64_t &offset, int32_t &increment, uint32_t amount, IMA_ADPCM_State *ima_adpcm) {
+void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, int64_t &p_offset, int32_t &p_increment, uint32_t p_amount, IMA_ADPCM_State *p_ima_adpcm) {
 	// this function will be compiled branchless by any decent compiler
 
 	int32_t final, final_r, next, next_r;
-	while (amount) {
-		amount--;
-		int64_t pos = offset >> MIX_FRAC_BITS;
+	while (p_amount) {
+		p_amount--;
+		int64_t pos = p_offset >> MIX_FRAC_BITS;
 		if (is_stereo && !is_ima_adpcm) {
 			pos <<= 1;
 		}
 
 		if (is_ima_adpcm) {
-			int64_t sample_pos = pos + ima_adpcm[0].window_ofs;
+			int64_t sample_pos = pos + p_ima_adpcm[0].window_ofs;
 
-			while (sample_pos > ima_adpcm[0].last_nibble) {
+			while (sample_pos > p_ima_adpcm[0].last_nibble) {
 				static const int16_t _ima_adpcm_step_table[89] = {
 					7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
 					19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
@@ -122,20 +122,20 @@ void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, 
 				for (int i = 0; i < (is_stereo ? 2 : 1); i++) {
 					int16_t nibble, diff, step;
 
-					ima_adpcm[i].last_nibble++;
+					p_ima_adpcm[i].last_nibble++;
 					const uint8_t *src_ptr = (const uint8_t *)base->data;
 					src_ptr += AudioStreamWAV::DATA_PAD;
 
-					uint8_t nbb = src_ptr[(ima_adpcm[i].last_nibble >> 1) * (is_stereo ? 2 : 1) + i];
-					nibble = (ima_adpcm[i].last_nibble & 1) ? (nbb >> 4) : (nbb & 0xF);
-					step = _ima_adpcm_step_table[ima_adpcm[i].step_index];
+					uint8_t nbb = src_ptr[(p_ima_adpcm[i].last_nibble >> 1) * (is_stereo ? 2 : 1) + i];
+					nibble = (p_ima_adpcm[i].last_nibble & 1) ? (nbb >> 4) : (nbb & 0xF);
+					step = _ima_adpcm_step_table[p_ima_adpcm[i].step_index];
 
-					ima_adpcm[i].step_index += _ima_adpcm_index_table[nibble];
-					if (ima_adpcm[i].step_index < 0) {
-						ima_adpcm[i].step_index = 0;
+					p_ima_adpcm[i].step_index += _ima_adpcm_index_table[nibble];
+					if (p_ima_adpcm[i].step_index < 0) {
+						p_ima_adpcm[i].step_index = 0;
 					}
-					if (ima_adpcm[i].step_index > 88) {
-						ima_adpcm[i].step_index = 88;
+					if (p_ima_adpcm[i].step_index > 88) {
+						p_ima_adpcm[i].step_index = 88;
 					}
 
 					diff = step >> 3;
@@ -152,26 +152,26 @@ void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, 
 						diff = -diff;
 					}
 
-					ima_adpcm[i].predictor += diff;
-					if (ima_adpcm[i].predictor < -0x8000) {
-						ima_adpcm[i].predictor = -0x8000;
-					} else if (ima_adpcm[i].predictor > 0x7FFF) {
-						ima_adpcm[i].predictor = 0x7FFF;
+					p_ima_adpcm[i].predictor += diff;
+					if (p_ima_adpcm[i].predictor < -0x8000) {
+						p_ima_adpcm[i].predictor = -0x8000;
+					} else if (p_ima_adpcm[i].predictor > 0x7FFF) {
+						p_ima_adpcm[i].predictor = 0x7FFF;
 					}
 
 					/* store loop if there */
-					if (ima_adpcm[i].last_nibble == ima_adpcm[i].loop_pos) {
-						ima_adpcm[i].loop_step_index = ima_adpcm[i].step_index;
-						ima_adpcm[i].loop_predictor = ima_adpcm[i].predictor;
+					if (p_ima_adpcm[i].last_nibble == p_ima_adpcm[i].loop_pos) {
+						p_ima_adpcm[i].loop_step_index = p_ima_adpcm[i].step_index;
+						p_ima_adpcm[i].loop_predictor = p_ima_adpcm[i].predictor;
 					}
 
-					//printf("%i - %i - pred %i\n",int(ima_adpcm[i].last_nibble),int(nibble),int(ima_adpcm[i].predictor));
+					//printf("%i - %i - pred %i\n",int(p_ima_adpcm[i].last_nibble),int(nibble),int(p_ima_adpcm[i].predictor));
 				}
 			}
 
-			final = ima_adpcm[0].predictor;
+			final = p_ima_adpcm[0].predictor;
 			if (is_stereo) {
-				final_r = ima_adpcm[1].predictor;
+				final_r = p_ima_adpcm[1].predictor;
 			}
 
 		} else {
@@ -180,7 +180,7 @@ void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, 
 				final_r = p_src[pos + 1];
 			}
 
-			if (sizeof(Depth) == 1) { /* conditions will not exist anymore when compiled! */
+			if constexpr (sizeof(Depth) == 1) { /* conditions will not exist anymore when compiled! */
 				final <<= 8;
 				if (is_stereo) {
 					final_r <<= 8;
@@ -194,14 +194,14 @@ void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, 
 				next = p_src[pos + 1];
 			}
 
-			if (sizeof(Depth) == 1) {
+			if constexpr (sizeof(Depth) == 1) {
 				next <<= 8;
 				if (is_stereo) {
 					next_r <<= 8;
 				}
 			}
 
-			int32_t frac = int64_t(offset & MIX_FRAC_MASK);
+			int32_t frac = int64_t(p_offset & MIX_FRAC_MASK);
 
 			final = final + ((next - final) * frac >> MIX_FRAC_BITS);
 			if (is_stereo) {
@@ -217,7 +217,7 @@ void AudioStreamPlaybackWAV::do_resample(const Depth *p_src, AudioFrame *p_dst, 
 		p_dst->r = final_r / 32767.0;
 		p_dst++;
 
-		offset += increment;
+		p_offset += p_increment;
 	}
 }
 
@@ -463,7 +463,7 @@ bool AudioStreamWAV::is_stereo() const {
 	return stereo;
 }
 
-float AudioStreamWAV::get_length() const {
+double AudioStreamWAV::get_length() const {
 	int len = data_bytes;
 	switch (format) {
 		case AudioStreamWAV::FORMAT_8_BITS:
@@ -481,7 +481,7 @@ float AudioStreamWAV::get_length() const {
 		len /= 2;
 	}
 
-	return float(len) / mix_rate;
+	return double(len) / mix_rate;
 }
 
 bool AudioStreamWAV::is_monophonic() const {
@@ -580,8 +580,8 @@ Error AudioStreamWAV::save_to_wav(const String &p_path) {
 	file->store_32(sub_chunk_2_size); //Subchunk2Size
 
 	// Add data
-	Vector<uint8_t> data = get_data();
-	const uint8_t *read_data = data.ptr();
+	Vector<uint8_t> stream_data = get_data();
+	const uint8_t *read_data = stream_data.ptr();
 	switch (format) {
 		case AudioStreamWAV::FORMAT_8_BITS:
 			for (unsigned int i = 0; i < data_bytes; i++) {
