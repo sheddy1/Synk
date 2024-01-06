@@ -43,7 +43,7 @@ void Popup::_input_from_window(const Ref<InputEvent> &p_event) {
 }
 
 void Popup::_initialize_visible_parents() {
-	if (should_be_embedded()) {
+	if (is_embedded()) {
 		visible_parents.clear();
 
 		Window *parent_window = this;

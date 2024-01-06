@@ -1299,7 +1299,7 @@ void Viewport::assign_next_enabled_camera_2d(const StringName &p_camera_group) {
 void Viewport::_update_canvas_items(Node *p_node) {
 	if (p_node != this) {
 		Window *w = Object::cast_to<Window>(p_node);
-		if (w && (!w->is_inside_tree() || !w->is_current_embedded())) {
+		if (w && (!w->is_inside_tree() || !w->is_embedded())) {
 			return;
 		}
 
@@ -1566,7 +1566,7 @@ void Viewport::_gui_show_tooltip() {
 
 	DisplayServer::WindowID active_popup = DisplayServer::get_singleton()->window_get_active_popup();
 	if (active_popup == DisplayServer::INVALID_WINDOW_ID || active_popup == window->get_window_id()) {
-		gui.tooltip_popup->popup();
+		gui.tooltip_popup->show();
 	}
 	gui.tooltip_popup->child_controls_changed();
 }

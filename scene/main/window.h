@@ -121,8 +121,6 @@ private:
 	mutable Vector<Vector2> mpath;
 	mutable Mode mode = MODE_WINDOWED;
 	mutable bool flags[FLAG_MAX] = {};
-	bool embedded = false;
-	bool current_embedded = false;
 	bool visible = true;
 	bool focused = false;
 	WindowInitialPosition initial_position = WINDOW_INITIAL_POSITION_ABSOLUTE;
@@ -149,9 +147,6 @@ private:
 	ContentScaleAspect content_scale_aspect = CONTENT_SCALE_ASPECT_IGNORE;
 	ContentScaleStretch content_scale_stretch = CONTENT_SCALE_STRETCH_FRACTIONAL;
 	real_t content_scale_factor = 1.0;
-
-	void _init_window();
-	void _destroy_window();
 
 	void _make_window();
 	void _clear_window();
@@ -334,7 +329,6 @@ public:
 	void set_ime_active(bool p_active);
 	void set_ime_position(const Point2i &p_pos);
 
-	void set_embedded(bool p_enable);
 	bool is_embedded() const;
 	Viewport *get_embedder() const;
 

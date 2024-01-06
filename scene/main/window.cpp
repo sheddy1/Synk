@@ -556,107 +556,6 @@ void Window::set_ime_position(const Point2i &p_pos) {
 	}
 }
 
-void Window::_init_window() {
-	embedder = _get_embedder();
-	if (embedder) {
-		if (!visible) {
-			embedder = nullptr; // Not yet since not visible.
-		}
-	}
-
-	current_embedded = false;
-	if (should_be_embedded()) {
-		// Create as embedded.
-		if (embedder) {
-			embedder->_sub_window_register(this);
-			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE);
-			_update_window_size();
-			current_embedded = true;
-		}
-
-	} else {
-		if (!get_parent()) {
-			// It's the root window!
-			visible = true; // Always visible.
-			window_id = DisplayServer::MAIN_WINDOW_ID;
-			DisplayServer::get_singleton()->window_attach_instance_id(get_instance_id(), window_id);
-			_update_from_window();
-			// Since this window already exists (created on start), we must update pos and size from it.
-			{
-				position = DisplayServer::get_singleton()->window_get_position(window_id);
-				size = DisplayServer::get_singleton()->window_get_size(window_id);
-			}
-			_update_viewport_size(); // Then feed back to the viewport.
-			_update_window_callbacks();
-			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_VISIBLE);
-		} else {
-			// Create.
-			if (visible) {
-				_make_window();
-			}
-		}
-	}
-
-	if (transient) {
-		_make_transient();
-	}
-	if (visible) {
-		notification(NOTIFICATION_VISIBILITY_CHANGED);
-		emit_signal(SceneStringNames::get_singleton()->visibility_changed);
-		RS::get_singleton()->viewport_set_active(get_viewport_rid(), true);
-	}
-
-	if (theme.is_null()) {
-		Control *parent_c = cast_to<Control>(get_parent());
-		if (parent_c && (parent_c->data.theme_owner || parent_c->data.theme_owner_window)) {
-			theme_owner = parent_c->data.theme_owner;
-			theme_owner_window = parent_c->data.theme_owner_window;
-			notification(NOTIFICATION_THEME_CHANGED);
-		} else {
-			Window *parent_w = cast_to<Window>(get_parent());
-			if (parent_w && (parent_w->theme_owner || parent_w->theme_owner_window)) {
-				theme_owner = parent_w->theme_owner;
-				theme_owner_window = parent_w->theme_owner_window;
-				notification(NOTIFICATION_THEME_CHANGED);
-			}
-		}
-	}
-}
-
-void Window::_destroy_window() {
-	if (transient) {
-		_clear_transient();
-	}
-
-	if (!(is_current_embedded()) && window_id != DisplayServer::INVALID_WINDOW_ID) {
-		if (window_id == DisplayServer::MAIN_WINDOW_ID) {
-			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
-			_update_window_callbacks();
-		} else {
-			_clear_window();
-		}
-	} else {
-		if (has_embedder() && is_current_embedded()) {
-			embedder->_sub_window_remove(this);
-			embedder = nullptr;
-			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
-		}
-		_update_viewport_size(); //called by clear and make, which does not happen here
-	}
-
-	RS::get_singleton()->viewport_set_active(get_viewport_rid(), false);
-}
-
-void Window::set_embedded(bool p_enable) {
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint())) {
-		_destroy_window();
-	}
-	embedded = p_enable;
-	if (is_inside_tree() && (!Engine::get_singleton()->is_editor_hint())) {
-		_init_window();
-	}
-}
-
 bool Window::is_embedded() const {
 	ERR_READ_THREAD_GUARD_V(false);
 	return get_embedder() != nullptr;
@@ -669,10 +568,6 @@ bool Window::is_in_edited_scene_root() const {
 #else
 	return false;
 #endif
-}
-
-bool Window::is_current_embedded() const {
-	return current_embedded;
 }
 
 void Window::_make_window() {
@@ -913,7 +808,7 @@ void Window::set_visible(bool p_visible) {
 
 	Viewport *embedder_vp = get_embedder();
 
-	if (!should_be_embedded()) {
+	if (!embedder_vp) {
 		if (!p_visible && window_id != DisplayServer::INVALID_WINDOW_ID) {
 			_clear_window();
 		}
@@ -927,11 +822,9 @@ void Window::set_visible(bool p_visible) {
 				position = (embedder->get_visible_rect().size - size) / 2;
 			}
 			embedder->_sub_window_register(this);
-			current_embedded = true;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_PARENT_VISIBLE);
 		} else {
 			embedder->_sub_window_remove(this);
-			current_embedded = false;
 			embedder = nullptr;
 			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_DISABLED);
 		}
@@ -1289,10 +1182,17 @@ Viewport *Window::get_embedder() const {
 	ERR_READ_THREAD_GUARD_V(nullptr);
 	Viewport *vp = get_parent_viewport();
 
-	if (vp) {
-		return vp;
-	}
+	while (vp) {
+		if (vp->is_embedding_subwindows()) {
+			return vp;
+		}
 
+		if (vp->get_parent()) {
+			vp = vp->get_parent()->get_viewport();
+		} else {
+			vp = nullptr;
+		}
+	}
 	return nullptr;
 }
 
@@ -1724,7 +1624,7 @@ void Window::popup_on_parent(const Rect2i &p_parent_rect) {
 	ERR_FAIL_COND(!is_inside_tree());
 	ERR_FAIL_COND_MSG(window_id == DisplayServer::MAIN_WINDOW_ID, "Can't popup the main window.");
 
-	if (!should_be_embedded()) {
+	if (!is_embedded()) {
 		Window *window = get_parent_visible_window();
 
 		if (!window) {
@@ -2585,7 +2485,7 @@ void Window::end_bulk_theme_override() {
 Rect2i Window::get_parent_rect() const {
 	ERR_READ_THREAD_GUARD_V(Rect2i());
 	ERR_FAIL_COND_V(!is_inside_tree(), Rect2i());
-	if (should_be_embedded()) {
+	if (is_embedded()) {
 		//viewport
 		Node *n = get_parent();
 		ERR_FAIL_NULL_V(n, Rect2i());
@@ -2868,10 +2768,7 @@ void Window::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_ime_active", "active"), &Window::set_ime_active);
 	ClassDB::bind_method(D_METHOD("set_ime_position", "position"), &Window::set_ime_position);
 
-	ClassDB::bind_method(D_METHOD("set_embedded"), &Window::set_embedded);
 	ClassDB::bind_method(D_METHOD("is_embedded"), &Window::is_embedded);
-	ClassDB::bind_method(D_METHOD("has_embedder"), &Window::has_embedder);
-	ClassDB::bind_method(D_METHOD("is_current_embedded"), &Window::is_current_embedded);
 
 	ClassDB::bind_method(D_METHOD("get_contents_minimum_size"), &Window::get_contents_minimum_size);
 
@@ -2985,8 +2882,6 @@ void Window::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen", PROPERTY_HINT_RANGE, "0,64,1,or_greater"), "set_current_screen", "get_current_screen");
 
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "mouse_passthrough_polygon"), "set_mouse_passthrough_polygon", "get_mouse_passthrough_polygon");
-
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "embedded"), "set_embedded", "is_embedded");
 
 	ADD_GROUP("Flags", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "visible"), "set_visible", "is_visible");

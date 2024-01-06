@@ -213,12 +213,6 @@
 				Causes the window to grab focus, allowing it to receive user input.
 			</description>
 		</method>
-		<method name="has_embedder" qualifiers="const">
-			<return type="bool" />
-			<description>
-				Returns [code]true[/code] if current viewport has embedder.
-			</description>
-		</method>
 		<method name="has_focus" qualifiers="const">
 			<return type="bool" />
 			<description>
@@ -333,10 +327,10 @@
 				Hides the window. This is not the same as minimized state. Hidden window can't be interacted with and needs to be made visible with [method show].
 			</description>
 		</method>
-		<method name="is_current_embedded" qualifiers="const">
+		<method name="is_embedded" qualifiers="const">
 			<return type="bool" />
 			<description>
-				Returns [code]true[/code] if window is embedded in viewport.
+				Returns [code]true[/code] if the window is currently embedded in another window.
 			</description>
 		</method>
 		<method name="is_layout_rtl" qualifiers="const">
@@ -586,11 +580,6 @@
 		</member>
 		<member name="current_screen" type="int" setter="set_current_screen" getter="get_current_screen">
 			The screen the window is currently on.
-		</member>
-		<member name="embedded" type="bool" setter="set_embedded" getter="is_embedded" default="false">
-			If windows should be embedded.
-
-			To get if window is embedded, [code]is_current_embedded()[/code]
 		</member>
 		<member name="exclusive" type="bool" setter="set_exclusive" getter="is_exclusive" default="false">
 			If [code]true[/code], the [Window] will be in exclusive mode. Exclusive windows are always on top of their parent and will block all input going to the parent [Window].
