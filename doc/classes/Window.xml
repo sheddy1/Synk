@@ -643,6 +643,10 @@
 			[b]Note:[/b] On Windows, the portion of a window that lies outside the region is not drawn, while on Linux (X11) and macOS it is.
 			[b]Note:[/b] This property is implemented on Linux (X11), macOS and Windows.
 		</member>
+		<member name="native" type="bool" setter="set_native" getter="is_native" default="true">
+			If [code]true[/code], the window can be native.
+			[b]Note:[/b] This property is ignored if [member Viewport.gui_embed_subwindows] is set to [code]true[/code].
+		</member>
 		<member name="popup_window" type="bool" setter="set_flag" getter="get_flag" default="false">
 			If [code]true[/code], the [Window] will be considered a popup. Popups are sub-windows that don't show as separate windows in system's window manager's window list and will send close request when anything is clicked outside of them (unless [member exclusive] is enabled).
 		</member>

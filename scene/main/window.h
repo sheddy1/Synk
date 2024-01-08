@@ -122,6 +122,8 @@ private:
 	mutable Mode mode = MODE_WINDOWED;
 	mutable bool flags[FLAG_MAX] = {};
 	bool visible = true;
+	bool native = true;
+	bool embedded = false;
 	bool focused = false;
 	WindowInitialPosition initial_position = WINDOW_INITIAL_POSITION_ABSOLUTE;
 
@@ -148,6 +150,8 @@ private:
 	ContentScaleStretch content_scale_stretch = CONTENT_SCALE_STRETCH_FRACTIONAL;
 	real_t content_scale_factor = 1.0;
 
+	void _init_window();
+	void _uninit_window();
 	void _make_window();
 	void _clear_window();
 	void _update_from_window();
@@ -328,6 +332,9 @@ public:
 
 	void set_ime_active(bool p_active);
 	void set_ime_position(const Point2i &p_pos);
+
+	void set_native(bool p_native);
+	bool is_native() const;
 
 	bool is_embedded() const;
 	Viewport *get_embedder() const;
