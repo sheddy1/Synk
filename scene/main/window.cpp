@@ -821,7 +821,7 @@ void Window::set_visible(bool p_visible) {
 	updating_child_controls = false;
 
 	Viewport *embedder_vp = get_embedder();
-	if (embedder_vp && !(embedder_vp->is_embedding_subwindows() || !native)) {
+	if (embedder_vp && !embedder_vp->is_embedding_subwindows() && native) {
 		embedder_vp = nullptr;
 	}
 
