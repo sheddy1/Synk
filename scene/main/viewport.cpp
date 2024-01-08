@@ -3874,7 +3874,7 @@ void Viewport::set_embedding_subwindows(bool p_embed) {
 				break;
 			}
 			vp = vp->get_parent()->get_viewport();
-			if (vp->is_embedding_subwindows() || !vp->gui.sub_windows.is_empty()) {
+			if (!vp->gui.sub_windows.is_empty()) {
 				for (int i = 0; i < vp->gui.sub_windows.size(); i++) {
 					if (is_ancestor_of(vp->gui.sub_windows[i].window)) {
 						// Prevent change when this viewport has child windows that are displayed in an ancestor viewport.
