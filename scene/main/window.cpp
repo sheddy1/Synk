@@ -1220,12 +1220,10 @@ void Window::_init_window() {
 		if (embedder) {
 			if (embedder->is_embedding_subwindows()) {
 				embedded = true;
+			} else if (native) {
+				embedder = nullptr;
 			} else {
-				if (native) {
-					embedder = nullptr;
-				} else {
-					embedded = true;
-				}
+				embedded = true;
 			}
 			if (!visible) {
 				embedder = nullptr; // Not yet since not visible.
