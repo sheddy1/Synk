@@ -1244,29 +1244,23 @@ void Window::_init_window() {
 			_update_window_size();
 		}
 
-	} else {
-		if (!get_parent()) {
-			// It's the root window!
-			visible = true; // Always visible.
-			window_id = DisplayServer::MAIN_WINDOW_ID;
-			DisplayServer::get_singleton()->window_attach_instance_id(get_instance_id(), window_id);
-			_update_from_window();
-			// Since this window already exists (created on start), we must update pos and size from it.
-			{
-				position = DisplayServer::get_singleton()->window_get_position(window_id);
-				size = DisplayServer::get_singleton()->window_get_size(window_id);
-				focused = DisplayServer::get_singleton()->window_is_focused(window_id);
-			}
-			_update_window_size(); // Inform DisplayServer of minimum and maximum size.
-			_update_viewport_size(); // Then feed back to the viewport.
-			_update_window_callbacks();
-			RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_VISIBLE);
-		} else {
-			// Create.
-			if (visible) {
-				_make_window();
-			}
-		}
+	} else if (!get_parent()) {
+		// It's the root window!
+		visible = true; // Always visible.
+		window_id = DisplayServer::MAIN_WINDOW_ID;
+		DisplayServer::get_singleton()->window_attach_instance_id(get_instance_id(), window_id);
+		_update_from_window();
+		// Since this window already exists (created on start), we must update pos and size from it.
+		position = DisplayServer::get_singleton()->window_get_position(window_id);
+		size = DisplayServer::get_singleton()->window_get_size(window_id);
+		focused = DisplayServer::get_singleton()->window_is_focused(window_id);
+		_update_window_size(); // Inform DisplayServer of minimum and maximum size.
+		_update_viewport_size(); // Then feed back to the viewport.
+		_update_window_callbacks();
+		RS::get_singleton()->viewport_set_update_mode(get_viewport_rid(), RS::VIEWPORT_UPDATE_WHEN_VISIBLE);
+	} else if (visible) {
+		// Create.
+		_make_window();
 	}
 
 	if (transient) {
