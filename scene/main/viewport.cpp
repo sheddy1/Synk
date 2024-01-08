@@ -2021,7 +2021,7 @@ void Viewport::_gui_input_event(Ref<InputEvent> p_event) {
 			Viewport *embedder = nullptr;
 			Vector2 viewport_pos;
 
-			if (!gui.sub_windows.is_empty()) {
+			if (is_embedding_subwindows() || !gui.sub_windows.is_empty()) {
 				embedder = this;
 				viewport_pos = mpos;
 			} else {
@@ -3096,7 +3096,7 @@ void Viewport::_update_mouse_over() {
 		return;
 	}
 
-	if (!gui.sub_windows.is_empty() || is_sub_viewport()) {
+	if (get_tree()->get_root()->is_embedding_subwindows() || !gui.sub_windows.is_empty() || is_sub_viewport()) {
 		// Use embedder logic for calculating mouse position.
 		_update_mouse_over(gui.last_mouse_pos);
 	} else {
@@ -3115,7 +3115,7 @@ void Viewport::_update_mouse_over() {
 
 void Viewport::_update_mouse_over(Vector2 p_pos) {
 	// Look for embedded windows at mouse position.
-	if (!gui.sub_windows.is_empty()) {
+	if (is_embedding_subwindows() || !gui.sub_windows.is_empty()) {
 		for (int i = gui.sub_windows.size() - 1; i >= 0; i--) {
 			Window *sw = gui.sub_windows[i].window;
 			Rect2 swrect = Rect2(sw->get_position(), sw->get_size());
@@ -3332,7 +3332,7 @@ void Viewport::push_input(const Ref<InputEvent> &p_event, bool p_local_coords) {
 		_update_mouse_over();
 	}
 
-	if (!gui.sub_windows.is_empty() && _sub_windows_forward_input(ev)) {
+	if ((is_embedding_subwindows() || !gui.sub_windows.is_empty()) && _sub_windows_forward_input(ev)) {
 		set_input_as_handled();
 		return;
 	}
@@ -3874,7 +3874,7 @@ void Viewport::set_embedding_subwindows(bool p_embed) {
 				break;
 			}
 			vp = vp->get_parent()->get_viewport();
-			if (!vp->gui.sub_windows.is_empty()) {
+			if (vp->is_embedding_subwindows() || !vp->gui.sub_windows.is_empty()) {
 				for (int i = 0; i < vp->gui.sub_windows.size(); i++) {
 					if (is_ancestor_of(vp->gui.sub_windows[i].window)) {
 						// Prevent change when this viewport has child windows that are displayed in an ancestor viewport.

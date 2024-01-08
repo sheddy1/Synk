@@ -2772,7 +2772,7 @@ void Window::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("move_to_foreground"), &Window::move_to_foreground);
 
-	ClassDB::bind_method(D_METHOD("set_native"), &Window::set_native);
+	ClassDB::bind_method(D_METHOD("set_native", "native"), &Window::set_native);
 	ClassDB::bind_method(D_METHOD("is_native"), &Window::is_native);
 
 	ClassDB::bind_method(D_METHOD("set_visible", "visible"), &Window::set_visible);
