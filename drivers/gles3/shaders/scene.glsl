@@ -344,6 +344,10 @@ void main() {
 
 	highp mat4 model_matrix = world_transform;
 
+#ifdef USE_VERTEX_LIGHTING
+	float alpha = 1.0;
+#endif // USE_VERTEX_LIGHTING
+
 #ifdef USE_INSTANCING
 	highp mat4 m = mat4(instance_xform0, instance_xform1, instance_xform2, vec4(0.0, 0.0, 0.0, 1.0));
 	model_matrix = model_matrix * transpose(m);
@@ -565,15 +569,11 @@ void main() {
 
 #ifdef USE_VERTEX_LIGHTING
 #ifndef MODE_RENDER_DEPTH
-	// Convert colors to linear
-	albedo = srgb_to_linear(albedo);
-	emission = srgb_to_linear(emission);
 #ifdef USE_MULTIVIEW
 	vec3 view = -normalize(vertex_interp - eye_offset);
 #else
 	vec3 view = -normalize(vertex_interp);
 #endif
-	vec3 f0 = F0(metallic, specular, albedo);
 	diffuse_light_interp = vec4(0.0);
 	specular_light_interp = vec4(0.0);
 #ifdef BASE_PASS
@@ -581,15 +581,15 @@ void main() {
 	vec3 directional_diffuse = vec3(0.0);
 	vec3 directional_specular = vec3(0.0);
 	for (uint i = uint(0); i < scene_data.directional_light_count; i++) {
-		light_compute(normal_interp, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, f0, roughness, metallic, 1.0, albedo, alpha,
+		light_compute(normal_interp, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-				backlight,
+				0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-				rim, rim_tint,
+				0.0, 0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-				clearcoat, clearcoat_roughness, normalize(normal_interp),
+				0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal,
@@ -624,16 +624,16 @@ void main() {
 		if (i >= omni_light_count) {
 			break;
 		}
-		light_process_omni(omni_light_indices[i], vertex_interp, view, normal_interp, f0, roughness, metallic, 1.0, albedo, alpha,
+		light_process_omni(omni_light_indices[i], vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-				backlight,
+				0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-				rim,
-				rim_tint,
+				0.0,
+				0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-				clearcoat, clearcoat_roughness, normalize(normal_interp),
+				0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 				binormal, tangent, anisotropy,
@@ -647,16 +647,16 @@ void main() {
 		if (i >= spot_light_count) {
 			break;
 		}
-		light_process_spot(spot_light_indices[i], vertex_interp, view, normal_interp, f0, roughness, metallic, 1.0, albedo, alpha,
+		light_process_spot(spot_light_indices[i], vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-				backlight,
+				0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-				rim,
-				rim_tint,
+				0.0,
+				0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-				clearcoat, clearcoat_roughness, normalize(normal_interp),
+				0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 				tangent,
@@ -672,15 +672,15 @@ void main() {
 
 #if !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 
-	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, 1.0, f0, roughness, metallic, 1.0, albedo, alpha,
+	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, 1.0, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-			backlight,
+			0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-			rim, rim_tint,
+			0.0, 0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-			clearcoat, clearcoat_roughness, normalize(normal_interp),
+			0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			binormal,
@@ -693,16 +693,16 @@ void main() {
 #ifdef ADDITIVE_OMNI
 	vec3 light_ray = ((positional_shadows[positional_shadow_index].shadow_matrix * vec4(shadow_coord.xyz, 1.0))).xyz;
 
-	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, f0, roughness, metallic, 1.0, albedo, alpha,
+	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), 1.0,
 #ifdef LIGHT_BACKLIGHT_USED
-			backlight,
+			0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-			rim,
-			rim_tint,
+			0.0,
+			0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-			clearcoat, clearcoat_roughness, normalize(normal_interp),
+			0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			binormal, tangent, anisotropy,
@@ -712,16 +712,16 @@ void main() {
 
 #ifdef ADDITIVE_SPOT
 
-	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, f0, roughness, metallic, 1.0, albedo, alpha,
+	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), 1.0,
 #ifdef LIGHT_BACKLIGHT_USED
-			backlight,
+			0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-			rim,
-			rim_tint,
+			0.0,
+			0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-			clearcoat, clearcoat_roughness, normalize(normal_interp),
+			0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 			tangent,

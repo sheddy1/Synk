@@ -208,6 +208,9 @@ void main() {
 
 	mat4 model_matrix = instances.data[draw_call.instance_index].transform;
 	mat4 inv_view_matrix = scene_data.inv_view_matrix;
+#ifdef USE_VERTEX_LIGHTING
+	float alpha = 1.0;
+#endif // USE_VERTEX_LIGHTING
 
 #ifdef USE_DOUBLE_PRECISION
 	vec3 model_precision = vec3(model_matrix[0][3], model_matrix[1][3], model_matrix[2][3]);
@@ -485,17 +488,12 @@ void main() {
 	vec3 vertex_ddy = vec3(0); // Fake variable
 #endif //!MODE_RENDER_DEPTH
 
-	// convert ao to direct light ao
-	ao = mix(1.0, ao, ao_light_affect);
-
-	//this saves some VGPRs
-	vec3 f0 = F0(metallic, specular, albedo);
 	diffuse_light_interp = vec4(0.0);
 	specular_light_interp = vec4(0.0);
 
 #if !defined(MODE_RENDER_DEPTH)
 	//this saves some VGPRs
-	uint orms = packUnorm4x8(vec4(ao, roughness, metallic, specular));
+	uint orms = packUnorm4x8(vec4(0.0, roughness, 0.0, 0.0));
 #endif
 
 	if (!sc_disable_directional_lights) { //directional light
@@ -536,9 +534,9 @@ void main() {
 #else
 					directional_lights.data[i].color * directional_lights.data[i].energy * tint,
 #endif
-					true, 1.0, f0, orms, 1.0, albedo, alpha,
+					true, 1.0, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-					backlight,
+					0.0,
 #endif
 /* not supported here
 #ifdef LIGHT_TRANSMITTANCE_USED
@@ -549,10 +547,10 @@ void main() {
 #endif
 */
 #ifdef LIGHT_RIM_USED
-					rim, rim_tint,
+					0.0, 0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-					clearcoat, clearcoat_roughness, normalize(normal_interp),
+					0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					binormal, tangent, anisotropy,
@@ -579,9 +577,9 @@ void main() {
 				break;
 			}
 
-			light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, 1.0, albedo, alpha,
+			light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-					backlight,
+					0.0,
 #endif
 /*
 #ifdef LIGHT_TRANSMITTANCE_USED
@@ -591,11 +589,11 @@ void main() {
 #endif
 */
 #ifdef LIGHT_RIM_USED
-					rim,
-					rim_tint,
+					0.0,
+					0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-					clearcoat, clearcoat_roughness, normalize(normal_interp),
+					0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					tangent,
@@ -620,9 +618,9 @@ void main() {
 				break;
 			}
 
-			light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, 1.0, albedo, alpha,
+			light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-					backlight,
+					0.0,
 #endif
 /*
 #ifdef LIGHT_TRANSMITTANCE_USED
@@ -632,11 +630,11 @@ void main() {
 #endif
 */
 #ifdef LIGHT_RIM_USED
-					rim,
-					rim_tint,
+					0.0,
+					0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-					clearcoat, clearcoat_roughness, normalize(normal_interp),
+					0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					tangent,

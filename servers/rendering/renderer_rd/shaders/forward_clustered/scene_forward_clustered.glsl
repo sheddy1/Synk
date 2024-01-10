@@ -524,6 +524,10 @@ void vertex_shader(vec3 vertex_input,
 	screen_pos = gl_Position;
 #endif
 // VERTEX LIGHTING
+#ifdef USE_VERTEX_LIGHTING
+	float alpha = 1.0;
+#endif // USE_VERTEX_LIGHTING
+
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING)
 	diffuse_light_interp = vec4(0.0);
 	specular_light_interp = vec4(0.0);
@@ -540,15 +544,10 @@ void vertex_shader(vec3 vertex_input,
 	//used for interpolating anything cluster related
 	vec3 vertex_ddx = vec3(0); // Fake variable
 	vec3 vertex_ddy = vec3(0); // Fake variable
-	// convert ao to direct light ao
-	ao = mix(1.0, ao, ao_light_affect);
-
-	//this saves some VGPRs
-	vec3 f0 = F0(metallic, specular, albedo);
 
 #if !defined(MODE_RENDER_DEPTH)
 	//this saves some VGPRs
-	uint orms = packUnorm4x8(vec4(ao, roughness, metallic, specular));
+	uint orms = packUnorm4x8(vec4(0.0, roughness, 0.0, 0.0));
 #endif
 
 	{ // Directional light.
@@ -642,21 +641,21 @@ void vertex_shader(vec3 vertex_input,
 #else
 					directional_lights.data[i].color * directional_lights.data[i].energy * tint,
 #endif
-					true, 1.0, f0, orms, 1.0, albedo, alpha,
+					true, 1.0, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-					backlight,
+					0.0,
 #endif
 #ifdef LIGHT_TRANSMITTANCE_USED
-					transmittance_color,
-					transmittance_depth,
-					transmittance_boost,
-					transmittance_z,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-					rim, rim_tint,
+					0.0, 0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-					clearcoat, clearcoat_roughness, normalize(normal_interp),
+					0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 					binormal,
@@ -710,21 +709,21 @@ void vertex_shader(vec3 vertex_input,
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, 1.0, albedo, alpha,
+				light_process_omni(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-						backlight,
+						0.0,
 #endif
 #ifdef LIGHT_TRANSMITTANCE_USED
-						transmittance_color,
-						transmittance_depth,
-						transmittance_boost,
+						0.0,
+						0.0,
+						0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-						rim,
-						rim_tint,
+						0.0,
+						0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, clearcoat_roughness, normalize(normal_interp),
+						0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent, binormal, anisotropy,
@@ -778,21 +777,21 @@ void vertex_shader(vec3 vertex_input,
 					continue; // Statically baked light and object uses lightmap, skip
 				}
 
-				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, f0, orms, 1.0, albedo, alpha,
+				light_process_spot(light_index, vertex, view, normal, vertex_ddx, vertex_ddy, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
-						backlight,
+						0.0,
 #endif
 #ifdef LIGHT_TRANSMITTANCE_USED
-						transmittance_color,
-						transmittance_depth,
-						transmittance_boost,
+						0.0,
+						0.0,
+						0.0,
 #endif
 #ifdef LIGHT_RIM_USED
-						rim,
-						rim_tint,
+						0.0,
+						0.0,
 #endif
 #ifdef LIGHT_CLEARCOAT_USED
-						clearcoat, clearcoat_roughness, normalize(normal_interp),
+						0.0, 0.0, normalize(normal_interp),
 #endif
 #ifdef LIGHT_ANISOTROPY_USED
 						tangent,
