@@ -41,6 +41,7 @@
 #include "modules/gltf/gltf_document.h"
 #include "modules/gltf/gltf_state.h"
 #include "scene/3d/mesh_instance_3d.h"
+#include "scene/3d/skeleton_3d.h"
 #include "scene/main/window.h"
 #include "scene/resources/material.h"
 #include "scene/resources/packed_scene.h"
@@ -124,7 +125,7 @@ TEST_CASE("[SceneTree][Node] GLTF test mesh and material meta export and import"
 	original->set_meta("node_type", "node3d");
 
 	// Convert to GLFT and back.
-	String tempfile = OS::get_singleton()->get_cache_path().path_join("gltf_extras");
+	String tempfile = OS::get_singleton()->get_cache_path().path_join("gltf_extras_mesh");
 	Node *loaded = _gltf_export_then_import(original, tempfile);
 
 	// Compare the results.
@@ -146,6 +147,55 @@ TEST_CASE("[SceneTree][Node] GLTF test mesh and material meta export and import"
 	memdelete(original);
 	memdelete(loaded);
 }
+
+TEST_CASE("[SceneTree][Node] GLTF test skeleton and bone export and import") {
+	// Setup scene.
+	Skeleton3D *skeleton = memnew(Skeleton3D);
+	skeleton->set_name("skeleton");
+	skeleton->set_meta("node_type", "i_am_skeleton");
+
+	skeleton->add_bone("parent");
+	skeleton->set_bone_rest(0, Transform3D());
+	skeleton->set_bone_meta(0, "bone", "i_am_parent_bone");
+
+	skeleton->add_bone("child");
+	skeleton->set_bone_rest(1, Transform3D());
+	skeleton->set_bone_parent(1, 0);
+	skeleton->set_bone_meta(1, "bone", "i_am_child_bone");
+
+	Ref<PlaneMesh> meshdata = memnew(PlaneMesh);
+	meshdata->set_name("planemesh");
+
+	MeshInstance3D *mesh = memnew(MeshInstance3D);
+	mesh->set_mesh(meshdata);
+	mesh->set_name("mesh_instance_3d");
+
+	Node3D *scene = memnew(Node3D);
+	SceneTree::get_singleton()->get_root()->add_child(scene);
+	scene->add_child(skeleton);
+	scene->add_child(mesh);
+	scene->set_name("node3d");
+
+	// Now that both skeleton and mesh are part of scene, link them.
+	mesh->set_skeleton_path(mesh->get_path_to(skeleton));
+
+	// Convert to GLFT and back.
+	String tempfile = OS::get_singleton()->get_cache_path().path_join("gltf_extras_skeleton");
+	Node *loaded = _gltf_export_then_import(scene, tempfile);
+
+	// Compare the results.
+	CHECK(loaded->get_name() == "node3d");
+	Skeleton3D *result = Object::cast_to<Skeleton3D>(loaded->find_child("Skeleton3D", false, true));
+	CHECK(result->get_bone_name(0) == "parent");
+	CHECK(result->get_bone_meta(0, "bone") == "i_am_parent_bone");
+	CHECK(result->get_bone_name(1) == "child");
+	CHECK(result->get_bone_meta(1, "bone") == "i_am_child_bone");
+
+	memdelete(skeleton);
+	memdelete(scene);
+	memdelete(loaded);
+}
+
 } // namespace TestGltfExtras
 
 #endif // TOOLS_ENABLED

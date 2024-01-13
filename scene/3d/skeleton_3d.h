@@ -126,6 +126,7 @@ private:
 
 	Vector<int> parentless_bones;
 	HashMap<String, int> name_to_bone_index;
+	HashMap<int, HashMap<StringName, Variant>> metadata;
 
 	void _make_dirty();
 	bool dirty = false;
@@ -144,6 +145,7 @@ protected:
 	void _get_property_list(List<PropertyInfo> *p_list) const;
 	void _validate_property(PropertyInfo &p_property) const;
 	void _notification(int p_what);
+	TypedArray<StringName> _get_bone_meta_list_bind(int p_bone) const;
 	static void _bind_methods();
 
 public:
@@ -185,6 +187,11 @@ public:
 
 	void set_motion_scale(float p_motion_scale);
 	float get_motion_scale() const;
+
+	// bone metadata
+	Variant get_bone_meta(int p_bone, const StringName &p_key) const;
+	void get_bone_meta_list(int p_bone, List<StringName> *p_list) const;
+	void set_bone_meta(int p_bone, const StringName &p_key, const Variant &p_value);
 
 	// posing api
 

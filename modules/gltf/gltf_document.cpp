@@ -4848,6 +4848,13 @@ Error GLTFDocument::_create_skeletons(Ref<GLTFState> p_state) {
 			skeleton->set_bone_pose_rotation(bone_index, node->get_rotation());
 			skeleton->set_bone_pose_scale(bone_index, node->get_scale());
 
+			// Store bone-level GLTF extras in skeleton per bone meta
+			List<StringName> meta_keys;
+			node->get_meta_list(&meta_keys);
+			for (const StringName &key : meta_keys) {
+				skeleton->set_bone_meta(bone_index, key, node->get_meta(key));
+			}
+
 			if (node->parent >= 0 && p_state->nodes[node->parent]->skeleton == skel_i) {
 				const int bone_parent = skeleton->find_bone(p_state->nodes[node->parent]->get_name());
 				ERR_FAIL_COND_V(bone_parent < 0, FAILED);
@@ -5844,6 +5851,13 @@ void GLTFDocument::_convert_skeleton_to_gltf(Skeleton3D *p_skeleton3d, Ref<GLTFS
 		joint_node->set_name(_gen_unique_name(p_state, skeleton->get_bone_name(bone_i)));
 		joint_node->transform = skeleton->get_bone_pose(bone_i);
 		joint_node->joint = true;
+
+		List<StringName> meta_keys;
+		p_skeleton3d->get_bone_meta_list(bone_i, &meta_keys);
+		for (const StringName &key : meta_keys) {
+			joint_node->set_meta(key, p_skeleton3d->get_bone_meta(bone_i, key));
+		}
+
 		GLTFNodeIndex current_node_i = p_state->nodes.size();
 		p_state->scene_nodes.insert(current_node_i, skeleton);
 		p_state->nodes.push_back(joint_node);
