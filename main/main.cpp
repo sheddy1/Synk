@@ -120,6 +120,13 @@
 #endif // TOOLS_ENABLED && !GDSCRIPT_NO_LSP
 #endif // MODULE_GDSCRIPT_ENABLED
 
+#ifdef WINDOWS_ENABLED
+#include <io.h>
+#define isatty _isatty
+#else
+#include <unistd.h>
+#endif
+
 /* Static members */
 
 // Singletons
@@ -394,6 +401,7 @@ void Main::print_help(const char *p_binary) {
 	OS::get_singleton()->print("  --version                         Display the version string.\n");
 	OS::get_singleton()->print("  -v, --verbose                     Use verbose stdout mode.\n");
 	OS::get_singleton()->print("  -q, --quiet                       Quiet mode, silences stdout messages. Errors are still displayed.\n");
+	OS::get_singleton()->print("  ---color                          Use colors for console output ['auto', 'always', 'never'].\n");
 	OS::get_singleton()->print("\n");
 
 	OS::get_singleton()->print("Run options:\n");
@@ -848,6 +856,11 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		packed_data = memnew(PackedData);
 	}
 
+	// Disable color codes if stdout is not a TTY, or if the `NO_COLOR` environment variable
+	// is set to a non-empty string (https://no-color.org/).
+	// This prevents Godot from writing ANSI escape codes when redirecting stdout and stderr to a file.
+	Engine::get_singleton()->set_color_standard_output(OS::get_singleton()->get_environment("NO_COLOR").is_empty() && isatty(fileno(stdout)));
+
 #ifdef MINIZIP_ENABLED
 
 	//XXX: always get_singleton() == 0x0
@@ -926,6 +939,21 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 			quiet_stdout = true;
 
+		} else if (I->get() == "--color") { // Color console output.
+
+			if (I->next()) {
+				// The "auto" case is already handled above.
+				if (I->next()->get() == "always") {
+					Engine::get_singleton()->set_color_standard_output(true);
+				} else if (I->next()->get() == "never") {
+					Engine::get_singleton()->set_color_standard_output(false);
+				}
+
+				N = I->next()->next();
+			} else {
+				OS::get_singleton()->print("Missing color argument, aborting.\n");
+				goto error;
+			}
 		} else if (I->get() == "--audio-driver") { // audio driver
 
 			if (I->next()) {

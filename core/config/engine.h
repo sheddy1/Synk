@@ -89,6 +89,8 @@ private:
 	String write_movie_path;
 	String shader_cache_path;
 
+	bool color_standard_output = true;
+
 public:
 	static Engine *get_singleton();
 
@@ -169,6 +171,9 @@ public:
 
 	void set_shader_cache_path(const String &p_path);
 	String get_shader_cache_path() const;
+
+	void set_color_standard_output(bool p_enable);
+	bool is_coloring_standard_output() const;
 
 	bool is_abort_on_gpu_errors_enabled() const;
 	bool is_validation_layers_enabled() const;
