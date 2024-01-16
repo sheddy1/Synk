@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  editor_quick_open.h                                                   */
+/*  fuzzy_search.h                                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,51 +28,40 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef EDITOR_QUICK_OPEN_H
-#define EDITOR_QUICK_OPEN_H
+#ifndef FUZZY_SEARCH_H
+#define FUZZY_SEARCH_H
 
-#include "core/templates/oa_hash_map.h"
-#include "editor/editor_file_system.h"
-#include "scene/gui/dialogs.h"
-#include "scene/gui/tree.h"
+#include "core/object/ref_counted.h"
+#include "core/templates/rb_set.h"
+#include "core/variant/array.h"
+#include "core/variant/variant.h"
 
-class EditorQuickOpen : public ConfirmationDialog {
-	GDCLASS(EditorQuickOpen, ConfirmationDialog);
+class Tree;
 
-	static Rect2i prev_rect;
-	static bool was_showed;
-
-	LineEdit *search_box = nullptr;
-	Tree *search_options = nullptr;
-	String base_type;
-	bool allow_multi_select = false;
-
-	Vector<String> files;
-	OAHashMap<String, Ref<Texture2D>> icons;
-
-	void _update_search();
-	void _build_search_cache(EditorFileSystemDirectory *p_efsd);
-
-	void _confirmed();
-	virtual void cancel_pressed() override;
-	void _cleanup();
-
-	void _sbox_input(const Ref<InputEvent> &p_ie);
-	void _text_changed(const String &p_newtext);
-	void _draw_search_options();
+class FuzzySearchResult : public RefCounted {
+	GDCLASS(FuzzySearchResult, RefCounted);
 
 protected:
-	void _notification(int p_what);
-	static void _bind_methods();
+	static void _bind_methods() {}
+
+	mutable Vector<int> m_matches_as_substr_sequences_cache;
 
 public:
-	String get_base_type() const;
+	String target;
+	int score{};
+	RBSet<int> matches;
 
-	String get_selected() const;
-	Vector<String> get_selected_files() const;
+	Vector<int> get_matches() const;
 
-	void popup_dialog(const String &p_base, bool p_enable_multi = false, bool p_dontclear = false);
-	EditorQuickOpen();
+	const Vector<int> &get_matches_as_substr_sequences() const;
 };
 
-#endif // EDITOR_QUICK_OPEN_H
+class FuzzySearch : public RefCounted {
+	GDCLASS(FuzzySearch, RefCounted);
+
+public:
+	static Vector<Ref<FuzzySearchResult>> search_all(const String &p_query_tokens, const PackedStringArray &p_search_data);
+	static void draw_matches(Tree *p_tree);
+};
+
+#endif // FUZZY_SEARCH_H
