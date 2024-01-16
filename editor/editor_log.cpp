@@ -125,6 +125,14 @@ void EditorLog::_update_theme() {
 	theme_cache.warning_color = get_theme_color(SNAME("warning_color"), EditorStringName(Editor));
 	theme_cache.warning_icon = get_editor_theme_icon(SNAME("Warning"));
 	theme_cache.message_color = get_theme_color(SNAME("font_color"), EditorStringName(Editor)) * Color(1, 1, 1, 0.6);
+
+	// Used for `print_rich()` coloring.
+	theme_cache.red_color = get_theme_color(SNAME("red_color"), EditorStringName(Editor));
+	theme_cache.green_color = get_theme_color(SNAME("green_color"), EditorStringName(Editor));
+	theme_cache.yellow_color = get_theme_color(SNAME("yellow_color"), EditorStringName(Editor));
+	theme_cache.blue_color = get_theme_color(SNAME("blue_color"), EditorStringName(Editor));
+	theme_cache.magenta_color = get_theme_color(SNAME("magenta_color"), EditorStringName(Editor));
+	theme_cache.cyan_color = get_theme_color(SNAME("cyan_color"), EditorStringName(Editor));
 }
 
 void EditorLog::_notification(int p_what) {
@@ -239,7 +247,7 @@ void EditorLog::_process_message(const String &p_msg, MessageType p_type, bool p
 
 void EditorLog::add_message(const String &p_msg, MessageType p_type) {
 	// Make text split by new lines their own message.
-	// See #41321 for reasoning. At time of writing, multiple print()'s in running projects
+	// See GH-41321 for reasoning. At time of writing, multiple print()'s in running projects
 	// get grouped together and sent to the editor log as one message. This can mess with the
 	// search functionality (see the comments on the PR above for more details). This behavior
 	// also matches that of other IDE's.
@@ -342,7 +350,17 @@ void EditorLog::_add_log_line(LogMessage &p_message, bool p_replace_previous) {
 	}
 
 	if (p_message.type == MSG_TYPE_STD_RICH) {
-		log->append_text(p_message.text);
+		// Replace basic ANSI colors with more pleasant-looking colors, similar to what most terminals do out of the box.
+		// This also allows the printed colors to adapt to the current editor theme at the time of printing.
+		// Only replace the end of the color tag so that colors in `bgcolor` and `fgcolor` are replaced too.
+		log->append_text(
+				p_message.text
+						.replace("color=red]", "color=" + theme_cache.red_color.to_html() + "]")
+						.replace("color=green]", "color=" + theme_cache.green_color.to_html() + "]")
+						.replace("color=yellow]", "color=" + theme_cache.yellow_color.to_html() + "]")
+						.replace("color=blue]", "color=" + theme_cache.blue_color.to_html() + "]")
+						.replace("color=magenta]", "color=" + theme_cache.magenta_color.to_html() + "]")
+						.replace("color=cyan]", "color=" + theme_cache.cyan_color.to_html() + "]"));
 	} else {
 		log->add_text(p_message.text);
 	}

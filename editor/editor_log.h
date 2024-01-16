@@ -79,6 +79,13 @@ private:
 		Ref<Texture2D> warning_icon;
 
 		Color message_color;
+
+		Color red_color;
+		Color green_color;
+		Color yellow_color;
+		Color blue_color;
+		Color magenta_color;
+		Color cyan_color;
 	} theme_cache;
 
 	// Encapsulates all data and functionality regarding filters.

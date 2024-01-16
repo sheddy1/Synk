@@ -719,6 +719,9 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	Color success_color = Color(0.45, 0.95, 0.5);
 	Color warning_color = Color(1, 0.87, 0.4);
 	Color error_color = Color(1, 0.47, 0.42);
+	Color blue_color = Color(0.44, 0.73, 0.98);
+	Color magenta_color = Color(0.98, 0.44, 0.98);
+	Color cyan_color = Color(0.37, 0.98, 0.98);
 	Color property_color = font_color.lerp(Color(0.5, 0.5, 0.5), 0.5);
 	Color readonly_color = property_color.lerp(dark_theme ? Color(0, 0, 0) : Color(1, 1, 1), 0.25);
 	Color readonly_warning_color = error_color.lerp(dark_theme ? Color(0, 0, 0) : Color(1, 1, 1), 0.25);
@@ -728,6 +731,9 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		success_color = success_color.lerp(mono_color, 0.35);
 		warning_color = warning_color.lerp(mono_color, 0.35);
 		error_color = error_color.lerp(mono_color, 0.25);
+		blue_color = blue_color.lerp(mono_color, 0.35);
+		magenta_color = magenta_color.lerp(mono_color, 0.35);
+		cyan_color = cyan_color.lerp(mono_color, 0.4);
 	}
 
 	theme->set_color("success_color", EditorStringName(Editor), success_color);
@@ -735,6 +741,16 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	theme->set_color("error_color", EditorStringName(Editor), error_color);
 	theme->set_color("property_color", EditorStringName(Editor), property_color);
 	theme->set_color("readonly_color", EditorStringName(Editor), readonly_color);
+
+	// Used to color `print_rich()` usage with basic RichTextLabel colors in the editor log.
+	// NOTE: These color names are non-semantic. Only use these generic colors if no specific
+	// color suits your use case (such as `error_color`).
+	theme->set_color("red_color", "Editor", error_color);
+	theme->set_color("green_color", "Editor", success_color);
+	theme->set_color("yellow_color", "Editor", warning_color);
+	theme->set_color("blue_color", "Editor", blue_color);
+	theme->set_color("magenta_color", "Editor", magenta_color);
+	theme->set_color("cyan_color", "Editor", cyan_color);
 
 	if (!dark_theme) {
 		theme->set_color("highend_color", EditorStringName(Editor), Color::hex(0xad1128ff));
