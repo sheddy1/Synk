@@ -40,7 +40,7 @@ class NavigationObstacle2DEditor : public AbstractPolygon2DEditor {
 	NavigationObstacle2D *node = nullptr;
 
 protected:
-	virtual Node2D *_get_node() const override;
+	virtual CanvasItem *_get_node() const override;
 	virtual void _set_node(Node *p_polygon) override;
 
 	virtual void _action_add_polygon(const Variant &p_polygon) override;

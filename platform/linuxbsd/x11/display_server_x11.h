@@ -161,7 +161,15 @@ class DisplayServerX11 : public DisplayServer {
 	FreeDesktopPortalDesktop *portal_desktop = nullptr;
 #endif
 
+	struct DecorData {
+		Vector<Vector2> region;
+		WindowDecorationType dec_type = WINDOW_DECORATION_MOVE;
+	};
+
 	struct WindowData {
+		int decor_id = 0;
+		HashMap<int, DecorData> decor;
+
 		Window x11_window;
 		Window x11_xim_window;
 		Window parent;
@@ -359,6 +367,8 @@ class DisplayServerX11 : public DisplayServer {
 	static void _dispatch_input_events(const Ref<InputEvent> &p_event);
 	void _dispatch_input_event(const Ref<InputEvent> &p_event);
 
+	void _process_window_drag(WindowID p_window, XEvent p_event, int p_dec_type);
+
 	mutable Mutex events_mutex;
 	Thread events_thread;
 	SafeFlag events_thread_done;
@@ -451,6 +461,10 @@ public:
 
 	virtual void window_set_title(const String &p_title, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window = MAIN_WINDOW_ID) override;
+
+	virtual int window_add_decoration(const Vector<Vector2> &p_region, WindowDecorationType p_dec_type, WindowID p_window = MAIN_WINDOW_ID) override;
+	virtual void window_change_decoration(int p_rect_id, const Vector<Vector2> &p_region, WindowDecorationType p_dec_type, WindowID p_window = MAIN_WINDOW_ID) override;
+	virtual void window_remove_decoration(int p_rect_id, WindowID p_window = MAIN_WINDOW_ID) override;
 
 	virtual void window_set_rect_changed_callback(const Callable &p_callable, WindowID p_window = MAIN_WINDOW_ID) override;
 	virtual void window_set_window_event_callback(const Callable &p_callable, WindowID p_window = MAIN_WINDOW_ID) override;
