@@ -600,7 +600,7 @@ void RenameDialog::rename() {
 				continue;
 			}
 
-			scene_tree_editor->call("_rename_node", n, new_name);
+			scene_tree_editor->rename_node(n, new_name);
 		}
 
 		undo_redo->commit_action();

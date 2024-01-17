@@ -89,7 +89,6 @@ class SceneTreeEditor : public Control {
 	void _notification(int p_what);
 	void _selected_changed();
 	void _deselect_items();
-	void _rename_node(Node *p_node, const String &p_name);
 
 	void _cell_collapsed(Object *p_obj);
 
@@ -165,6 +164,7 @@ public:
 	void set_show_enabled_subscene(bool p_show) { show_enabled_subscene = p_show; }
 	void set_valid_types(const Vector<StringName> &p_valid);
 
+	void rename_node(Node *p_node, const String &p_name);
 	void update_tree() { _update_tree(); }
 
 	void set_auto_expand_selected(bool p_auto, bool p_update_settings);

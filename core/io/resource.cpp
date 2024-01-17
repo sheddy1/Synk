@@ -390,22 +390,9 @@ void Resource::_take_over_path(const String &p_path) {
 }
 
 RID Resource::get_rid() const {
-	if (get_script_instance()) {
-		Callable::CallError ce;
-		RID ret = get_script_instance()->callp(SNAME("_get_rid"), nullptr, 0, ce);
-		if (ce.error == Callable::CallError::CALL_OK && ret.is_valid()) {
-			return ret;
-		}
-	}
-	if (_get_extension() && _get_extension()->get_rid) {
-		RID ret;
-		ret.from_uint64(_get_extension()->get_rid(_get_extension_instance()));
-		if (ret.is_valid()) {
-			return ret;
-		}
-	}
-
-	return RID();
+	RID ret;
+	GDVIRTUAL_CALL(_get_rid, ret);
+	return ret;
 }
 
 #ifdef TOOLS_ENABLED
@@ -528,11 +515,8 @@ void Resource::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "resource_path", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR), "set_path", "get_path");
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "resource_name"), "set_name", "get_name");
 
-	MethodInfo get_rid_bind("_get_rid");
-	get_rid_bind.return_val.type = Variant::RID;
-
-	::ClassDB::add_virtual_method(get_class_static(), get_rid_bind, true, Vector<String>(), true);
 	GDVIRTUAL_BIND(_setup_local_to_scene);
+	GDVIRTUAL_BIND(_get_rid);
 }
 
 Resource::Resource() :

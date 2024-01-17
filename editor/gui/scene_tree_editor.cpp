@@ -1020,7 +1020,7 @@ void SceneTreeEditor::set_selected(Node *p_node, bool p_emit_selected) {
 	}
 }
 
-void SceneTreeEditor::_rename_node(Node *p_node, const String &p_name) {
+void SceneTreeEditor::rename_node(Node *p_node, const String &p_name) {
 	TreeItem *item = _find(tree->get_root(), p_node->get_path());
 	ERR_FAIL_NULL(item);
 	String new_name = p_name.validate_node_name();
@@ -1109,7 +1109,7 @@ void SceneTreeEditor::_renamed() {
 
 	String new_name = which->get_text(0);
 
-	_rename_node(n, new_name);
+	rename_node(n, new_name);
 }
 
 Node *SceneTreeEditor::get_selected() {
@@ -1482,7 +1482,6 @@ void SceneTreeEditor::set_connecting_signal(bool p_enable) {
 
 void SceneTreeEditor::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_update_tree"), &SceneTreeEditor::_update_tree, DEFVAL(false)); // Still used by UndoRedo.
-	ClassDB::bind_method("_rename_node", &SceneTreeEditor::_rename_node);
 
 	ClassDB::bind_method(D_METHOD("update_tree"), &SceneTreeEditor::update_tree);
 
