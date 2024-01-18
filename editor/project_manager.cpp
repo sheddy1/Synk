@@ -1864,6 +1864,22 @@ void ProjectList::select_first_visible_project() {
 	}
 }
 
+void ProjectList::deselect_all_visible_projects() {
+	for (int i = 0; i < _projects.size(); i++) {
+		if (_projects[i].control->is_visible()) {
+			_deselect_project_nocheck(i);
+		}
+	}
+}
+
+void ProjectList::select_all_visible_projects() {
+	for (int i = 0; i < _projects.size(); i++) {
+		if (_projects[i].control->is_visible()) {
+			_select_project_nocheck(i);
+		}
+	}
+}
+
 inline void _sort_project_range(int &a, int &b) {
 	if (a > b) {
 		int temp = a;
@@ -2272,6 +2288,17 @@ void ProjectManager::shortcut_input(const Ref<InputEvent> &p_ev) {
 			default: {
 				keycode_handled = false;
 			} break;
+		}
+
+		if (Input::get_singleton()->is_key_pressed(Key::CMD_OR_CTRL)) {
+			if (k->get_keycode() == Key::A) {
+				if (Input::get_singleton()->is_key_pressed(Key::SHIFT)) {
+					_project_list->deselect_all_visible_projects();
+				} else {
+					_project_list->select_all_visible_projects();
+				}
+				_update_project_buttons();
+			}
 		}
 
 		if (keycode_handled) {
