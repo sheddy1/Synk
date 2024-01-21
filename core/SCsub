@@ -7,12 +7,17 @@ import core_builders
 env.core_sources = []
 
 
-# Generate AES256 script encryption key
+# Generate AES256 PCK encryption key and ECDSA PCK signature public key.
 import os
+import base64
 
 txt = "0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0"
-if "SCRIPT_AES256_ENCRYPTION_KEY" in os.environ:
-    key = os.environ["SCRIPT_AES256_ENCRYPTION_KEY"]
+if ("SCRIPT_AES256_ENCRYPTION_KEY" in os.environ) or ("PCK_AES256_ENCRYPTION_KEY" in os.environ):
+    key = ""
+    if "SCRIPT_AES256_ENCRYPTION_KEY" in os.environ:
+        key = os.environ["SCRIPT_AES256_ENCRYPTION_KEY"]
+    elif "PCK_AES256_ENCRYPTION_KEY" in os.environ:
+        key = os.environ["PCK_AES256_ENCRYPTION_KEY"]
     ec_valid = True
     if len(key) != 64:
         ec_valid = False
@@ -30,15 +35,38 @@ if "SCRIPT_AES256_ENCRYPTION_KEY" in os.environ:
     if not ec_valid:
         print("Error: Invalid AES256 encryption key, not 64 hexadecimal characters: '" + key + "'.")
         print(
-            "Unset 'SCRIPT_AES256_ENCRYPTION_KEY' in your environment "
+            "Unset 'PCK_AES256_ENCRYPTION_KEY' in your environment "
             "or make sure that it contains exactly 64 hexadecimal characters."
         )
         Exit(255)
 
+pk_len = 1
+pk_txt = "0"
+if "PCK_SIGNING_PUBLIC_KEY" in os.environ:
+    pub_key = os.environ["PCK_SIGNING_PUBLIC_KEY"]
+    key = base64.b64decode(pub_key).hex()
+
+    pk_txt = ""
+    pk_len = len(key) >> 1
+    for i in range(pk_len):
+        if i > 0:
+            pk_txt += ","
+        pk_txt += "0x" + key[i * 2 : i * 2 + 2]
+    env.Append(CPPDEFINES=["PCK_SIGNING_ENABLED"])
+
 # NOTE: It is safe to generate this file here, since this is still executed serially
 with open("script_encryption_key.gen.cpp", "w") as f:
-    f.write('#include "core/config/project_settings.h"\nuint8_t script_encryption_key[32]={' + txt + "};\n")
+    f.write('#include "core/config/project_settings.h"\n')
+    f.write("uint8_t pck_encryption_key[32]={" + txt + "};\n")
+    f.write("uint8_t pck_sign_pub_key[" + str(pk_len) + "]={" + pk_txt + "};\n")
 
+with open("script_encryption_key.gen.h", "w") as f:
+    f.write("extern uint8_t pck_encryption_key[32];\n")
+    f.write("extern uint8_t pck_sign_pub_key[" + str(pk_len) + "];\n")
+    f.write("size_t pck_sign_pub_key_len=" + str(pk_len) + ";\n")
+
+if env["module_mbedtls_enabled"] or env.editor_build or "PCK_SIGNING_PUBLIC_KEY" in os.environ:
+    env.Append(CPPDEFINES=["ECDSA_ENABLED"])
 
 # Add required thirdparty code.
 
