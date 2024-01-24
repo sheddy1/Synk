@@ -1763,7 +1763,9 @@ void CodeTextEditor::_apply_settings_change() {
 
 	code_complete_enabled = EDITOR_GET("text_editor/completion/code_complete_enabled");
 	code_complete_timer->set_wait_time(EDITOR_GET("text_editor/completion/code_complete_delay"));
-	idle->set_wait_time(EDITOR_GET("text_editor/completion/idle_parse_delay"));
+
+	idle_time = EDITOR_GET("text_editor/completion/idle_parse_delay");
+	idle_time_with_errors = EDITOR_GET("text_editor/completion/idle_parse_delay_with_errors_found");
 }
 
 void CodeTextEditor::_text_changed_idle_timeout() {
@@ -1873,8 +1875,11 @@ void CodeTextEditor::_notification(int p_what) {
 void CodeTextEditor::set_error_count(int p_error_count) {
 	error_button->set_text(itos(p_error_count));
 	error_button->set_visible(p_error_count > 0);
-	if (!p_error_count) {
+	if (p_error_count > 0) {
 		_set_show_errors_panel(false);
+		idle->set_wait_time(idle_time_with_errors); // Parsing should happen sooner.
+	} else {
+		idle->set_wait_time(idle_time);
 	}
 }
 
@@ -2034,10 +2039,12 @@ CodeTextEditor::CodeTextEditor() {
 	status_bar->set_h_size_flags(SIZE_EXPAND_FILL);
 	status_bar->set_custom_minimum_size(Size2(0, 24 * EDSCALE)); // Adjust for the height of the warning icon.
 
+	idle_time = EDITOR_GET("text_editor/completion/idle_parse_delay");
+	idle_time_with_errors = EDITOR_GET("text_editor/completion/idle_parse_delay_in_error_state");
 	idle = memnew(Timer);
 	add_child(idle);
 	idle->set_one_shot(true);
-	idle->set_wait_time(EDITOR_GET("text_editor/completion/idle_parse_delay"));
+	idle->set_wait_time(idle_time);
 
 	code_complete_enabled = EDITOR_GET("text_editor/completion/code_complete_enabled");
 	code_complete_timer = memnew(Timer);

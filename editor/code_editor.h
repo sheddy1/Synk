@@ -160,6 +160,8 @@ class CodeTextEditor : public VBoxContainer {
 
 	Label *info = nullptr;
 	Timer *idle = nullptr;
+	float idle_time;
+	float idle_time_with_errors;
 	bool code_complete_enabled = true;
 	Timer *code_complete_timer = nullptr;
 	int code_complete_timer_line = 0;
