@@ -98,6 +98,9 @@ struct Edge {
 };
 
 struct Polygon {
+	/// Id of the polygon in the map.
+	uint32_t id = UINT32_MAX;
+
 	/// Navigation region or link that contains this polygon.
 	const NavBase *owner = nullptr;
 
@@ -117,9 +120,11 @@ struct Polygon {
 };
 
 struct NavigationPoly {
-	uint32_t self_id = 0;
 	/// This poly.
-	const Polygon *poly;
+	const Polygon *poly = nullptr;
+
+	/// Index in the heap of traversable polygons.
+	uint32_t traversable_poly_index = UINT32_MAX;
 
 	/// Those 4 variables are used to travel the path backwards.
 	int back_navigation_poly_id = -1;
@@ -129,20 +134,44 @@ struct NavigationPoly {
 
 	/// The entry position of this poly.
 	Vector3 entry;
-	/// The distance to the destination.
+	/// The distance traveled until now (g cost).
 	real_t traveled_distance = 0.0;
+	/// The distance to the destination (h cost).
+	real_t distance_to_destination = 0.0;
 
-	NavigationPoly() { poly = nullptr; }
-
-	NavigationPoly(const Polygon *p_poly) :
-			poly(p_poly) {}
-
-	bool operator==(const NavigationPoly &other) const {
-		return this->poly == other.poly;
+	/// The total travel cost (f cost).
+	real_t total_travel_cost() const {
+		return traveled_distance + distance_to_destination;
 	}
 
-	bool operator!=(const NavigationPoly &other) const {
-		return !operator==(other);
+	bool operator==(const NavigationPoly &p_other) const {
+		return this->poly == p_other.poly;
+	}
+
+	bool operator!=(const NavigationPoly &p_other) const {
+		return !operator==(p_other);
+	}
+};
+
+struct NavPolyTravelCostGreaterThan {
+	// Returns `true` if the travel cost of `a` is higher than that of `b`.
+	bool operator()(const NavigationPoly *p_poly_a, const NavigationPoly *p_poly_b) const {
+		real_t f_cost_a = p_poly_a->total_travel_cost();
+		real_t h_cost_a = p_poly_a->distance_to_destination;
+		real_t f_cost_b = p_poly_b->total_travel_cost();
+		real_t h_cost_b = p_poly_b->distance_to_destination;
+
+		if (f_cost_a != f_cost_b) {
+			return f_cost_a > f_cost_b;
+		} else {
+			return h_cost_a > h_cost_b;
+		}
+	}
+};
+
+struct NavPolyHeapIndexer {
+	void operator()(NavigationPoly *p_poly, uint32_t p_heap_index) const {
+		p_poly->traversable_poly_index = p_heap_index;
 	}
 };
 
