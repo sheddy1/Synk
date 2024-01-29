@@ -1429,6 +1429,19 @@ void ScriptEditor::_menu_option(int p_option) {
 				es->run();
 			} break;
 
+			case FILE_INSERT_UID: {
+				Ref<Script> scr = current->get_edited_resource();
+				if (scr.is_null()) {
+					ERR_FAIL_MSG("Can't insert UID, script is null.");
+				}
+				if (scr->is_built_in()) {
+					ERR_FAIL_MSG("Can't insert UID into built-in script.");
+				}
+
+				const ResourceUID::ID uid = ResourceSaver::get_resource_id_for_path(scr->get_path(), true);
+				ResourceSaver::set_uid(scr->get_path(), uid);
+			} break;
+
 			case FILE_CLOSE: {
 				if (current->is_unsaved()) {
 					_ask_close_current_unsaved_tab(current);
@@ -4005,6 +4018,7 @@ ScriptEditor::ScriptEditor(WindowWrapper *p_wrapper) {
 
 	file_menu->get_popup()->add_separator();
 	file_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/run_file", TTR("Run"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::X), FILE_RUN);
+	file_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/insert_uid", TTR("Insert UID")), FILE_INSERT_UID);
 
 	file_menu->get_popup()->add_separator();
 	file_menu->get_popup()->add_shortcut(ED_SHORTCUT("script_editor/toggle_scripts_panel", TTR("Toggle Scripts Panel"), KeyModifierMask::CMD_OR_CTRL | Key::BACKSLASH), TOGGLE_SCRIPTS_PANEL);
