@@ -1185,9 +1185,10 @@ TextShaderEditor::TextShaderEditor() {
 	edit_menu->get_popup()->add_shortcut(ED_GET_SHORTCUT("script_text_editor/toggle_word_wrap"), EDIT_TOGGLE_WORD_WRAP);
 	edit_menu->get_popup()->add_separator();
 	edit_menu->get_popup()->add_shortcut(ED_GET_SHORTCUT("ui_text_completion_query"), EDIT_COMPLETE);
-	edit_menu->get_popup()->add_separator();
+#ifndef DISABLE_DEPRECATED
 	edit_menu->get_popup()->add_item(TTR("Convert 3.x Shader"), EDIT_CONVERT);
 	edit_menu->get_popup()->connect("id_pressed", callable_mp(this, &TextShaderEditor::_menu_option));
+#endif
 
 	search_menu = memnew(MenuButton);
 	search_menu->set_shortcut_context(this);
