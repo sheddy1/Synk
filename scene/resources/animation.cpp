@@ -95,7 +95,7 @@ bool Animation::_set(const StringName &p_name, const Variant &p_value) {
 			} else {
 #ifndef DISABLE_DEPRECATED
 				// for compatibility with 3.x animations
-				if (get_meta(_LOAD_META_PROPERTY, false)) { // Only do compatiblity conversions if we are loading a resource.
+				if (get_meta(_LOAD_META_PROPERTY, false)) { // Only do compatibility conversions if we are loading a resource.
 					if (type == "transform") {
 						WARN_DEPRECATED_MSG("Animation uses old 'transform' track types, which is deprecated (and loads slower). Consider re-importing or re-saving the resource.");
 						PackedInt32Array track_list = get_meta(_TRANSFORM_TRACK_LIST_META_PROPERTY, PackedInt32Array());
@@ -5145,7 +5145,7 @@ void Animation::_start_load(const StringName &p_res_format_type, int p_res_forma
 }
 
 void Animation::_finish_load(const StringName &p_res_format_type, int p_res_format_version) {
-#ifndef DISABLE_DEPRECATED // 3.x compatiblity, convert transform tracks to separate tracks
+#ifndef DISABLE_DEPRECATED // 3.x compatibility, convert transform tracks to separate tracks
 	if (!has_meta(_LOAD_META_PROPERTY)) {
 		return;
 	}

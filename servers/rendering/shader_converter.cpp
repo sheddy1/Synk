@@ -721,9 +721,9 @@ SL::TokenType ShaderDeprecatedConverter::_peek_tk_type(int64_t p_count, List<Tok
 
 	bool backwards = p_count < 0;
 	uint64_t max_count = abs(p_count);
-	TokE *start_ptr = curr_ptr;
+	TokenE *start_ptr = curr_ptr;
 	for (uint64_t i = 0; i < max_count; i++) {
-		TokE *_ptr = backwards ? _get_prev_token_ptr(start_ptr) : _get_next_token_ptr(start_ptr);
+		TokenE *_ptr = backwards ? _get_prev_token_ptr(start_ptr) : _get_next_token_ptr(start_ptr);
 		if (!_ptr) {
 			if (r_pos) {
 				*r_pos = start_ptr;
@@ -833,7 +833,7 @@ bool ShaderDeprecatedConverter::_insert_uniform_declaration(const String &p_name
 	if (!insert_after(uni_decl, after_shader_decl)) {
 		return false;
 	}
-	TokE *cur_pos = get_pos();
+	TokenE *cur_pos = get_pos();
 	reset_to(after_shader_decl);
 	UniformDecl uni;
 	uni.start_pos = get_next_token(); // uniform
@@ -864,10 +864,10 @@ RS::ShaderMode ShaderDeprecatedConverter::get_shader_mode_from_string(const Stri
 	}
 }
 // Remove from the current token to end (exclsusive) and return the new current token.
-List<SL::Token>::Element *ShaderDeprecatedConverter::_remove_from_curr_to(TokE *p_end) {
+List<SL::Token>::Element *ShaderDeprecatedConverter::_remove_from_curr_to(TokenE *p_end) {
 	ERR_FAIL_COND_V(p_end == nullptr, nullptr);
 	while (curr_ptr != p_end) {
-		TokE *next = curr_ptr->next();
+		TokenE *next = curr_ptr->next();
 		code_tokens.erase(curr_ptr);
 		curr_ptr = next;
 	}
@@ -880,7 +880,7 @@ String ShaderDeprecatedConverter::get_tokentype_text(TokenType p_tk_type) {
 
 List<SL::Token>::Element *ShaderDeprecatedConverter::_get_end_of_closure() {
 	int additional_closures = 0;
-	TokE *ptr = curr_ptr;
+	TokenE *ptr = curr_ptr;
 	bool start_is_scope_start = false;
 	switch (ptr->get().type) {
 		case TT::TK_CURLY_BRACKET_OPEN:
@@ -1120,7 +1120,7 @@ void ShaderDeprecatedConverter::_get_new_builtin_funcs_list(List<String> *r_list
 
 bool ShaderDeprecatedConverter::_add_warning_comment_before(const String &p_comment, List<Token>::Element *p_pos) {
 	// Peek back until we hit a newline or the start of the file (EOF).
-	TokE *start_pos = p_pos;
+	TokenE *start_pos = p_pos;
 	if (!start_pos) {
 		return false;
 	}
@@ -1138,7 +1138,7 @@ bool ShaderDeprecatedConverter::_add_warning_comment_before(const String &p_comm
 
 bool ShaderDeprecatedConverter::_add_comment_at_eol(const String &p_comment, List<Token>::Element *p_pos) {
 	// Peek forward until we hit a newline or the end of the file (EOF).
-	TokE *start_pos = p_pos ? p_pos : get_pos();
+	TokenE *start_pos = p_pos ? p_pos : get_pos();
 	if (!start_pos) {
 		return false;
 	}
@@ -1204,7 +1204,7 @@ bool ShaderDeprecatedConverter::_parse_uniform() {
 		uni.start_pos = get_prev_token();
 		get_next_token(); // Back to the uniform.
 	}
-	TokE *next_tk = get_next_token();
+	TokenE *next_tk = get_next_token();
 	EOF_FAIL(next_tk);
 	while (SL::is_token_precision(next_tk->get().type) || SL::is_token_interpolation(next_tk->get().type)) {
 		if (SL::is_token_interpolation(next_tk->get().type)) { // Interpolations are not supported for uniforms in newer versions of Godot.
@@ -1273,7 +1273,7 @@ bool ShaderDeprecatedConverter::_parse_uniform() {
 }
 
 bool ShaderDeprecatedConverter::_skip_uniform() {
-	TokE *cur_tok = get_pos();
+	TokenE *cur_tok = get_pos();
 	DEV_ASSERT(cur_tok && cur_tok->get().type == TT::TK_UNIFORM);
 	for (KeyValue<String, UniformDecl> &kv : uniform_decls) {
 		if (kv.value.uniform_stmt_pos == cur_tok) {
@@ -1285,7 +1285,7 @@ bool ShaderDeprecatedConverter::_skip_uniform() {
 }
 
 bool ShaderDeprecatedConverter::_skip_array_size() {
-	TokE *next_tk = get_pos();
+	TokenE *next_tk = get_pos();
 	DEV_ASSERT(next_tk && next_tk->get().type == TT::TK_BRACKET_OPEN);
 	next_tk = _get_end_of_closure();
 	CLOSURE_FAIL(next_tk);
@@ -1296,9 +1296,9 @@ bool ShaderDeprecatedConverter::_skip_array_size() {
 
 bool ShaderDeprecatedConverter::_skip_struct() {
 	DEV_ASSERT(get_pos() && get_pos()->get().type == TT::TK_STRUCT);
-	TokE *struct_name = get_next_token();
+	TokenE *struct_name = get_next_token();
 	EOF_FAIL(struct_name);
-	TokE *struct_body_start;
+	TokenE *struct_body_start;
 	if (struct_name->get().type == TT::TK_CURLY_BRACKET_OPEN) {
 		struct_body_start = struct_name;
 	} else {
@@ -1306,7 +1306,7 @@ bool ShaderDeprecatedConverter::_skip_struct() {
 	}
 	EOF_FAIL(struct_body_start);
 	COND_LINE_MSG_FAIL(struct_body_start->get().type != TT::TK_CURLY_BRACKET_OPEN, struct_body_start->get().line, RTR("Expected '{' after struct declaration"));
-	TokE *struct_body_end = _get_end_of_closure();
+	TokenE *struct_body_end = _get_end_of_closure();
 	CLOSURE_FAIL(struct_body_end);
 	COND_LINE_MSG_FAIL(struct_body_end->get().type != TT::TK_CURLY_BRACKET_CLOSE, struct_body_start->get().line, RTR("Expected '}' bracket at end of struct declaration"));
 	reset_to(struct_body_end);
@@ -1321,12 +1321,12 @@ bool ShaderDeprecatedConverter::_tok_is_start_of_decl(const Token &p_tk) {
 }
 
 // Past the start and type tokens, at the id or bracket open token.
-bool ShaderDeprecatedConverter::_process_decl_statement(TokE *p_start_tok, TokE *p_type_tok, const String &p_scope, bool p_func_args) {
+bool ShaderDeprecatedConverter::_process_decl_statement(TokenE *p_start_tok, TokenE *p_type_tok, const String &p_scope, bool p_func_args) {
 	while (true) {
 		EOF_FAIL(p_start_tok);
 		EOF_FAIL(p_type_tok);
 		COND_LINE_MSG_FAIL(!token_is_type(p_type_tok->get()), p_type_tok->get().line, RTR("Expected type in declaration"));
-		TokE *next_tk = get_pos();
+		TokenE *next_tk = get_pos();
 		VarDecl var;
 		var.start_pos = p_start_tok;
 		var.type_pos = p_type_tok;
@@ -1346,7 +1346,7 @@ bool ShaderDeprecatedConverter::_process_decl_statement(TokE *p_start_tok, TokE 
 		String name = get_token_literal_text(var.name_pos->get());
 		next_tk = get_next_token();
 		EOF_FAIL(next_tk);
-		TokE *end_pos = next_tk;
+		TokenE *end_pos = next_tk;
 		if (next_tk->get().type == TT::TK_BRACKET_OPEN) {
 			var.is_array = true;
 			if (!_skip_array_size()) {
@@ -1408,11 +1408,11 @@ bool ShaderDeprecatedConverter::_process_decl_statement(TokE *p_start_tok, TokE 
 };
 
 // Past the start and type tokens, at the id or bracket open token.
-bool ShaderDeprecatedConverter::_process_func_decl_statement(TokE *p_start_tok, TokE *p_type_tok, bool p_first_pass) {
+bool ShaderDeprecatedConverter::_process_func_decl_statement(TokenE *p_start_tok, TokenE *p_type_tok, bool p_first_pass) {
 	FunctionDecl func;
 	func.start_pos = p_start_tok; // type or const
 	func.type_pos = p_type_tok; // type
-	TokE *next_tk = get_pos(); // id or array size
+	TokenE *next_tk = get_pos(); // id or array size
 	if (next_tk->get().type == TT::TK_BRACKET_OPEN) {
 		func.has_array_return_type = true;
 		if (!_skip_array_size()) {
@@ -1436,8 +1436,8 @@ bool ShaderDeprecatedConverter::_process_func_decl_statement(TokE *p_start_tok, 
 			// Skip the args.
 			reset_to(func.args_end_pos);
 		} else {
-			TokE *start_pos = get_next_token();
-			TokE *type_pos = start_pos;
+			TokenE *start_pos = get_next_token();
+			TokenE *type_pos = start_pos;
 			while (type_pos->get().type == TT::TK_CONST || SL::is_token_precision(type_pos->get().type) || SL::is_token_arg_qual(type_pos->get().type) || SL::is_token_interpolation(type_pos->get().type)) {
 				type_pos = get_next_token();
 				EOF_FAIL(type_pos);
@@ -1481,7 +1481,7 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 	reset_to(after_shader_decl);
 	String curr_func = "<global>";
 	while (true) {
-		TokE *cur_tok = get_next_token();
+		TokenE *cur_tok = get_next_token();
 		if (cur_tok->get().type == TT::TK_EOF) {
 			break;
 		}
@@ -1508,7 +1508,7 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 			}
 			continue;
 		}
-		TokE *start_pos = cur_tok;
+		TokenE *start_pos = cur_tok;
 		if (!_tok_is_start_of_decl(cur_tok->get())) {
 			continue;
 		}
@@ -1520,13 +1520,13 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 			EOF_FAIL(cur_tok);
 		}
 		ERR_CONTINUE(!token_is_type(cur_tok->get()));
-		TokE *type_pos = cur_tok;
+		TokenE *type_pos = cur_tok;
 
 		bool is_decl = tokentype_is_identifier(peek_next_tk_type());
 		bool is_function = peek_next_tk_type(2) == TT::TK_PARENTHESIS_OPEN;
 		if (!is_decl) {
 			// Check if this is an array declaration.
-			TokE *next_tk = get_next_token();
+			TokenE *next_tk = get_next_token();
 			if (next_tk->get().type == TT::TK_BRACKET_OPEN) {
 				if (!_skip_array_size()) {
 					return false;
@@ -1534,7 +1534,7 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 				next_tk = get_pos();
 				EOF_FAIL(next_tk);
 				COND_LINE_MSG_FAIL(next_tk->get().type != TT::TK_BRACKET_CLOSE, next_tk->get().line, RTR("Expected ']' after array type"));
-				TokE *next_next_tk = get_next_token();
+				TokenE *next_next_tk = get_next_token();
 				if (next_next_tk && next_next_tk->get().type == TT::TK_IDENTIFIER) {
 					is_decl = true;
 					if (peek_next_tk_type() == TT::TK_PARENTHESIS_OPEN) {
@@ -1550,7 +1550,7 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 		if (!is_decl) {
 			continue;
 		}
-		TokE *id_tok = get_next_token(); // Id or bracket open.
+		TokenE *id_tok = get_next_token(); // Id or bracket open.
 		EOF_FAIL(id_tok);
 		if (is_function) { // Function declaration.
 			if (!_process_func_decl_statement(start_pos, type_pos, p_first_pass)) {
@@ -1570,7 +1570,7 @@ bool ShaderDeprecatedConverter::_parse_decls(bool p_first_pass) {
 bool ShaderDeprecatedConverter::_parse_uniforms() {
 	reset_to(after_shader_decl);
 	while (true) {
-		TokE *cur_tok = get_next_token();
+		TokenE *cur_tok = get_next_token();
 		if (cur_tok->get().type == TT::TK_EOF) {
 			break;
 		}
@@ -1592,14 +1592,14 @@ bool ShaderDeprecatedConverter::_preprocess_code() {
 	StringName mode_string;
 	{
 		COND_MSG_FAIL(code_tokens.size() < 3, RTR("Invalid shader file"));
-		TokE *first_token = get_next_token();
+		TokenE *first_token = get_next_token();
 		EOF_FAIL(first_token);
 		COND_LINE_MSG_FAIL(first_token->get().type != TT::TK_SHADER_TYPE, first_token->get().line, RTR("Shader type must be first token"));
-		TokE *id_token = get_next_token();
+		TokenE *id_token = get_next_token();
 		EOF_FAIL(id_token);
 		COND_LINE_MSG_FAIL(id_token->get().type != TT::TK_IDENTIFIER, id_token->get().line, RTR("Invalid shader type"));
 		mode_string = id_token->get().text;
-		TokE *token = get_next_token();
+		TokenE *token = get_next_token();
 		EOF_FAIL(token);
 		COND_LINE_MSG_FAIL(token->get().type != TT::TK_SEMICOLON, token->get().line, RTR("Expected semi-colon after shader type"));
 		shader_mode = get_shader_mode_from_string(mode_string);
@@ -1662,7 +1662,7 @@ bool ShaderDeprecatedConverter::is_code_deprecated(const String &p_code) {
 }
 
 bool ShaderDeprecatedConverter::_has_any_preprocessor_directives() {
-	TokE *cur_tok = code_tokens.front();
+	TokenE *cur_tok = code_tokens.front();
 	while (cur_tok) {
 		if (cur_tok->get().type == TT::TK_PREPROC_DIRECTIVE) {
 			return true;
@@ -1687,7 +1687,7 @@ bool ShaderDeprecatedConverter::_is_code_deprecated() {
 		} else if (uni.has_uniform_qual()) { // 3.x did not have uniform qualifiers.
 			return false;
 		}
-		for (const TokE *hint : uni.hint_poses) {
+		for (const TokenE *hint : uni.hint_poses) {
 			if (tokentype_is_new_hint(hint->get().type)) { // Usage of new hint.
 				return false;
 			}
@@ -1722,7 +1722,7 @@ bool ShaderDeprecatedConverter::_is_code_deprecated() {
 		reset_to(after_shader_decl);
 		String curr_func = "<global>";
 		while (true) {
-			TokE *cur_tok = get_next_token();
+			TokenE *cur_tok = get_next_token();
 			DEV_ASSERT(cur_tok);
 			if (cur_tok->get().type == TT::TK_EOF || cur_tok->get().type == TT::TK_ERROR) {
 				break;
@@ -1774,7 +1774,7 @@ bool ShaderDeprecatedConverter::_is_code_deprecated() {
 		} else if (uni.has_interp_qual()) { // Newer versions of Godot disallow interpolation qualifiers for uniforms.
 			return true;
 		}
-		for (const TokE *hint : uni.hint_poses) {
+		for (const TokenE *hint : uni.hint_poses) {
 			if (hint->get().type == TT::TK_IDENTIFIER && has_hint_replacement(get_token_literal_text(hint->get()))) {
 				return true;
 			}
@@ -1811,7 +1811,7 @@ bool ShaderDeprecatedConverter::_is_code_deprecated() {
 	reset_to(after_shader_decl);
 	// Check token stream for positive cases.
 	while (true) {
-		TokE *cur_tok = get_next_token();
+		TokenE *cur_tok = get_next_token();
 		if (cur_tok->get().type == TT::TK_EOF || cur_tok->get().type == TT::TK_ERROR) {
 			break;
 		}
@@ -1843,7 +1843,7 @@ bool ShaderDeprecatedConverter::_is_code_deprecated() {
 			} break;
 			case TT::TK_RENDER_MODE: {
 				while (true) {
-					TokE *next_tk = get_next_token();
+					TokenE *next_tk = get_next_token();
 					if (next_tk->get().type == TT::TK_IDENTIFIER) {
 						String id_text = get_token_literal_text(next_tk->get());
 						if (is_renamed_render_mode(shader_mode, id_text) || has_removed_render_mode(shader_mode, id_text)) {
@@ -1881,7 +1881,7 @@ String ShaderDeprecatedConverter::get_error_text() const {
 	return err_str;
 }
 
-bool ShaderDeprecatedConverter::_check_deprecated_type(TokE *p_type_pos) {
+bool ShaderDeprecatedConverter::_check_deprecated_type(TokenE *p_type_pos) {
 	if (p_type_pos->get().type == TT::TK_IDENTIFIER && has_removed_type(get_token_literal_text(p_type_pos->get()))) {
 		const String i_err_msg = vformat(RTR("Deprecated type '%s' is not supported by this version of Godot."), get_token_literal_text(p_type_pos->get()));
 		COND_LINE_MSG_FAIL(fail_on_unported, p_type_pos->get().line, i_err_msg);
@@ -1950,7 +1950,7 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 	curr_ptr = after_shader_decl;
 
 	// Renaming changed hints.
-	Vector<TokE *> all_hints;
+	Vector<TokenE *> all_hints;
 	for (KeyValue<String, UniformDecl> &E : uniform_decls) {
 		UniformDecl &uni = E.value;
 		if (uni.has_interp_qual()) { // Removing interpolation qualifiers before the type name, which was allowed in 3.x.
@@ -1961,7 +1961,7 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 		}
 		String name = get_token_literal_text(uni.name_pos->get());
 		for (int i = 0; i < uni.hint_poses.size(); i++) {
-			TokE *hint = uni.hint_poses[i];
+			TokenE *hint = uni.hint_poses[i];
 			String hint_name = get_token_literal_text(hint->get());
 			if (hint->get().type == TT::TK_IDENTIFIER && has_hint_replacement(hint_name)) {
 				// replace the hint
@@ -2097,7 +2097,7 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 	reset_to(after_shader_decl);
 	static Vector<String> uniform_qualifiers = { "global", "instance" };
 	while (true) {
-		TokE *cur_tok = get_next_token();
+		TokenE *cur_tok = get_next_token();
 		if (cur_tok->get().type == TT::TK_EOF) {
 			break;
 		}
@@ -2147,7 +2147,7 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 				// we only care about the ones for spatial
 				if (shader_mode == RenderingServer::ShaderMode::SHADER_SPATIAL) {
 					while (true) {
-						TokE *next_tk = get_next_token();
+						TokenE *next_tk = get_next_token();
 						if (next_tk->get().type == TT::TK_IDENTIFIER) {
 							String id_text = get_token_literal_text(next_tk->get());
 							if (has_removed_render_mode(shader_mode, id_text)) {
@@ -2157,19 +2157,19 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 									_add_warning_comment_before(i_err_msg, next_tk);
 								} else {
 									if (peek_next_tk_type() == TT::TK_COMMA) {
-										TokE *comma = get_next_token();
+										TokenE *comma = get_next_token();
 										reset_to(next_tk); // Reset to the identifier.
 										EOF_FAIL(comma->next());
 										next_tk = _remove_from_curr_to(comma->next()); // Inclusive of comma.
 									} else if (peek_prev_tk_type() == TT::TK_COMMA && peek_next_tk_type() == TT::TK_SEMICOLON) {
-										TokE *end = get_next_token();
+										TokenE *end = get_next_token();
 										reset_to(next_tk); // Back to identifier.
 										next_tk = get_prev_token(); // comma
 										next_tk = _remove_from_curr_to(end); // Exclusive of semi-colon.
 										break; // We're at the end of the render_mode declaration.
 									} else if (peek_prev_tk_type() == TT::TK_RENDER_MODE && peek_next_tk_type() == TT::TK_SEMICOLON) {
 										// Remove the whole line.
-										TokE *semi = get_next_token();
+										TokenE *semi = get_next_token();
 										COND_LINE_MSG_FAIL(!semi->next(), semi->get().line, "Unexpected EOF???"); // We should always have an EOF token at the end of the stream.
 										reset_to(next_tk); // Back to identifier.
 										next_tk = get_prev_token(); // render_mode
@@ -2238,8 +2238,8 @@ bool ShaderDeprecatedConverter::convert_code(const String &p_code) {
 							assign_closure_end = _get_end_of_closure();
 							CLOSURE_FAIL(assign_closure_end);
 
-							TokE *assign_tk = get_next_token();
-							TokE *insert_pos = assign_tk;
+							TokenE *assign_tk = get_next_token();
+							TokenE *insert_pos = assign_tk;
 							if (assign_tk->next() && assign_tk->next()->get().type == TT::TK_SPACE) {
 								insert_pos = assign_tk->next();
 							}
@@ -2342,8 +2342,8 @@ String ShaderDeprecatedConverter::emit_code() const {
 		return "";
 	}
 	String new_code = "";
-	const TokE *start = code_tokens.front()->next(); // skip TK_EOF token at start
-	for (const TokE *E = start; E; E = E->next()) {
+	const TokenE *start = code_tokens.front()->next(); // skip TK_EOF token at start
+	for (const TokenE *E = start; E; E = E->next()) {
 		const Token &tk = E->get();
 		ERR_FAIL_COND_V(tk.type < 0 || tk.type > TT::TK_MAX, "");
 		bool end = false;

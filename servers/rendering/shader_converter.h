@@ -42,7 +42,7 @@ public:
 	using TokenType = ShaderLanguage::TokenType;
 	using Token = ShaderLanguage::Token;
 	using TT = TokenType;
-	using TokE = List<Token>::Element;
+	using TokenE = List<Token>::Element;
 
 	ShaderDeprecatedConverter(){};
 	bool is_code_deprecated(const String &p_code);
@@ -264,11 +264,11 @@ private:
 	bool _parse_uniforms();
 	bool _skip_array_size();
 	bool _skip_struct();
-	bool _check_deprecated_type(TokE *p_type_tok);
+	bool _check_deprecated_type(TokenE *p_type_tok);
 	bool _add_warning_comment_before(const String &p_comment, List<Token>::Element *p_pos);
 	bool _add_comment_at_eol(const String &p_comment, List<Token>::Element *p_pos);
-	bool _process_func_decl_statement(TokE *p_start_tok, TokE *p_type_tok, bool p_second_pass = false);
-	bool _process_decl_statement(TokE *p_start_tok, TokE *p_type_tok, const String &p_scope = "<global>", bool p_func_args = false);
+	bool _process_func_decl_statement(TokenE *p_start_tok, TokenE *p_type_tok, bool p_second_pass = false);
+	bool _process_decl_statement(TokenE *p_start_tok, TokenE *p_type_tok, const String &p_scope = "<global>", bool p_func_args = false);
 	bool _parse_decls(bool p_first_pass);
 	bool _insert_uniform_declaration(const String &p_name);
 	List<Token>::Element *_remove_from_curr_to(List<Token>::Element *p_end);
