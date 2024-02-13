@@ -196,6 +196,7 @@ String FileAccessUnix::get_path_absolute() const {
 	return path;
 }
 
+#if defined(TOOLS_ENABLED)
 String FileAccessUnix::get_real_path() const {
 	char *resolved_path = ::realpath(path.utf8().get_data(), nullptr);
 
@@ -213,6 +214,7 @@ String FileAccessUnix::get_real_path() const {
 
 	return result.simplify_path();
 }
+#endif
 
 void FileAccessUnix::seek(uint64_t p_position) {
 	ERR_FAIL_NULL_MSG(f, "File must be opened before use.");
