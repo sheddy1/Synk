@@ -50,6 +50,7 @@ class FileAccessUnix : public FileAccess {
 	String path_src;
 
 	void _close();
+	String get_real_path() const; /// returns the resolved real path for the current open file
 
 public:
 	static CloseNotificationFunc close_notification_func;

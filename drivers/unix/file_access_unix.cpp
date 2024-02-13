@@ -94,14 +94,17 @@ Error FileAccessUnix::open_internal(const String &p_path, int p_mode_flags) {
 
 #if defined(TOOLS_ENABLED)
 	if (p_mode_flags & READ) {
-		String real_path = realpath(path.utf8().get_data(), nullptr);
-		if (real_path != "" && real_path != path) {
-			struct stat sb;
-			lstat(path.utf8().get_data(), &sb);
-			if ((sb.st_mode & S_IFMT) == S_IFLNK) {
-				WARN_PRINT("Tried to open a symlink file '" + path + "', referencing to '" + real_path + "' in the filesystem. This file will not open when exported to platforms without symbolic links, like Windows versions before Windows 10.");
+		String real_path = get_real_path();
+		if (real_path != path) {
+			if (real_path.to_lower() != path.to_lower()) {
+				// This is a symlink, some platform may not support them.
+				WARN_PRINT_ONCE_ED("Tried to open a symlink file '" + path + "', referencing to '" + real_path + "' in the filesystem. This file will not open when exported to platforms without symbolic links, like Windows versions before Windows 10.");
 			} else {
-				WARN_PRINT("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
+				// The File system is case insensitive, but other platforms can be sensitive to it
+				// To ease cross-platform development, we issue a warning if users try to access
+				// a file using the wrong case (which *works* on Windows and macOS, but won't on other
+				// platforms).
+				WARN_PRINT_ONCE_ED("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
 			}
 		}
 	}
@@ -191,6 +194,24 @@ String FileAccessUnix::get_path() const {
 
 String FileAccessUnix::get_path_absolute() const {
 	return path;
+}
+
+String FileAccessUnix::get_real_path() const {
+	char *resolved_path = ::realpath(path.utf8().get_data(), nullptr);
+
+	if (!resolved_path) {
+		return path;
+	}
+
+	String result;
+	Error parse_ok = result.parse_utf8(resolved_path);
+	::free(resolved_path);
+
+	if (parse_ok != OK) {
+		return path;
+	}
+
+	return result.simplify_path();
 }
 
 void FileAccessUnix::seek(uint64_t p_position) {
