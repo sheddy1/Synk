@@ -94,9 +94,15 @@ Error FileAccessUnix::open_internal(const String &p_path, int p_mode_flags) {
 
 #if defined(TOOLS_ENABLED)
 	if (p_mode_flags & READ) {
-		String real_path = realpath(path.utf8().get_data(), NULL);
+		String real_path = realpath(path.utf8().get_data(), nullptr);
 		if (real_path != "" && real_path != path) {
-			WARN_PRINTS("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
+			struct stat sb;
+			lstat(path.utf8().get_data(), &sb);
+			if ((sb.st_mode & S_IFMT) == S_IFLNK) {
+				WARN_PRINT("Tried to open a symlink file '" + path + "', referencing to '" + real_path + "' in the filesystem. This file will not open when exported to platforms without symbolic links, like Windows versions before Windows 10.");
+			} else {
+				WARN_PRINT("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
+			}
 		}
 	}
 #endif
