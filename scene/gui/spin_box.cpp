@@ -35,12 +35,18 @@
 #include "scene/theme/theme_db.h"
 
 Size2 SpinBox::get_minimum_size() const {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, Size2(last_w, 0));
+
 	Size2 ms = line_edit->get_combined_minimum_size();
 	ms.width += last_w;
 	return ms;
 }
 
 void SpinBox::_update_text(bool p_keep_line_edit) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	String value = String::num(get_value(), Math::range_step_decimals(get_step()));
 	if (is_localizing_numeral_system()) {
 		value = TS->format_number(value);
@@ -95,6 +101,9 @@ void SpinBox::_text_submitted(const String &p_string) {
 }
 
 void SpinBox::_text_changed(const String &p_string) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	int cursor_pos = line_edit->get_caret_column();
 
 	_text_submitted(p_string);
@@ -104,6 +113,9 @@ void SpinBox::_text_changed(const String &p_string) {
 }
 
 LineEdit *SpinBox::get_line_edit() {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, nullptr);
+
 	return line_edit;
 }
 
@@ -142,6 +154,9 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 	if (!is_editable()) {
 		return;
 	}
+
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
 
 	Ref<InputEventMouseButton> mb = p_event;
 
@@ -209,6 +224,9 @@ void SpinBox::gui_input(const Ref<InputEvent> &p_event) {
 }
 
 void SpinBox::_line_edit_focus_enter() {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	int col = line_edit->get_caret_column();
 	_update_text();
 	line_edit->set_caret_column(col);
@@ -220,9 +238,12 @@ void SpinBox::_line_edit_focus_enter() {
 }
 
 void SpinBox::_line_edit_focus_exit() {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	// Discontinue because the focus_exit was caused by left-clicking the arrows.
 	const Viewport *viewport = get_viewport();
-	if (!viewport || viewport->gui_get_focus_owner() == get_line_edit()) {
+	if (!viewport || viewport->gui_get_focus_owner() == line_edit) {
 		return;
 	}
 	// Discontinue because the focus_exit was caused by right-click context menu.
@@ -239,6 +260,9 @@ void SpinBox::_line_edit_focus_exit() {
 }
 
 inline void SpinBox::_adjust_width_for_icon(const Ref<Texture2D> &icon) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	int w = icon->get_width();
 	if ((w != last_w)) {
 		line_edit->set_offset(SIDE_LEFT, 0);
@@ -280,8 +304,11 @@ void SpinBox::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_THEME_CHANGED: {
+			LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+			ERR_FAIL_NULL(line_edit);
+
 			callable_mp((Control *)this, &Control::update_minimum_size).call_deferred();
-			callable_mp((Control *)get_line_edit(), &Control::update_minimum_size).call_deferred();
+			callable_mp((Control *)line_edit, &Control::update_minimum_size).call_deferred();
 		} break;
 
 		case NOTIFICATION_LAYOUT_DIRECTION_CHANGED: {
@@ -291,10 +318,16 @@ void SpinBox::_notification(int p_what) {
 }
 
 void SpinBox::set_horizontal_alignment(HorizontalAlignment p_alignment) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	line_edit->set_horizontal_alignment(p_alignment);
 }
 
 HorizontalAlignment SpinBox::get_horizontal_alignment() const {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, HORIZONTAL_ALIGNMENT_LEFT);
+
 	return line_edit->get_horizontal_alignment();
 }
 
@@ -325,6 +358,9 @@ String SpinBox::get_prefix() const {
 }
 
 void SpinBox::set_update_on_text_changed(bool p_enabled) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	if (update_on_text_changed == p_enabled) {
 		return;
 	}
@@ -339,26 +375,44 @@ void SpinBox::set_update_on_text_changed(bool p_enabled) {
 }
 
 bool SpinBox::get_update_on_text_changed() const {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, false);
+
 	return update_on_text_changed;
 }
 
 void SpinBox::set_select_all_on_focus(bool p_enabled) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	line_edit->set_select_all_on_focus(p_enabled);
 }
 
 bool SpinBox::is_select_all_on_focus() const {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, false);
+
 	return line_edit->is_select_all_on_focus();
 }
 
 void SpinBox::set_editable(bool p_enabled) {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	line_edit->set_editable(p_enabled);
 }
 
 bool SpinBox::is_editable() const {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL_V(line_edit, false);
+
 	return line_edit->is_editable();
 }
 
 void SpinBox::apply() {
+	LineEdit *line_edit = Object::cast_to<LineEdit>(ObjectDB::get_instance(line_edit_id));
+	ERR_FAIL_NULL(line_edit);
+
 	_text_submitted(line_edit->get_text());
 }
 
@@ -400,7 +454,7 @@ void SpinBox::_bind_methods() {
 }
 
 SpinBox::SpinBox() {
-	line_edit = memnew(LineEdit);
+	LineEdit *line_edit = memnew(LineEdit);
 	add_child(line_edit, false, INTERNAL_MODE_FRONT);
 
 	line_edit->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);
@@ -411,6 +465,8 @@ SpinBox::SpinBox() {
 	line_edit->connect("focus_entered", callable_mp(this, &SpinBox::_line_edit_focus_enter), CONNECT_DEFERRED);
 	line_edit->connect("focus_exited", callable_mp(this, &SpinBox::_line_edit_focus_exit), CONNECT_DEFERRED);
 	line_edit->connect("gui_input", callable_mp(this, &SpinBox::_line_edit_input));
+
+	line_edit_id = line_edit->get_instance_id();
 
 	range_click_timer = memnew(Timer);
 	range_click_timer->connect("timeout", callable_mp(this, &SpinBox::_range_click_timeout));

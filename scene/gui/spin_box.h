@@ -38,7 +38,7 @@
 class SpinBox : public Range {
 	GDCLASS(SpinBox, Range);
 
-	LineEdit *line_edit = nullptr;
+	ObjectID line_edit_id;
 	int last_w = 0;
 	bool update_on_text_changed = false;
 
