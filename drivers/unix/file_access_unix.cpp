@@ -98,13 +98,13 @@ Error FileAccessUnix::open_internal(const String &p_path, int p_mode_flags) {
 		if (real_path != path) {
 			if (real_path.to_lower() != path.to_lower()) {
 				// This is a symlink, some platform may not support them.
-				WARN_PRINT_ONCE_ED("Tried to open a symlink file '" + path + "', referencing to '" + real_path + "' in the filesystem. This file will not open when exported to platforms without symbolic links, like Windows versions before Windows 10.");
+				WARN_PRINT("Tried to open a symlink file '" + path + "', referencing to '" + real_path + "' in the filesystem. This file will not open when exported to platforms without symbolic links, like Windows versions before Windows 10.");
 			} else {
 				// The File system is case insensitive, but other platforms can be sensitive to it
 				// To ease cross-platform development, we issue a warning if users try to access
 				// a file using the wrong case (which *works* on Windows and macOS, but won't on other
 				// platforms).
-				WARN_PRINT_ONCE_ED("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
+				WARN_PRINT("Case mismatch opening requested file '" + path + "', stored as '" + real_path + "' in the filesystem. This file will not open when exported to other case-sensitive platforms.");
 			}
 		}
 	}
