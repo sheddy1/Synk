@@ -42,6 +42,9 @@ Size2 ScrollContainer::get_minimum_size() const {
 	// and needs to be calculated before being used by update_scrollbars().
 	largest_child_min_size = Size2();
 
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+
 	for (int i = 0; i < get_child_count(); i++) {
 		Control *c = Object::cast_to<Control>(get_child(i));
 		if (!c || !c->is_visible()) {
@@ -70,10 +73,10 @@ Size2 ScrollContainer::get_minimum_size() const {
 	bool h_scroll_show = horizontal_scroll_mode == SCROLL_MODE_SHOW_ALWAYS || (horizontal_scroll_mode == SCROLL_MODE_AUTO && largest_child_min_size.x > min_size.x);
 	bool v_scroll_show = vertical_scroll_mode == SCROLL_MODE_SHOW_ALWAYS || (vertical_scroll_mode == SCROLL_MODE_AUTO && largest_child_min_size.y > min_size.y);
 
-	if (h_scroll_show && h_scroll->get_parent() == this) {
+	if (h_scroll_show && h_scroll && h_scroll->get_parent() == this) {
 		min_size.y += h_scroll->get_minimum_size().y;
 	}
-	if (v_scroll_show && v_scroll->get_parent() == this) {
+	if (v_scroll_show && v_scroll && v_scroll->get_parent() == this) {
 		min_size.x += v_scroll->get_minimum_size().x;
 	}
 
@@ -99,6 +102,11 @@ void ScrollContainer::_cancel_drag() {
 
 void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 	ERR_FAIL_COND(p_gui_input.is_null());
+
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
 
 	double prev_v_scroll = v_scroll->get_value();
 	double prev_h_scroll = h_scroll->get_value();
@@ -254,6 +262,11 @@ void ScrollContainer::_update_scrollbar_position() {
 		return;
 	}
 
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	Size2 hmin = h_scroll->get_combined_minimum_size();
 	Size2 vmin = v_scroll->get_combined_minimum_size();
 
@@ -279,6 +292,11 @@ void ScrollContainer::_gui_focus_changed(Control *p_control) {
 void ScrollContainer::ensure_control_visible(Control *p_control) {
 	ERR_FAIL_COND_MSG(!is_ancestor_of(p_control), "Must be an ancestor of the control.");
 
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	Rect2 global_rect = get_global_rect();
 	Rect2 other_rect = p_control->get_global_rect();
 	float right_margin = v_scroll->is_visible() ? v_scroll->get_size().x : 0.0f;
@@ -292,6 +310,11 @@ void ScrollContainer::ensure_control_visible(Control *p_control) {
 }
 
 void ScrollContainer::_reposition_children() {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	update_scrollbars();
 	Size2 size = get_size();
 	Point2 ofs;
@@ -367,6 +390,11 @@ void ScrollContainer::_notification(int p_what) {
 		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {
 			if (drag_touching) {
 				if (drag_touching_deaccel) {
+					HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+					ERR_FAIL_NULL(h_scroll);
+					VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+					ERR_FAIL_NULL(v_scroll);
+
 					Vector2 pos = Vector2(h_scroll->get_value(), v_scroll->get_value());
 					pos += drag_speed * get_physics_process_delta_time();
 
@@ -435,6 +463,11 @@ void ScrollContainer::_notification(int p_what) {
 }
 
 void ScrollContainer::update_scrollbars() {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	Size2 size = get_size();
 	size -= theme_cache.panel_style->get_minimum_size();
 
@@ -460,36 +493,60 @@ void ScrollContainer::_scroll_moved(float) {
 };
 
 void ScrollContainer::set_h_scroll(int p_pos) {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+
 	h_scroll->set_value(p_pos);
 	_cancel_drag();
 }
 
 int ScrollContainer::get_h_scroll() const {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL_V(h_scroll, 0);
+
 	return h_scroll->get_value();
 }
 
 void ScrollContainer::set_v_scroll(int p_pos) {
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	v_scroll->set_value(p_pos);
 	_cancel_drag();
 }
 
 int ScrollContainer::get_v_scroll() const {
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL_V(v_scroll, 0);
+
 	return v_scroll->get_value();
 }
 
 void ScrollContainer::set_horizontal_custom_step(float p_custom_step) {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL(h_scroll);
+
 	h_scroll->set_custom_step(p_custom_step);
 }
 
 float ScrollContainer::get_horizontal_custom_step() const {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL_V(h_scroll, 0.0);
+
 	return h_scroll->get_custom_step();
 }
 
 void ScrollContainer::set_vertical_custom_step(float p_custom_step) {
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL(v_scroll);
+
 	v_scroll->set_custom_step(p_custom_step);
 }
 
 float ScrollContainer::get_vertical_custom_step() const {
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL_V(v_scroll, 0.0);
+
 	return v_scroll->get_custom_step();
 }
 
@@ -542,6 +599,9 @@ Array ScrollContainer::get_configuration_warnings() const {
 
 	int found = 0;
 
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+
 	for (int i = 0; i < get_child_count(); i++) {
 		Control *c = Object::cast_to<Control>(get_child(i));
 		if (!c) {
@@ -565,10 +625,16 @@ Array ScrollContainer::get_configuration_warnings() const {
 }
 
 HScrollBar *ScrollContainer::get_h_scroll_bar() {
+	HScrollBar *h_scroll = Object::cast_to<HScrollBar>(ObjectDB::get_instance(h_scroll_id));
+	ERR_FAIL_NULL_V(h_scroll, nullptr);
+
 	return h_scroll;
 }
 
 VScrollBar *ScrollContainer::get_v_scroll_bar() {
+	VScrollBar *v_scroll = Object::cast_to<VScrollBar>(ObjectDB::get_instance(v_scroll_id));
+	ERR_FAIL_NULL_V(v_scroll, nullptr);
+
 	return v_scroll;
 }
 
@@ -626,15 +692,17 @@ void ScrollContainer::_bind_methods() {
 };
 
 ScrollContainer::ScrollContainer() {
-	h_scroll = memnew(HScrollBar);
+	HScrollBar *h_scroll = memnew(HScrollBar);
 	h_scroll->set_name("_h_scroll");
 	add_child(h_scroll, false, INTERNAL_MODE_BACK);
 	h_scroll->connect("value_changed", callable_mp(this, &ScrollContainer::_scroll_moved));
+	h_scroll_id = h_scroll->get_instance_id();
 
-	v_scroll = memnew(VScrollBar);
+	VScrollBar *v_scroll = memnew(VScrollBar);
 	v_scroll->set_name("_v_scroll");
 	add_child(v_scroll, false, INTERNAL_MODE_BACK);
 	v_scroll->connect("value_changed", callable_mp(this, &ScrollContainer::_scroll_moved));
+	v_scroll_id = v_scroll->get_instance_id();
 
 	deadzone = GLOBAL_GET("gui/common/default_scroll_deadzone");
 

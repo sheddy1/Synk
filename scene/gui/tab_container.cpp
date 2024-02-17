@@ -38,6 +38,8 @@
 int TabContainer::_get_tab_height() const {
 	int height = 0;
 	if (tabs_visible && get_tab_count() > 0) {
+		TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+		ERR_FAIL_NULL_V(tab_bar, 0);
 		height = tab_bar->get_minimum_size().height;
 	}
 
@@ -208,6 +210,9 @@ void TabContainer::_on_theme_changed() {
 		return;
 	}
 
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->begin_bulk_theme_override();
 
 	tab_bar->add_theme_style_override(SNAME("tab_unselected"), theme_cache.tab_unselected_style);
@@ -253,10 +258,13 @@ void TabContainer::_repaint() {
 	Vector<Control *> controls = _get_tab_controls();
 	int current = get_current_tab();
 
-	if (tabs_position == POSITION_BOTTOM) {
-		tab_bar->set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE);
-	} else {
-		tab_bar->set_anchors_and_offsets_preset(PRESET_TOP_WIDE);
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	if (tab_bar) {
+		if (tabs_position == POSITION_BOTTOM) {
+			tab_bar->set_anchors_and_offsets_preset(PRESET_BOTTOM_WIDE);
+		} else {
+			tab_bar->set_anchors_and_offsets_preset(PRESET_TOP_WIDE);
+		}
 	}
 
 	updating_visibility = true;
@@ -294,6 +302,9 @@ void TabContainer::_update_margins() {
 
 	// Directly check for validity, to avoid errors when quitting.
 	bool has_popup = popup_obj_id.is_valid();
+
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
 
 	if (get_tab_count() == 0) {
 		tab_bar->set_offset(SIDE_LEFT, 0);
@@ -346,6 +357,8 @@ void TabContainer::_on_mouse_exited() {
 }
 
 Vector<Control *> TabContainer::_get_tab_controls() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+
 	Vector<Control *> controls;
 	for (int i = 0; i < get_child_count(); i++) {
 		Control *control = Object::cast_to<Control>(get_child(i));
@@ -360,6 +373,9 @@ Vector<Control *> TabContainer::_get_tab_controls() const {
 }
 
 Variant TabContainer::_get_drag_data_fw(const Point2 &p_point, Control *p_from_control) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, Variant());
+
 	if (!drag_to_rearrange_enabled) {
 		return Variant();
 	}
@@ -367,6 +383,9 @@ Variant TabContainer::_get_drag_data_fw(const Point2 &p_point, Control *p_from_c
 }
 
 bool TabContainer::_can_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from_control) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	if (!drag_to_rearrange_enabled) {
 		return false;
 	}
@@ -374,6 +393,9 @@ bool TabContainer::_can_drop_data_fw(const Point2 &p_point, const Variant &p_dat
 }
 
 void TabContainer::_drop_data_fw(const Point2 &p_point, const Variant &p_data, Control *p_from_control) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (!drag_to_rearrange_enabled) {
 		return;
 	}
@@ -397,6 +419,9 @@ void TabContainer::_drag_move_tab_from(TabBar *p_from_tabbar, int p_from_index, 
 }
 
 void TabContainer::move_tab_from_tab_container(TabContainer *p_from, int p_from_index, int p_to_index) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	ERR_FAIL_NULL(p_from);
 	ERR_FAIL_INDEX(p_from_index, p_from->get_tab_count());
 	ERR_FAIL_INDEX(p_to_index, get_tab_count() + 1);
@@ -408,7 +433,8 @@ void TabContainer::move_tab_from_tab_container(TabContainer *p_from, int p_from_
 	bool tab_disabled = p_from->is_tab_disabled(p_from_index);
 	bool tab_hidden = p_from->is_tab_hidden(p_from_index);
 	Variant tab_metadata = p_from->get_tab_metadata(p_from_index);
-	int tab_icon_max_width = p_from->get_tab_bar()->get_tab_icon_max_width(p_from_index);
+	TabBar *from_tb = p_from->get_tab_bar();
+	int tab_icon_max_width = from_tb ? from_tb->get_tab_icon_max_width(p_from_index) : 0;
 
 	Control *moving_tabc = p_from->get_tab_control(p_from_index);
 	p_from->remove_child(moving_tabc);
@@ -425,7 +451,8 @@ void TabContainer::move_tab_from_tab_container(TabContainer *p_from, int p_from_
 	set_tab_disabled(p_to_index, tab_disabled);
 	set_tab_hidden(p_to_index, tab_hidden);
 	set_tab_metadata(p_to_index, tab_metadata);
-	get_tab_bar()->set_tab_icon_max_width(p_to_index, tab_icon_max_width);
+
+	tab_bar->set_tab_icon_max_width(p_to_index, tab_icon_max_width);
 
 	if (!is_tab_disabled(p_to_index)) {
 		set_current_tab(p_to_index);
@@ -501,6 +528,9 @@ void TabContainer::_on_tab_visibility_changed(Control *p_child) {
 }
 
 void TabContainer::_refresh_tab_names() {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	Vector<Control *> controls = _get_tab_controls();
 	for (int i = 0; i < controls.size(); i++) {
 		if (!controls[i]->has_meta("_tab_name") && String(controls[i]->get_name()) != get_tab_title(i)) {
@@ -512,6 +542,7 @@ void TabContainer::_refresh_tab_names() {
 void TabContainer::add_child_notify(Node *p_child) {
 	Container::add_child_notify(p_child);
 
+	TabBar *tab_bar = tab_bar_id.is_valid() ? Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id)) : nullptr;
 	if (p_child == tab_bar) {
 		return;
 	}
@@ -522,7 +553,9 @@ void TabContainer::add_child_notify(Node *p_child) {
 	}
 	c->hide();
 
-	tab_bar->add_tab(p_child->get_name());
+	if (tab_bar) {
+		tab_bar->add_tab(p_child->get_name());
+	}
 
 	_update_margins();
 	if (get_tab_count() == 1) {
@@ -541,6 +574,7 @@ void TabContainer::add_child_notify(Node *p_child) {
 void TabContainer::move_child_notify(Node *p_child) {
 	Container::move_child_notify(p_child);
 
+	TabBar *tab_bar = tab_bar_id.is_valid() ? Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id)) : nullptr;
 	if (p_child == tab_bar) {
 		return;
 	}
@@ -558,13 +592,16 @@ void TabContainer::move_child_notify(Node *p_child) {
 			}
 		}
 
-		tab_bar->move_tab(old_idx, get_tab_idx_from_control(c));
+		if (tab_bar) {
+			tab_bar->move_tab(old_idx, get_tab_idx_from_control(c));
+		}
 	}
 }
 
 void TabContainer::remove_child_notify(Node *p_child) {
 	Container::remove_child_notify(p_child);
 
+	TabBar *tab_bar = tab_bar_id.is_valid() ? Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id)) : nullptr;
 	if (p_child == tab_bar) {
 		return;
 	}
@@ -577,9 +614,11 @@ void TabContainer::remove_child_notify(Node *p_child) {
 	int idx = get_tab_idx_from_control(c);
 
 	// As the child hasn't been removed yet, keep track of it so when the "tab_changed" signal is fired it can be ignored.
-	children_removing.push_back(c);
-	tab_bar->remove_tab(idx);
-	children_removing.erase(c);
+	if (tab_bar) {
+		children_removing.push_back(c);
+		tab_bar->remove_tab(idx);
+		children_removing.erase(c);
+	}
 
 	_update_margins();
 	if (get_tab_count() == 0) {
@@ -597,10 +636,16 @@ void TabContainer::remove_child_notify(Node *p_child) {
 }
 
 TabBar *TabContainer::get_tab_bar() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, nullptr);
+
 	return tab_bar;
 }
 
 int TabContainer::get_tab_count() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, 0);
+
 	return tab_bar->get_tab_count();
 }
 
@@ -609,30 +654,51 @@ void TabContainer::set_current_tab(int p_current) {
 		setup_current_tab = p_current;
 		return;
 	}
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_current_tab(p_current);
 }
 
 int TabContainer::get_current_tab() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, 0);
+
 	return tab_bar->get_current_tab();
 }
 
 int TabContainer::get_previous_tab() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, 0);
+
 	return tab_bar->get_previous_tab();
 }
 
 bool TabContainer::select_previous_available() {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->select_previous_available();
 }
 
 bool TabContainer::select_next_available() {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->select_next_available();
 }
 
 void TabContainer::set_deselect_enabled(bool p_enabled) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_deselect_enabled(p_enabled);
 }
 
 bool TabContainer::get_deselect_enabled() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->get_deselect_enabled();
 }
 
@@ -646,10 +712,16 @@ Control *TabContainer::get_tab_control(int p_idx) const {
 }
 
 Control *TabContainer::get_current_tab_control() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, nullptr);
+
 	return get_tab_control(tab_bar->get_current_tab());
 }
 
 int TabContainer::get_tab_idx_at_point(const Point2 &p_point) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, 0);
+
 	return tab_bar->get_tab_idx_at_point(p_point);
 }
 
@@ -668,6 +740,9 @@ int TabContainer::get_tab_idx_from_control(Control *p_child) const {
 }
 
 void TabContainer::set_tab_alignment(TabBar::AlignmentMode p_alignment) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (tab_bar->get_tab_alignment() == p_alignment) {
 		return;
 	}
@@ -677,11 +752,17 @@ void TabContainer::set_tab_alignment(TabBar::AlignmentMode p_alignment) {
 }
 
 TabBar::AlignmentMode TabContainer::get_tab_alignment() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, TabBar::ALIGNMENT_LEFT);
+
 	return tab_bar->get_tab_alignment();
 }
 
 void TabContainer::set_tabs_position(TabPosition p_tabs_position) {
 	ERR_FAIL_INDEX(p_tabs_position, POSITION_MAX);
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (p_tabs_position == tabs_position) {
 		return;
 	}
@@ -698,22 +779,37 @@ TabContainer::TabPosition TabContainer::get_tabs_position() const {
 }
 
 void TabContainer::set_tab_focus_mode(Control::FocusMode p_focus_mode) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_focus_mode(p_focus_mode);
 }
 
 Control::FocusMode TabContainer::get_tab_focus_mode() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, FOCUS_NONE);
+
 	return tab_bar->get_focus_mode();
 }
 
 void TabContainer::set_clip_tabs(bool p_clip_tabs) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_clip_tabs(p_clip_tabs);
 }
 
 bool TabContainer::get_clip_tabs() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->get_clip_tabs();
 }
 
 void TabContainer::set_tabs_visible(bool p_visible) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (p_visible == tabs_visible) {
 		return;
 	}
@@ -730,6 +826,9 @@ bool TabContainer::are_tabs_visible() const {
 }
 
 void TabContainer::set_all_tabs_in_front(bool p_in_front) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (p_in_front == all_tabs_in_front) {
 		return;
 	}
@@ -745,6 +844,9 @@ bool TabContainer::is_all_tabs_in_front() const {
 }
 
 void TabContainer::set_tab_title(int p_tab, const String &p_title) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	Control *child = get_tab_control(p_tab);
 	ERR_FAIL_NULL(child);
 
@@ -767,10 +869,16 @@ void TabContainer::set_tab_title(int p_tab, const String &p_title) {
 }
 
 String TabContainer::get_tab_title(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, String());
+
 	return tab_bar->get_tab_title(p_tab);
 }
 
 void TabContainer::set_tab_icon(int p_tab, const Ref<Texture2D> &p_icon) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (tab_bar->get_tab_icon(p_tab) == p_icon) {
 		return;
 	}
@@ -782,10 +890,16 @@ void TabContainer::set_tab_icon(int p_tab, const Ref<Texture2D> &p_icon) {
 }
 
 Ref<Texture2D> TabContainer::get_tab_icon(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, Ref<Texture2D>());
+
 	return tab_bar->get_tab_icon(p_tab);
 }
 
 void TabContainer::set_tab_disabled(int p_tab, bool p_disabled) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	if (tab_bar->is_tab_disabled(p_tab) == p_disabled) {
 		return;
 	}
@@ -799,10 +913,16 @@ void TabContainer::set_tab_disabled(int p_tab, bool p_disabled) {
 }
 
 bool TabContainer::is_tab_disabled(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->is_tab_disabled(p_tab);
 }
 
 void TabContainer::set_tab_hidden(int p_tab, bool p_hidden) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	Control *child = get_tab_control(p_tab);
 	ERR_FAIL_NULL(child);
 
@@ -821,18 +941,30 @@ void TabContainer::set_tab_hidden(int p_tab, bool p_hidden) {
 }
 
 bool TabContainer::is_tab_hidden(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, false);
+
 	return tab_bar->is_tab_hidden(p_tab);
 }
 
 void TabContainer::set_tab_metadata(int p_tab, const Variant &p_metadata) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_tab_metadata(p_tab, p_metadata);
 }
 
 Variant TabContainer::get_tab_metadata(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, Variant());
+
 	return tab_bar->get_tab_metadata(p_tab);
 }
 
 void TabContainer::set_tab_button_icon(int p_tab, const Ref<Texture2D> &p_icon) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_tab_button_icon(p_tab, p_icon);
 
 	_update_margins();
@@ -840,6 +972,9 @@ void TabContainer::set_tab_button_icon(int p_tab, const Ref<Texture2D> &p_icon) 
 }
 
 Ref<Texture2D> TabContainer::get_tab_button_icon(int p_tab) const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, Ref<Texture2D>());
+
 	return tab_bar->get_tab_button_icon(p_tab);
 }
 
@@ -847,7 +982,8 @@ Size2 TabContainer::get_minimum_size() const {
 	Size2 ms;
 
 	if (tabs_visible) {
-		ms = tab_bar->get_minimum_size();
+		TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+		ms = tab_bar ? tab_bar->get_minimum_size() : Size2();
 
 		if (!get_clip_tabs()) {
 			if (get_popup()) {
@@ -928,10 +1064,16 @@ bool TabContainer::get_drag_to_rearrange_enabled() const {
 }
 
 void TabContainer::set_tabs_rearrange_group(int p_group_id) {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL(tab_bar);
+
 	tab_bar->set_tabs_rearrange_group(p_group_id);
 }
 
 int TabContainer::get_tabs_rearrange_group() const {
+	TabBar *tab_bar = Object::cast_to<TabBar>(ObjectDB::get_instance(tab_bar_id));
+	ERR_FAIL_NULL_V(tab_bar, 0);
+
 	return tab_bar->get_tabs_rearrange_group();
 }
 
@@ -1064,7 +1206,9 @@ void TabContainer::_bind_methods() {
 }
 
 TabContainer::TabContainer() {
-	tab_bar = memnew(TabBar);
+	TabBar *tab_bar = memnew(TabBar);
+	tab_bar_id = tab_bar->get_instance_id();
+
 	SET_DRAG_FORWARDING_GCDU(tab_bar, TabContainer);
 	add_child(tab_bar, false, INTERNAL_MODE_FRONT);
 	tab_bar->set_anchors_and_offsets_preset(Control::PRESET_TOP_WIDE);

@@ -511,8 +511,11 @@ void TextEdit::_notification(int p_what) {
 
 			Size2 size = get_size();
 			bool rtl = is_layout_rtl();
-			if ((!has_focus() && !(menu && menu->has_focus())) || !window_has_focus) {
-				draw_caret = false;
+			if (menu_id.is_valid()) {
+				PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+				if ((!has_focus() && !(menu && menu->has_focus())) || !window_has_focus) {
+					draw_caret = false;
+				}
 			}
 
 			_update_scrollbars();
@@ -1871,10 +1874,14 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 
 				if (context_menu_enabled) {
 					_update_context_menu();
-					menu->set_position(get_screen_position() + mpos);
-					menu->reset_size();
-					menu->popup();
-					grab_focus();
+
+					PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+					if (menu) {
+						menu->set_position(get_screen_position() + mpos);
+						menu->reset_size();
+						menu->popup();
+						grab_focus();
+					}
 				}
 			}
 		} else {
@@ -2158,10 +2165,14 @@ void TextEdit::gui_input(const Ref<InputEvent> &p_gui_input) {
 			if (context_menu_enabled) {
 				_update_context_menu();
 				adjust_viewport_to_caret();
-				menu->set_position(get_screen_position() + get_caret_draw_pos());
-				menu->reset_size();
-				menu->popup();
-				menu->grab_focus();
+
+				PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+				if (menu) {
+					menu->set_position(get_screen_position() + get_caret_draw_pos());
+					menu->reset_size();
+					menu->popup();
+					menu->grab_focus();
+				}
 			}
 			accept_event();
 			return;
@@ -3252,11 +3263,14 @@ void TextEdit::set_text_direction(Control::TextDirection p_text_direction) {
 		text.invalidate_font();
 		_update_placeholder();
 
-		if (menu_dir) {
-			menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_INHERITED), text_direction == TEXT_DIRECTION_INHERITED);
-			menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_AUTO), text_direction == TEXT_DIRECTION_AUTO);
-			menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_LTR), text_direction == TEXT_DIRECTION_LTR);
-			menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_RTL), text_direction == TEXT_DIRECTION_RTL);
+		if (menu_dir_id.is_valid()) {
+			PopupMenu *menu_dir = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_dir_id));
+			if (menu_dir) {
+				menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_INHERITED), text_direction == TEXT_DIRECTION_INHERITED);
+				menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_AUTO), text_direction == TEXT_DIRECTION_AUTO);
+				menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_LTR), text_direction == TEXT_DIRECTION_LTR);
+				menu_dir->set_item_checked(menu_dir->get_item_index(MENU_DIR_RTL), text_direction == TEXT_DIRECTION_RTL);
+			}
 		}
 		queue_redraw();
 	}
@@ -3773,13 +3787,21 @@ void TextEdit::paste_primary_clipboard(int p_caret) {
 
 // Context menu.
 PopupMenu *TextEdit::get_menu() const {
-	if (!menu) {
+	if (menu_id.is_null()) {
 		const_cast<TextEdit *>(this)->_generate_context_menu();
 	}
+
+	PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+	ERR_FAIL_NULL_V(menu, nullptr);
 	return menu;
 }
 
 bool TextEdit::is_menu_visible() const {
+	if (menu_id.is_null()) {
+		return false;
+	}
+
+	PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
 	return menu && menu->is_visible();
 }
 
@@ -6005,7 +6027,10 @@ bool TextEdit::is_highlight_all_occurrences_enabled() const {
 void TextEdit::set_draw_control_chars(bool p_enabled) {
 	if (draw_control_chars != p_enabled) {
 		draw_control_chars = p_enabled;
-		if (menu) {
+		if (menu_id.is_valid()) {
+			PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+			ERR_FAIL_NULL(menu);
+
 			menu->set_item_checked(menu->get_item_index(MENU_DISPLAY_UCC), draw_control_chars);
 		}
 		text.set_draw_control_chars(draw_control_chars);
@@ -6869,18 +6894,20 @@ Key TextEdit::_get_menu_action_accelerator(const String &p_action) {
 }
 
 void TextEdit::_generate_context_menu() {
-	menu = memnew(PopupMenu);
+	PopupMenu *menu = memnew(PopupMenu);
 	add_child(menu, false, INTERNAL_MODE_FRONT);
+	menu_id = menu->get_instance_id();
 
-	menu_dir = memnew(PopupMenu);
+	PopupMenu *menu_dir = memnew(PopupMenu);
 	menu_dir->set_name("DirMenu");
 	menu_dir->add_radio_check_item(RTR("Same as Layout Direction"), MENU_DIR_INHERITED);
 	menu_dir->add_radio_check_item(RTR("Auto-Detect Direction"), MENU_DIR_AUTO);
 	menu_dir->add_radio_check_item(RTR("Left-to-Right"), MENU_DIR_LTR);
 	menu_dir->add_radio_check_item(RTR("Right-to-Left"), MENU_DIR_RTL);
 	menu->add_child(menu_dir, false, INTERNAL_MODE_FRONT);
+	menu_dir_id = menu_dir->get_instance_id();
 
-	menu_ctl = memnew(PopupMenu);
+	PopupMenu *menu_ctl = memnew(PopupMenu);
 	menu_ctl->set_name("CTLMenu");
 	menu_ctl->add_item(RTR("Left-to-Right Mark (LRM)"), MENU_INSERT_LRM);
 	menu_ctl->add_item(RTR("Right-to-Left Mark (RLM)"), MENU_INSERT_RLM);
@@ -6901,6 +6928,7 @@ void TextEdit::_generate_context_menu() {
 	menu_ctl->add_item(RTR("Word Joiner (WJ)"), MENU_INSERT_WJ);
 	menu_ctl->add_item(RTR("Soft Hyphen (SHY)"), MENU_INSERT_SHY);
 	menu->add_child(menu_ctl, false, INTERNAL_MODE_FRONT);
+	menu_ctl_id = menu_ctl->get_instance_id();
 
 	menu->add_item(RTR("Cut"), MENU_CUT);
 	menu->add_item(RTR("Copy"), MENU_COPY);
@@ -6923,9 +6951,15 @@ void TextEdit::_generate_context_menu() {
 }
 
 void TextEdit::_update_context_menu() {
-	if (!menu) {
+	if (menu_id.is_null()) {
 		_generate_context_menu();
 	}
+
+	PopupMenu *menu = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_id));
+	ERR_FAIL_NULL(menu);
+
+	PopupMenu *menu_dir = Object::cast_to<PopupMenu>(ObjectDB::get_instance(menu_dir_id));
+	ERR_FAIL_NULL(menu_dir);
 
 	int idx = -1;
 
