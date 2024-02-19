@@ -1839,7 +1839,9 @@ void Node3DEditorViewport::_sinput(const Ref<InputEvent> &p_event) {
 
 					clicked = ObjectID();
 
-					if (after != EditorPlugin::AFTER_GUI_INPUT_CUSTOM && !b->is_alt_pressed()) {
+					bool node_selected = get_selected_count() > 0;
+
+					if (after != EditorPlugin::AFTER_GUI_INPUT_CUSTOM && (!b->is_alt_pressed() && (spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT || !node_selected || nav_scheme == NAVIGATION_TEMP))) {
 						//clicking is always deferred to either move or release
 						clicked = _select_ray(b->get_position());
 						if (clicked.is_valid() && !editor_selection->is_selected(Object::cast_to<Node>(ObjectDB::get_instance(clicked)))) {
@@ -1855,8 +1857,6 @@ void Node3DEditorViewport::_sinput(const Ref<InputEvent> &p_event) {
 							break;
 						}
 					}
-
-					bool node_selected = get_selected_count() > 0;
 
 					if (node_selected && ((spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_SELECT && b->is_command_or_control_pressed()) || spatial_editor->get_tool_mode() == Node3DEditor::TOOL_MODE_ROTATE)) {
 						begin_transform(TRANSFORM_ROTATE, false);
