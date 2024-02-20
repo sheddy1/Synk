@@ -367,6 +367,8 @@ void EditorVCSInterface::create_vcs_metadata_files(VCSMetadata p_vcs_metadata_ty
 		} else {
 			f->store_line("# Godot 4+ specific ignores");
 			f->store_line(".godot/");
+			f->store_line("*.translation");
+			f->store_line("export_presets.cfg");
 		}
 		f = FileAccess::open(p_dir.path_join(".gitattributes"), FileAccess::WRITE);
 		if (f.is_null()) {
