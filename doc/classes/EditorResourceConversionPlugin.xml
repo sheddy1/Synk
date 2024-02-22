@@ -47,5 +47,12 @@
 				Called to determine whether a particular [Resource] can be converted to the target resource type by this plugin.
 			</description>
 		</method>
+		<method name="_handles_type_name" qualifiers="virtual const">
+			<return type="bool" />
+			<param index="0" name="type" type="String" />
+			<description>
+				Called to determine whether a particular resource type can be converted to the target resource type by this plugin.
+			</description>
+		</method>
 	</methods>
 </class>

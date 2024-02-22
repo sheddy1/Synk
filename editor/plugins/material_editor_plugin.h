@@ -130,6 +130,7 @@ class StandardMaterial3DConversionPlugin : public EditorResourceConversionPlugin
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -139,6 +140,7 @@ class ORMMaterial3DConversionPlugin : public EditorResourceConversionPlugin {
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -148,6 +150,7 @@ class ParticleProcessMaterialConversionPlugin : public EditorResourceConversionP
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -157,6 +160,7 @@ class CanvasItemMaterialConversionPlugin : public EditorResourceConversionPlugin
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -166,6 +170,7 @@ class ProceduralSkyMaterialConversionPlugin : public EditorResourceConversionPlu
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -175,6 +180,7 @@ class PanoramaSkyMaterialConversionPlugin : public EditorResourceConversionPlugi
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -184,6 +190,7 @@ class PhysicalSkyMaterialConversionPlugin : public EditorResourceConversionPlugi
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 
@@ -193,6 +200,7 @@ class FogMaterialConversionPlugin : public EditorResourceConversionPlugin {
 public:
 	virtual String converts_to() const override;
 	virtual bool handles(const Ref<Resource> &p_resource) const override;
+	virtual bool handles_type_name(const String &p_type) const override;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const override;
 };
 

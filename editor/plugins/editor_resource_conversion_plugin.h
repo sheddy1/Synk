@@ -42,11 +42,16 @@ protected:
 
 	GDVIRTUAL0RC(String, _converts_to)
 	GDVIRTUAL1RC(bool, _handles, Ref<Resource>)
+	GDVIRTUAL1RC(bool, _handles_type_name, const String &)
 	GDVIRTUAL1RC(Ref<Resource>, _convert, Ref<Resource>)
 
 public:
 	virtual String converts_to() const;
+	// Ugh, as redundant as having two 'handles' function is, 'handles_type_name' was added to
+	// prevent API breakage and have the RMB menu check of valid conversion types without
+	// having to load them. Hopefully we can unify this for Godot 5...
 	virtual bool handles(const Ref<Resource> &p_resource) const;
+	virtual bool handles_type_name(const String &p_type) const;
 	virtual Ref<Resource> convert(const Ref<Resource> &p_resource) const;
 };
 

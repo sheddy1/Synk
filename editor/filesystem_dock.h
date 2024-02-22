@@ -137,6 +137,7 @@ private:
 		FILE_NEW_FOLDER,
 		FILE_NEW_SCRIPT,
 		FILE_NEW_SCENE,
+		CONVERT_BASE_ID = 1000
 	};
 
 	HashMap<String, Color> folder_colors;
@@ -198,6 +199,8 @@ private:
 	Label *overwrite_dialog_footer = nullptr;
 	Label *overwrite_dialog_file_list = nullptr;
 
+	ConfirmationDialog *conversion_dialog = nullptr;
+
 	SceneCreateDialog *make_scene_dialog = nullptr;
 	ScriptCreateDialog *make_script_dialog = nullptr;
 	ShaderCreateDialog *make_shader_dialog = nullptr;
@@ -222,6 +225,9 @@ private:
 	Vector<FileOrFolder> to_move;
 	String to_move_path;
 	bool to_move_or_copy = false;
+
+	Vector<String> to_convert;
+	int selected_conversion_id;
 
 	Vector<String> history;
 	int history_pos;
@@ -252,6 +258,8 @@ private:
 
 	void _file_list_gui_input(Ref<InputEvent> p_event);
 	void _tree_gui_input(Ref<InputEvent> p_event);
+
+	Vector<String> _get_valid_conversions_for_file_paths(const Vector<String> &p_paths);
 
 	void _update_file_list(bool p_keep_selection);
 	void _toggle_file_display();
@@ -289,11 +297,13 @@ private:
 	void _rename_operation_confirm();
 	void _duplicate_operation_confirm();
 	void _overwrite_dialog_action(bool p_overwrite);
+	void _convert_dialog_action();
 	Vector<String> _check_existing();
 	void _move_operation_confirm(const String &p_to_path, bool p_copy = false, Overwrite p_overwrite = OVERWRITE_UNDECIDED);
 
 	void _tree_rmb_option(int p_option);
 	void _file_list_rmb_option(int p_option);
+	void _generic_rmb_option_selected(int p_option);
 	void _file_option(int p_option, const Vector<String> &p_selected);
 
 	void _fw_history();
