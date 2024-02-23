@@ -1342,11 +1342,17 @@ ProjectManager::ProjectManager() {
 		main_vbox->add_child(footer_bar);
 
 		version_btn = memnew(LinkButton);
+		String branch = String::utf8(VERSION_GIT_BRANCH);
+		if (branch.length() != 0) {
+			// Trim branch name display if it's too long.
+			constexpr int MAX_BRANCH_NAME_LENGTH = 32;
+			branch = " " + vformat((branch.length() > MAX_BRANCH_NAME_LENGTH) ? "(%s...)" : "(%s)", branch.left(MAX_BRANCH_NAME_LENGTH));
+		}
 		String hash = String(VERSION_HASH);
 		if (hash.length() != 0) {
 			hash = " " + vformat("[%s]", hash.left(9));
 		}
-		version_btn->set_text("v" VERSION_FULL_BUILD + hash);
+		version_btn->set_text("v" VERSION_FULL_BUILD + branch + hash);
 		// Fade the version label to be less prominent, but still readable.
 		version_btn->set_self_modulate(Color(1, 1, 1, 0.6));
 		version_btn->set_underline_mode(LinkButton::UNDERLINE_MODE_ON_HOVER);
