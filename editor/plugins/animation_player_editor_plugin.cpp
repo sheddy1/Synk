@@ -372,8 +372,7 @@ void AnimationPlayerEditor::_animation_new() {
 	name_dialog->popup_centered(Size2(300, 90));
 	name_title->set_text(TTR("New Animation Name:"));
 	name->set_text(base);
-	name->select_all();
-	name->grab_focus();
+	name->edit(true);
 }
 
 void AnimationPlayerEditor::_animation_rename() {
@@ -393,8 +392,7 @@ void AnimationPlayerEditor::_animation_rename() {
 	name->set_text(selected_name);
 	name_dialog_op = TOOL_RENAME_ANIM;
 	name_dialog->popup_centered(Size2(300, 90));
-	name->select_all();
-	name->grab_focus();
+	name->edit(true);
 	library->hide();
 }
 
@@ -1212,8 +1210,7 @@ void AnimationPlayerEditor::_animation_duplicate() {
 	name_title->set_text(TTR("Duplicated Animation Name:"));
 	name->set_text(new_name);
 	name_dialog->popup_centered(Size2(300, 90));
-	name->select_all();
-	name->grab_focus();
+	name->edit(true);
 }
 
 Ref<Animation> AnimationPlayerEditor::_animation_clone(Ref<Animation> p_anim) {

@@ -45,7 +45,7 @@ void AnimationLibraryEditor::_add_library() {
 	add_library_dialog->set_title(TTR("Library Name:"));
 	add_library_name->set_text("");
 	add_library_dialog->popup_centered();
-	add_library_name->grab_focus();
+	add_library_name->edit();
 	adding_animation = false;
 	adding_animation_to_library = StringName();
 	_add_library_validate("");

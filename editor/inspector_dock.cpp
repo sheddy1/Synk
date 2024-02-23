@@ -628,8 +628,7 @@ void InspectorDock::shortcut_input(const Ref<InputEvent> &p_event) {
 	}
 
 	if (ED_IS_SHORTCUT("editor/open_search", p_event)) {
-		search->grab_focus();
-		search->select_all();
+		search->edit(true);
 		accept_event();
 	}
 }

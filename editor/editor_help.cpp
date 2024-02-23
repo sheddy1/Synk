@@ -3330,7 +3330,7 @@ void FindBar::popup_search() {
 	show();
 	bool grabbed_focus = false;
 	if (!search_text->has_focus()) {
-		search_text->grab_focus();
+		search_text->edit();
 		grabbed_focus = true;
 	}
 

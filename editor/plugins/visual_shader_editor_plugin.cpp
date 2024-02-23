@@ -4251,8 +4251,7 @@ void VisualShaderEditor::_show_members_dialog(bool at_mouse_pos, VisualShaderNod
 	Vector2 difference = (dialog_rect.get_end() - window_rect.get_end()).max(Vector2());
 	members_dialog->set_position(members_dialog->get_position() - difference);
 
-	callable_mp((Control *)node_filter, &Control::grab_focus).call_deferred(); // Still not visible.
-	node_filter->select_all();
+	callable_mp(node_filter, &LineEdit::edit).call_deferred(true); // Still not visible.
 }
 
 void VisualShaderEditor::_varying_menu_id_pressed(int p_idx) {

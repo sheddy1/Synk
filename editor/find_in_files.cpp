@@ -465,8 +465,7 @@ void FindInFilesDialog::_notification(int p_what) {
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			if (is_visible()) {
 				// Doesn't work more than once if not deferred...
-				callable_mp((Control *)_search_text_line_edit, &Control::grab_focus).call_deferred();
-				_search_text_line_edit->select_all();
+				callable_mp(_search_text_line_edit, &LineEdit::edit).call_deferred(true);
 				// Extensions might have changed in the meantime, we clean them and instance them again.
 				for (int i = 0; i < _filters_container->get_child_count(); i++) {
 					_filters_container->get_child(i)->queue_free();

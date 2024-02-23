@@ -741,7 +741,7 @@ void ProjectDialog::show_dialog() {
 			install_path_container->hide();
 			renderer_container->hide();
 			default_files_container->hide();
-			project_path->grab_focus();
+			project_path->edit();
 
 		} else if (mode == MODE_NEW) {
 			set_title(TTR("Create New Project"));
@@ -761,7 +761,7 @@ void ProjectDialog::show_dialog() {
 			install_path_container->hide();
 			renderer_container->hide();
 			default_files_container->hide();
-			project_path->grab_focus();
+			project_path->edit();
 		}
 
 		_test_path();
