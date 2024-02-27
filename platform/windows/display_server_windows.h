@@ -280,6 +280,10 @@ typedef struct {
 	ICONDIRENTRY idEntries[1]; // An entry for each image (idCount of 'em)
 } ICONDIR, *LPICONDIR;
 
+#ifndef WDA_EXCLUDEFROMCAPTURE
+#define WDA_EXCLUDEFROMCAPTURE 0x00000011
+#endif
+
 class DisplayServerWindows : public DisplayServer {
 	// No need to register with GDCLASS, it's platform-specific and nothing is added.
 
@@ -314,6 +318,8 @@ class DisplayServerWindows : public DisplayServer {
 	void _update_tablet_ctx(const String &p_old_driver, const String &p_new_driver);
 	String tablet_driver;
 	Vector<String> tablet_drivers;
+
+	OSVERSIONINFOW os_ver;
 
 	enum {
 		KEY_EVENT_BUFFER_SIZE = 512
@@ -378,6 +384,7 @@ class DisplayServerWindows : public DisplayServer {
 		bool exclusive = false;
 		bool context_created = false;
 		bool mpass = false;
+		bool hide_from_capture = false;
 
 		// Used to transfer data between events using timer.
 		WPARAM saved_wparam;
@@ -553,6 +560,7 @@ public:
 	virtual float screen_get_refresh_rate(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
 	virtual Color screen_get_pixel(const Point2i &p_position) const override;
 	virtual Ref<Image> screen_get_image(int p_screen = SCREEN_OF_MAIN_WINDOW) const override;
+	virtual Ref<Image> screen_get_image_rect(const Rect2i &p_rect) const override;
 
 	virtual void screen_set_keep_on(bool p_enable) override; //disable screensaver
 	virtual bool screen_is_kept_on() const override;
