@@ -638,6 +638,13 @@ public:
 
 	virtual void joint_clear(RID p_joint) = 0;
 
+	enum JointFlag {
+		JOINT_FLAG_CONSTRAINTS_ENABLED,
+	};
+
+	virtual void joint_set_flag(RID p_joint, JointFlag p_flag, bool p_enabled) = 0;
+	virtual bool joint_get_flag(RID p_joint, JointFlag p_flag) const = 0;
+
 	virtual JointType joint_get_type(RID p_joint) const = 0;
 
 	virtual void joint_set_solver_priority(RID p_joint, int p_priority) = 0;
@@ -1045,6 +1052,7 @@ VARIANT_ENUM_CAST(PhysicsServer3D::BodyDampMode);
 VARIANT_ENUM_CAST(PhysicsServer3D::BodyState);
 VARIANT_ENUM_CAST(PhysicsServer3D::BodyAxis);
 VARIANT_ENUM_CAST(PhysicsServer3D::PinJointParam);
+VARIANT_ENUM_CAST(PhysicsServer3D::JointFlag);
 VARIANT_ENUM_CAST(PhysicsServer3D::JointType);
 VARIANT_ENUM_CAST(PhysicsServer3D::HingeJointParam);
 VARIANT_ENUM_CAST(PhysicsServer3D::HingeJointFlag);

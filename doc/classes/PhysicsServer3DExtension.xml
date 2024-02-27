@@ -783,6 +783,13 @@
 			<description>
 			</description>
 		</method>
+		<method name="_joint_get_flag" qualifiers="virtual const">
+			<return type="bool" />
+			<param index="0" name="joint" type="RID" />
+			<param index="1" name="flag" type="int" enum="PhysicsServer3D.JointFlag" />
+			<description>
+			</description>
+		</method>
 		<method name="_joint_get_solver_priority" qualifiers="virtual const">
 			<return type="int" />
 			<param index="0" name="joint" type="RID" />
@@ -860,6 +867,14 @@
 			<param index="2" name="local_ref_A" type="Transform3D" />
 			<param index="3" name="body_B" type="RID" />
 			<param index="4" name="local_ref_B" type="Transform3D" />
+			<description>
+			</description>
+		</method>
+		<method name="_joint_set_flag" qualifiers="virtual">
+			<return type="void" />
+			<param index="0" name="joint" type="RID" />
+			<param index="1" name="flag" type="int" enum="PhysicsServer3D.JointFlag" />
+			<param index="2" name="enabled" type="bool" />
 			<description>
 			</description>
 		</method>

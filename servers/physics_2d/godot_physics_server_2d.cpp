@@ -1042,6 +1042,29 @@ void GodotPhysicsServer2D::joint_clear(RID p_joint) {
 	}
 }
 
+void GodotPhysicsServer2D::joint_set_flag(RID p_joint, JointFlag p_flag, bool p_enabled) {
+	GodotJoint2D *joint = joint_owner.get_or_null(p_joint);
+	ERR_FAIL_NULL(joint);
+
+	switch (p_flag) {
+		case JOINT_FLAG_CONSTRAINTS_ENABLED:
+			joint->set_constraints_enabled(p_enabled);
+			break;
+	}
+}
+
+bool GodotPhysicsServer2D::joint_get_flag(RID p_joint, JointFlag p_flag) const {
+	const GodotJoint2D *joint = joint_owner.get_or_null(p_joint);
+	ERR_FAIL_NULL_V(joint, false);
+
+	switch (p_flag) {
+		case JOINT_FLAG_CONSTRAINTS_ENABLED:
+			return joint->are_constraints_enabled();
+	}
+
+	return false;
+}
+
 void GodotPhysicsServer2D::joint_set_param(RID p_joint, JointParam p_param, real_t p_value) {
 	GodotJoint2D *joint = joint_owner.get_or_null(p_joint);
 	ERR_FAIL_NULL(joint);

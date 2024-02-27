@@ -82,6 +82,9 @@ bool GodotPinJoint3D::setup(real_t p_step) {
 }
 
 void GodotPinJoint3D::solve(real_t p_step) {
+	if (!are_constraints_enabled()) {
+		return;
+	}
 	Vector3 pivotAInW = A->get_transform().xform(m_pivotInA);
 	Vector3 pivotBInW = B->get_transform().xform(m_pivotInB);
 
@@ -167,14 +170,13 @@ real_t GodotPinJoint3D::get_param(PhysicsServer3D::PinJointParam p_param) const 
 }
 
 GodotPinJoint3D::GodotPinJoint3D(GodotBody3D *p_body_a, const Vector3 &p_pos_a, GodotBody3D *p_body_b, const Vector3 &p_pos_b) :
-		GodotJoint3D(_arr, 2) {
+		GodotJoint3D() {
 	A = p_body_a;
 	B = p_body_b;
 	m_pivotInA = p_pos_a;
 	m_pivotInB = p_pos_b;
 
-	A->add_constraint(this, 0);
-	B->add_constraint(this, 1);
+	add_constraints();
 }
 
 GodotPinJoint3D::~GodotPinJoint3D() {

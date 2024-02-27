@@ -766,6 +766,9 @@ void PhysicsServer2D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("joint_clear", "joint"), &PhysicsServer2D::joint_clear);
 
+	ClassDB::bind_method(D_METHOD("joint_set_flag", "joint", "flag", "enabled"), &PhysicsServer2D::joint_set_flag);
+	ClassDB::bind_method(D_METHOD("joint_get_flag", "joint", "flag"), &PhysicsServer2D::joint_get_flag);
+
 	ClassDB::bind_method(D_METHOD("joint_set_param", "joint", "param", "value"), &PhysicsServer2D::joint_set_param);
 	ClassDB::bind_method(D_METHOD("joint_get_param", "joint", "param"), &PhysicsServer2D::joint_get_param);
 
@@ -860,6 +863,8 @@ void PhysicsServer2D::_bind_methods() {
 	BIND_ENUM_CONSTANT(JOINT_TYPE_GROOVE);
 	BIND_ENUM_CONSTANT(JOINT_TYPE_DAMPED_SPRING);
 	BIND_ENUM_CONSTANT(JOINT_TYPE_MAX);
+
+	BIND_ENUM_CONSTANT(JOINT_FLAG_CONSTRAINTS_ENABLED);
 
 	BIND_ENUM_CONSTANT(JOINT_PARAM_BIAS);
 	BIND_ENUM_CONSTANT(JOINT_PARAM_MAX_BIAS);
