@@ -310,6 +310,15 @@
 				Returns the result of reflecting the vector from a plane defined by the given normal [param n].
 			</description>
 		</method>
+		<method name="rotate_toward" qualifiers="const">
+			<return type="Vector3" />
+			<param index="0" name="to" type="Vector3" />
+			<param index="1" name="delta" type="float" />
+			<description>
+				Returns the result of rotating this vector toward [param to], by increment [param delta] (in radians). Passing a negative [param delta] will rotate toward the opposite of [param to].
+				This method supports vectors of different length, with the same behavior as [method slerp]. If the vectors are colinear, this method behaves like [method move_toward]. If [param to] has a length of zero, this method behaves like [method lerp].
+			</description>
+		</method>
 		<method name="rotated" qualifiers="const">
 			<return type="Vector3" />
 			<param index="0" name="axis" type="Vector3" />

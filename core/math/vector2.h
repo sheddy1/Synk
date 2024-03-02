@@ -114,6 +114,25 @@ struct _NO_DISCARD_ Vector2 {
 	_FORCE_INLINE_ Vector2 bezier_interpolate(const Vector2 &p_control_1, const Vector2 &p_control_2, const Vector2 &p_end, const real_t p_t) const;
 	_FORCE_INLINE_ Vector2 bezier_derivative(const Vector2 &p_control_1, const Vector2 &p_control_2, const Vector2 &p_end, const real_t p_t) const;
 
+	_FORCE_INLINE_ Vector2 rotate_toward(Vector2 p_to, real_t p_delta) const {
+		if (p_delta < 0.0f) {
+			p_delta = -p_delta;
+			p_to = -p_to;
+		}
+
+		real_t angle = Math::abs(angle_to(p_to));
+
+		if (angle < p_delta) {
+			if (unlikely(p_to.length_squared() == 0.0f)) {
+				// Prevent locking up when p_to is (0, 0).
+				return lerp(p_to, p_delta);
+			}
+			return move_toward(p_to, p_delta * p_to.length());
+		}
+
+		return slerp(p_to, p_delta / angle);
+	}
+
 	Vector2 move_toward(const Vector2 &p_to, const real_t p_delta) const;
 
 	Vector2 slide(const Vector2 &p_normal) const;
