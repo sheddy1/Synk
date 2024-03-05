@@ -172,8 +172,7 @@ void SceneTreeDock::_scene_tree_gui_input(Ref<InputEvent> p_event) {
 	}
 
 	if (ED_IS_SHORTCUT("editor/open_search", p_event)) {
-		filter->grab_focus();
-		filter->select_all();
+		filter->edit(true);
 		accept_event();
 	}
 }
@@ -3559,8 +3558,7 @@ void SceneTreeDock::_filter_option_selected(int p_option) {
 
 	if (!filter_parameter.is_empty()) {
 		set_filter((get_filter() + " " + filter_parameter + ":").strip_edges());
-		filter->set_caret_column(filter->get_text().length());
-		filter->grab_focus();
+		filter->edit(true);
 	}
 }
 

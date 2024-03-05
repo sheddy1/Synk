@@ -411,7 +411,7 @@ void ConnectDialog::_method_check_button_pressed(const CheckButton *p_button) {
 void ConnectDialog::_open_method_popup() {
 	method_popup->popup_centered();
 	method_search->clear();
-	method_search->grab_focus();
+	method_search->edit();
 }
 
 /*
@@ -1253,8 +1253,7 @@ void ConnectionsDock::_tree_gui_input(const Ref<InputEvent> &p_event) {
 				return;
 			}
 		} else if (ED_IS_SHORTCUT("editor/open_search", p_event)) {
-			search_box->grab_focus();
-			search_box->select_all();
+			search_box->edit(true);
 
 			accept_event();
 			return;

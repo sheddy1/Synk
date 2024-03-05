@@ -48,9 +48,8 @@ void GotoLineDialog::popup_find_line(CodeEdit *p_edit) {
 
 	// Add 1 because text_editor->get_caret_line() starts from 0, but the editor user interface starts from 1.
 	line->set_text(itos(text_editor->get_caret_line() + 1));
-	line->select_all();
 	popup_centered(Size2(180, 80) * EDSCALE);
-	line->grab_focus();
+	line->edit(true);
 }
 
 int GotoLineDialog::get_line() const {
@@ -525,10 +524,10 @@ void FindReplaceBar::_show_search(bool p_focus_replace, bool p_show_only) {
 
 	if (p_focus_replace) {
 		search_text->deselect();
-		callable_mp((Control *)replace_text, &Control::grab_focus).call_deferred();
+		callable_mp(replace_text, &LineEdit::edit).call_deferred();
 	} else {
 		replace_text->deselect();
-		callable_mp((Control *)search_text, &Control::grab_focus).call_deferred();
+		callable_mp(search_text, &LineEdit::edit).call_deferred();
 	}
 
 	if (text_editor->has_selection(0) && !is_selection_only()) {

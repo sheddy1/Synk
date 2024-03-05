@@ -81,7 +81,6 @@ void EditorPropertyText::_text_submitted(const String &p_string) {
 	}
 
 	if (text->has_focus()) {
-		text->release_focus();
 		_text_changed(p_string);
 	}
 }
@@ -269,7 +268,7 @@ void EditorPropertyTextEnum::_option_selected(int p_which) {
 void EditorPropertyTextEnum::_edit_custom_value() {
 	default_layout->hide();
 	edit_custom_layout->show();
-	custom_value_edit->grab_focus();
+	custom_value_edit->edit();
 }
 
 void EditorPropertyTextEnum::_custom_value_submitted(const String &p_value) {
@@ -818,9 +817,8 @@ void EditorPropertyLayersGrid::_rename_pressed(int p_menu) {
 	String name = names[renamed_layer_index];
 	rename_dialog->set_title(vformat(TTR("Renaming layer %d:"), renamed_layer_index + 1));
 	rename_dialog_text->set_text(name);
-	rename_dialog_text->select(0, name.length());
 	rename_dialog->popup_centered(Size2(300, 80) * EDSCALE);
-	rename_dialog_text->grab_focus();
+	rename_dialog_text->edit(true);
 }
 
 void EditorPropertyLayersGrid::_rename_operation_confirm() {
