@@ -240,3 +240,10 @@ Validate extension JSON: Error: Field 'classes/EditorPlugin/methods/add_control_
 
 Added optional argument to add_control_to_bottom_panel and add_control_to_dock to specify a shortcut that toggles the bottom panel/dock's visibility.
 Compatibility method registered.
+
+
+GH-87696
+--------
+Validate extension JSON: Error: Field 'classes/PCKPacker/methods/add_file/arguments': size changed value in new API, from 3 to 4.
+
+Added optional argument. Compatibility method registered.
