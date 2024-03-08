@@ -5441,6 +5441,14 @@ HScrollBar *TextEdit::get_h_scroll_bar() const {
 	return h_scroll;
 }
 
+void TextEdit::set_v_scroll_visibility(bool p_visible) {
+	v_scroll_enabled = p_visible;
+}
+
+void TextEdit::set_h_scroll_visibility(bool p_visible) {
+	h_scroll_enabled = p_visible;
+}
+
 void TextEdit::set_v_scroll(double p_scroll) {
 	v_scroll->set_value(p_scroll);
 	int max_v_scroll = v_scroll->get_max() - v_scroll->get_page();
@@ -7426,7 +7434,7 @@ void TextEdit::_update_scrollbars() {
 
 	updating_scrolls = true;
 
-	if (total_rows > visible_rows) {
+	if (total_rows > visible_rows && v_scroll_enabled) {
 		v_scroll->show();
 		v_scroll->set_max(total_rows + _get_visible_lines_offset());
 		v_scroll->set_page(visible_rows + _get_visible_lines_offset());
@@ -7440,7 +7448,7 @@ void TextEdit::_update_scrollbars() {
 		v_scroll->hide();
 	}
 
-	if (total_width > visible_width) {
+	if (total_width > visible_width && h_scroll_enabled) {
 		h_scroll->show();
 		h_scroll->set_max(total_width);
 		h_scroll->set_page(visible_width);
