@@ -32,7 +32,7 @@
 #include "audio_stream_polyphonic.compat.inc"
 
 #include "scene/main/scene_tree.h"
-#include "servers/audio_server.h"
+#include "servers/audio/audio_server.h"
 
 Ref<AudioStreamPlayback> AudioStreamPolyphonic::instantiate_playback() {
 	Ref<AudioStreamPlaybackPolyphonic> playback;
