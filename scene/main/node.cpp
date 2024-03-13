@@ -205,10 +205,6 @@ void Node::_notification(int p_notification) {
 			GDVIRTUAL_CALL(_ready);
 		} break;
 
-		case NOTIFICATION_POSTINITIALIZE: {
-			data.in_constructor = false;
-		} break;
-
 		case NOTIFICATION_PREDELETE: {
 			if (data.inside_tree && !Thread::is_main_thread()) {
 				cancel_free();
@@ -1472,8 +1468,6 @@ void Node::_add_child_nocheck(Node *p_child, const StringName &p_name, InternalM
 	}
 
 	/* Notify */
-	//recognize children created in this node constructor
-	p_child->data.parent_owned = data.in_constructor;
 	add_child_notify(p_child);
 	notification(NOTIFICATION_CHILD_ORDER_CHANGED);
 	emit_signal(SNAME("child_order_changed"));
@@ -2617,7 +2611,7 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 			for (int i = 0; i < N->get()->get_child_count(); ++i) {
 				Node *descendant = N->get()->get_child(i);
 
-				if (!descendant->get_owner()) {
+				if (descendant->is_internal() || !descendant->get_owner()) {
 					continue; // Internal nodes or nodes added by scripts.
 				}
 
@@ -2664,7 +2658,7 @@ Node *Node::_duplicate(int p_flags, HashMap<const Node *, Node *> *r_duplimap) c
 	}
 
 	for (int i = 0; i < get_child_count(); i++) {
-		if (get_child(i)->data.parent_owned) {
+		if (get_child(i)->is_internal()) {
 			continue;
 		}
 		if (instantiated && get_child(i)->data.owner == this) {
@@ -2956,8 +2950,8 @@ void Node::replace_by(Node *p_node, bool p_keep_groups) {
 	while (get_child_count()) {
 		Node *child = get_child(0);
 		remove_child(child);
-		if (!child->is_owned_by_parent()) {
-			// add the custom children to the p_node
+		if (!child->is_internal()) {
+			// Add the custom children to the p_node.
 			Node *child_owner = child->get_owner() == this ? p_node : child->get_owner();
 			child->set_owner(nullptr);
 			p_node->add_child(child);
@@ -3233,10 +3227,6 @@ void Node::update_configuration_warnings() {
 		get_tree()->emit_signal(SceneStringNames::get_singleton()->node_configuration_warning_changed, this);
 	}
 #endif
-}
-
-bool Node::is_owned_by_parent() const {
-	return data.parent_owned;
 }
 
 void Node::set_display_folded(bool p_folded) {

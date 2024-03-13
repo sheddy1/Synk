@@ -286,7 +286,7 @@ void SceneTreeDock::_perform_instantiate_scenes(const Vector<String> &p_files, N
 
 void SceneTreeDock::_replace_with_branch_scene(const String &p_file, Node *base) {
 	// `move_child` + `get_index` doesn't really work for internal nodes.
-	ERR_FAIL_COND_MSG(base->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to replace internal node, this is not supported.");
+	ERR_FAIL_COND_MSG(base->is_internal(), "Trying to replace internal node, this is not supported.");
 
 	Ref<PackedScene> sdata = ResourceLoader::load(p_file);
 	if (!sdata.is_valid()) {
@@ -655,7 +655,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 			int highest_id = 0;
 			for (Node *E : selection) {
 				// `move_child` + `get_index` doesn't really work for internal nodes.
-				ERR_FAIL_COND_MSG(E->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to move internal node, this is not supported.");
+				ERR_FAIL_COND_MSG(E->is_internal(), "Trying to move internal node, this is not supported.");
 				int index = E->get_index(false);
 
 				if (index > highest_id) {
@@ -834,7 +834,7 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 			}
 
 			// `move_child` + `get_index` doesn't really work for internal nodes.
-			ERR_FAIL_COND_MSG(node->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to set internal node as scene root, this is not supported.");
+			ERR_FAIL_COND_MSG(node->is_internal(), "Trying to set internal node as scene root, this is not supported.");
 
 			//check that from node to root, all owners are right
 
@@ -2095,7 +2095,7 @@ void SceneTreeDock::_do_reparent(Node *p_new_parent, int p_position_in_parent, V
 			return; // Attempt to reparent to itself.
 		}
 		// `move_child` + `get_index` doesn't really work for internal nodes.
-		ERR_FAIL_COND_MSG(p_nodes[ni]->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to move internal node, this is not supported.");
+		ERR_FAIL_COND_MSG(p_nodes[ni]->is_internal(), "Trying to move internal node, this is not supported.");
 
 		if (p_nodes[ni]->get_index(false) < first_idx) {
 			nodes_before--;
@@ -2494,7 +2494,7 @@ void SceneTreeDock::_delete_confirm(bool p_cut) {
 	} else {
 		for (const Node *E : remove_list) {
 			// `move_child` + `get_index` doesn't really work for internal nodes.
-			ERR_FAIL_COND_MSG(E->get_internal_mode() != INTERNAL_MODE_DISABLED, "Trying to remove internal node, this is not supported.");
+			ERR_FAIL_COND_MSG(E->is_internal(), "Trying to remove internal node, this is not supported.");
 		}
 		if (delete_tracks_checkbox->is_pressed() || p_cut) {
 			remove_list.sort_custom<Node::Comparator>(); // Sort nodes to keep positions.
@@ -2856,7 +2856,7 @@ void SceneTreeDock::_replace_node(Node *p_node, Node *p_by_node, bool p_keep_pro
 
 	List<Node *> to_erase;
 	for (int i = 0; i < n->get_child_count(); i++) {
-		if (n->get_child(i)->get_owner() == nullptr && n->is_owned_by_parent()) {
+		if (n->get_child(i)->get_owner() == nullptr && n->is_internal()) {
 			to_erase.push_back(n->get_child(i));
 		}
 	}
