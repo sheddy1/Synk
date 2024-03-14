@@ -221,6 +221,8 @@ bool FileSystemDock::_create_tree(TreeItem *p_parent, EditorFileSystemDirectory 
 	subdirectory_item->set_icon(0, get_editor_theme_icon(SNAME("Folder")));
 	subdirectory_item->set_selectable(0, true);
 	subdirectory_item->set_metadata(0, lpath);
+	folder_map[lpath] = subdirectory_item;
+
 	if (!p_select_in_favorites && (current_path == lpath || ((display_mode != DISPLAY_MODE_TREE_ONLY) && current_path.get_base_dir() == lpath))) {
 		subdirectory_item->select(0);
 		// Keep select an item when re-created a tree
@@ -365,6 +367,7 @@ void FileSystemDock::_update_tree(const Vector<String> &p_uncollapsed_paths, boo
 	tree_update_id++;
 	updating_tree = true;
 	TreeItem *root = tree->create_item();
+	folder_map.clear();
 
 	// Handles the favorites.
 	TreeItem *favorites_item = tree->create_item(root);
@@ -1428,9 +1431,18 @@ void FileSystemDock::_try_move_item(const FileOrFolder &p_item, const String &p_
 			print_verbose("  Remap: " + file_changed_paths[i] + " -> " + p_file_renames[file_changed_paths[i]]);
 			emit_signal(SNAME("files_moved"), file_changed_paths[i], p_file_renames[file_changed_paths[i]]);
 		}
-		for (int i = 0; i < folder_changed_paths.size(); ++i) {
-			p_folder_renames[folder_changed_paths[i]] = folder_changed_paths[i].replace_first(old_path, new_path);
-			emit_signal(SNAME("folder_moved"), folder_changed_paths[i], p_folder_renames[folder_changed_paths[i]].substr(0, p_folder_renames[folder_changed_paths[i]].length() - 1));
+
+		for (const String &folder : folder_changed_paths) {
+			const String new_folder = folder.replace_first(old_path, new_path);
+			p_folder_renames[folder] = new_folder;
+
+			// Update item path to preserve uncollapsed state.
+			TreeItem **old_folder_item = folder_map.getptr(folder);
+			if (old_folder_item) {
+				(*old_folder_item)->set_metadata(0, new_folder);
+			}
+
+			emit_signal(SNAME("folder_moved"), folder, new_folder.trim_suffix("/"));
 		}
 	} else {
 		EditorNode::get_singleton()->add_io_error(TTR("Error moving:") + "\n" + old_path + "\n");
