@@ -544,6 +544,7 @@ public:
 	virtual void update() = 0;
 
 	virtual void set_debug_redraw(bool p_enabled, double p_time, const Color &p_color) = 0;
+	virtual uint32_t get_pipeline_compilations(RS::PipelineSource p_source) = 0;
 
 	RendererCanvasRender() { singleton = this; }
 	virtual ~RendererCanvasRender() {}
