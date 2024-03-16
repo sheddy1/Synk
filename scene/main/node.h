@@ -210,8 +210,6 @@ private:
 		bool unhandled_input = false;
 		bool unhandled_key_input = false;
 
-		bool parent_owned = false;
-		bool in_constructor = true;
 		bool use_placeholder = false;
 
 		bool display_folded = false;
@@ -425,6 +423,7 @@ public:
 	}
 
 	_FORCE_INLINE_ bool is_inside_tree() const { return data.inside_tree; }
+	bool is_internal() const { return data.internal_mode != INTERNAL_MODE_DISABLED; }
 
 	bool is_ancestor_of(const Node *p_node) const;
 	bool is_greater_than(const Node *p_node) const;
@@ -634,8 +633,6 @@ public:
 
 	//hacks for speed
 	static void init_node_hrcr();
-
-	void force_parent_owned() { data.parent_owned = true; } //hack to avoid duplicate nodes
 
 	void set_import_path(const NodePath &p_import_path); //path used when imported, used by scene editors to keep tracking
 	NodePath get_import_path() const;
