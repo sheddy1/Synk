@@ -7259,7 +7259,7 @@ void TextEdit::_update_selection_mode_word() {
 	int end = beg;
 	PackedInt32Array words = TS->shaped_text_get_word_breaks(text.get_line_data(line)->get_rid());
 	for (int i = 0; i < words.size(); i = i + 2) {
-		if ((words[i] < caret_pos && words[i + 1] > caret_pos) || (i == words.size() - 2 && caret_pos == words[i + 1])) {
+		if ((!has_selection(caret_idx) && words[i] <= caret_pos && words[i + 1] >= caret_pos) || (has_selection(caret_idx) && words[i] < caret_pos && words[i + 1] > caret_pos)) {
 			beg = words[i];
 			end = words[i + 1];
 			break;
@@ -7276,7 +7276,12 @@ void TextEdit::_update_selection_mode_word() {
 		set_caret_line(line, false, true, 0, caret_idx);
 		set_caret_column(end, true, caret_idx);
 	} else {
-		if ((col <= carets[caret_idx].selection.selected_word_origin && line == get_selection_line(caret_idx)) || line < get_selection_line(caret_idx)) {
+		if (col == carets[caret_idx].selection.selected_word_origin && line == get_selection_line(caret_idx)) {
+			carets.write[caret_idx].selection.selecting_column = beg;
+			select(line, beg, get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_end, caret_idx);
+			set_caret_line(get_selection_to_line(caret_idx), false, true, 0, caret_idx);
+			set_caret_column(get_selection_to_column(caret_idx), true, caret_idx);
+		} else if ((col <= carets[caret_idx].selection.selected_word_origin && line == get_selection_line(caret_idx)) || line < get_selection_line(caret_idx)) {
 			carets.write[caret_idx].selection.selecting_column = carets[caret_idx].selection.selected_word_end;
 			select(line, beg, get_selection_line(caret_idx), carets[caret_idx].selection.selected_word_end, caret_idx);
 			set_caret_line(line, false, true, 0, caret_idx);
