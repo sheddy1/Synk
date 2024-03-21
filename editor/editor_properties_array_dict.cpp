@@ -700,6 +700,7 @@ void EditorPropertyArray::_reorder_button_up() {
 		array.call("remove_at", reorder_slot.index);
 		array.call("insert", reorder_to_index, value_to_move);
 
+		slots[reorder_to_index].reorder_button->grab_focus();
 		reorder_slot.index = reorder_slot.index % page_length + page_index * page_length;
 		emit_changed(get_edited_property(), array, "", false);
 	}
