@@ -57,13 +57,14 @@ class LightmapGIData : public Resource {
 		NodePath path;
 		int32_t sub_instance = 0;
 		Rect2 uv_scale;
+		Vector2 texture_size;
 		int slice_index = 0;
 	};
 
 	Vector<User> users;
 
-	void _set_user_data(const Array &p_data);
-	Array _get_user_data() const;
+	void _set_user_data_dict(const Array &p_data);
+	Array _get_user_data_dict() const;
 	void _set_probe_data(const Dictionary &p_data);
 	Dictionary _get_probe_data() const;
 
@@ -72,13 +73,19 @@ class LightmapGIData : public Resource {
 protected:
 	static void _bind_methods();
 
+#ifndef DISABLE_DEPRECATED
+	void _add_user_bind_compat_89919(const NodePath &p_path, const Rect2 &p_uv_scale, int p_slice_index, int32_t p_sub_instance = -1);
+	static void _bind_compatibility_methods();
+#endif
+
 public:
-	void add_user(const NodePath &p_path, const Rect2 &p_uv_scale, int p_slice_index, int32_t p_sub_instance = -1);
+	void add_user(const NodePath &p_path, const Rect2 &p_uv_scale, int p_slice_index, int32_t p_sub_instance = -1, const Vector2 &p_texture_size = Vector2());
 	int get_user_count() const;
 	NodePath get_user_path(int p_user) const;
 	int32_t get_user_sub_instance(int p_user) const;
 	Rect2 get_user_lightmap_uv_scale(int p_user) const;
 	int get_user_lightmap_slice_index(int p_user) const;
+	Vector2 get_user_lightmap_texture_size(int p_user) const;
 	void clear_users();
 
 #ifndef DISABLE_DEPRECATED
@@ -87,6 +94,9 @@ public:
 
 	void _set_light_textures_data(const Array &p_data);
 	Array _get_light_textures_data() const;
+
+	void _set_user_data(const Array &p_data);
+	Array _get_user_data() const;
 #endif
 
 	void set_uses_spherical_harmonics(bool p_enable);
