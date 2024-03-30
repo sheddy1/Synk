@@ -246,9 +246,9 @@ void Control::get_argument_options(const StringName &p_function, int p_idx, List
 }
 #endif
 
-PackedStringArray Control::get_configuration_warnings() const {
-	ERR_READ_THREAD_GUARD_V(PackedStringArray());
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array Control::get_configuration_info() const {
+	ERR_READ_THREAD_GUARD_V(Array());
+	Array warnings = Node::get_configuration_info();
 
 	if (data.mouse_filter == MOUSE_FILTER_IGNORE && !data.tooltip.is_empty()) {
 		warnings.push_back(RTR("The Hint Tooltip won't be displayed as the control's Mouse Filter is set to \"Ignore\". To solve this, set the Mouse Filter to \"Stop\" or \"Pass\"."));
@@ -1669,7 +1669,7 @@ void Control::set_custom_minimum_size(const Size2 &p_custom) {
 
 	data.custom_minimum_size = p_custom;
 	update_minimum_size();
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Size2 Control::get_custom_minimum_size() const {
@@ -1854,7 +1854,7 @@ void Control::set_mouse_filter(MouseFilter p_filter) {
 
 	data.mouse_filter = p_filter;
 	notify_property_list_changed();
-	update_configuration_warnings();
+	update_configuration_info();
 
 	if (get_viewport()) {
 		get_viewport()->_gui_update_mouse_over();
@@ -3141,7 +3141,7 @@ bool Control::is_auto_translating() const {
 void Control::set_tooltip_text(const String &p_hint) {
 	ERR_MAIN_THREAD_GUARD;
 	data.tooltip = p_hint;
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 String Control::get_tooltip_text() const {

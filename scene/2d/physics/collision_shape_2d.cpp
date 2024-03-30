@@ -158,7 +158,7 @@ void CollisionShape2D::set_shape(const Ref<Shape2D> &p_shape) {
 		shape->connect_changed(callable_mp(this, &CollisionShape2D::_shape_changed));
 	}
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Shape2D> CollisionShape2D::get_shape() const {
@@ -173,8 +173,8 @@ bool CollisionShape2D::_edit_is_selected_on_click(const Point2 &p_point, double 
 	return shape->_edit_is_selected_on_click(p_point, p_tolerance);
 }
 
-PackedStringArray CollisionShape2D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array CollisionShape2D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	CollisionObject2D *col_object = Object::cast_to<CollisionObject2D>(get_parent());
 	if (col_object == nullptr) {
@@ -214,7 +214,7 @@ void CollisionShape2D::set_one_way_collision(bool p_enable) {
 	if (collision_object) {
 		collision_object->shape_owner_set_one_way_collision(owner_id, p_enable);
 	}
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 bool CollisionShape2D::is_one_way_collision_enabled() const {

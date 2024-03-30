@@ -45,7 +45,7 @@ void Decal::set_texture(DecalTexture p_type, const Ref<Texture2D> &p_texture) {
 	textures[p_type] = p_texture;
 	RID texture_rid = p_texture.is_valid() ? p_texture->get_rid() : RID();
 	RS::get_singleton()->decal_set_texture(decal, RS::DecalTexture(p_type), texture_rid);
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Texture2D> Decal::get_texture(DecalTexture p_type) const {
@@ -138,7 +138,7 @@ real_t Decal::get_distance_fade_length() const {
 void Decal::set_cull_mask(uint32_t p_layers) {
 	cull_mask = p_layers;
 	RS::get_singleton()->decal_set_cull_mask(decal, cull_mask);
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 uint32_t Decal::get_cull_mask() const {
@@ -162,8 +162,8 @@ void Decal::_validate_property(PropertyInfo &p_property) const {
 	}
 }
 
-PackedStringArray Decal::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array Decal::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
 		warnings.push_back(RTR("Decals are only available when using the Forward+ or Mobile rendering backends."));

@@ -196,7 +196,7 @@ void NavigationRegion2D::set_navigation_polygon(const Ref<NavigationPolygon> &p_
 	}
 	_navigation_polygon_changed();
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<NavigationPolygon> NavigationRegion2D::get_navigation_polygon() const {
@@ -277,8 +277,8 @@ void NavigationRegion2D::_navigation_debug_changed() {
 }
 #endif // DEBUG_ENABLED
 
-PackedStringArray NavigationRegion2D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node2D::get_configuration_warnings();
+Array NavigationRegion2D::get_configuration_info() const {
+	Array warnings = Node2D::get_configuration_info();
 
 	if (is_visible_in_tree() && is_inside_tree()) {
 		if (!navigation_polygon.is_valid()) {

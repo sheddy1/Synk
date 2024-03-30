@@ -2073,7 +2073,7 @@ void Node::set_unique_name_in_owner(bool p_enabled) {
 		_acquire_unique_name_in_owner();
 	}
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 bool Node::is_unique_name_in_owner() const {

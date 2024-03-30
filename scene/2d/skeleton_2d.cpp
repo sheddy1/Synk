@@ -390,7 +390,7 @@ void Bone2D::set_rest(const Transform2D &p_rest) {
 		skeleton->_make_bone_setup_dirty();
 	}
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Transform2D Bone2D::get_rest() const {
@@ -415,8 +415,8 @@ int Bone2D::get_index_in_skeleton() const {
 	return skeleton_index;
 }
 
-PackedStringArray Bone2D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array Bone2D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 	if (!skeleton) {
 		if (parent_bone) {
 			warnings.push_back(RTR("This Bone2D chain should end at a Skeleton2D node."));

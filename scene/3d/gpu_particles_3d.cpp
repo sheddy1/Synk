@@ -130,7 +130,7 @@ void GPUParticles3D::set_process_material(const Ref<Material> &p_material) {
 	}
 	RS::get_singleton()->particles_set_process_material(particles, material_rid);
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void GPUParticles3D::set_speed_scale(double p_scale) {
@@ -203,7 +203,7 @@ void GPUParticles3D::set_draw_order(DrawOrder p_order) {
 void GPUParticles3D::set_trail_enabled(bool p_enabled) {
 	trail_enabled = p_enabled;
 	RS::get_singleton()->particles_set_trails(particles, trail_enabled, trail_lifetime);
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void GPUParticles3D::set_trail_lifetime(double p_seconds) {
@@ -242,13 +242,13 @@ void GPUParticles3D::set_draw_pass_mesh(int p_pass, const Ref<Mesh> &p_mesh) {
 	ERR_FAIL_INDEX(p_pass, draw_passes.size());
 
 	if (Engine::get_singleton()->is_editor_hint() && draw_passes.write[p_pass].is_valid()) {
-		draw_passes.write[p_pass]->disconnect_changed(callable_mp((Node *)this, &Node::update_configuration_warnings));
+		draw_passes.write[p_pass]->disconnect_changed(callable_mp((Node *)this, &Node::update_configuration_info));
 	}
 
 	draw_passes.write[p_pass] = p_mesh;
 
 	if (Engine::get_singleton()->is_editor_hint() && draw_passes.write[p_pass].is_valid()) {
-		draw_passes.write[p_pass]->connect_changed(callable_mp((Node *)this, &Node::update_configuration_warnings), CONNECT_DEFERRED);
+		draw_passes.write[p_pass]->connect_changed(callable_mp((Node *)this, &Node::update_configuration_info), CONNECT_DEFERRED);
 	}
 
 	RID mesh_rid;
@@ -259,7 +259,7 @@ void GPUParticles3D::set_draw_pass_mesh(int p_pass, const Ref<Mesh> &p_mesh) {
 	RS::get_singleton()->particles_set_draw_pass_mesh(particles, p_pass, mesh_rid);
 
 	_skinning_changed();
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Mesh> GPUParticles3D::get_draw_pass_mesh(int p_pass) const {
@@ -295,8 +295,8 @@ bool GPUParticles3D::get_interpolate() const {
 	return interpolate;
 }
 
-PackedStringArray GPUParticles3D::get_configuration_warnings() const {
-	PackedStringArray warnings = GeometryInstance3D::get_configuration_warnings();
+Array GPUParticles3D::get_configuration_info() const {
+	Array warnings = GeometryInstance3D::get_configuration_info();
 
 	bool meshes_found = false;
 	bool anim_material_found = false;
@@ -447,7 +447,7 @@ void GPUParticles3D::set_sub_emitter(const NodePath &p_path) {
 	if (is_inside_tree() && sub_emitter != NodePath()) {
 		_attach_sub_emitter();
 	}
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 NodePath GPUParticles3D::get_sub_emitter() const {
@@ -546,7 +546,7 @@ void GPUParticles3D::_skinning_changed() {
 	}
 
 	RS::get_singleton()->particles_set_trail_bind_poses(particles, xforms);
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void GPUParticles3D::set_skin(const Ref<Skin> &p_skin) {

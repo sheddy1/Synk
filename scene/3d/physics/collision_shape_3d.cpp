@@ -101,7 +101,7 @@ void CollisionShape3D::_notification(int p_what) {
 			if (collision_object) {
 				_update_in_shape_owner(true);
 			}
-			update_configuration_warnings();
+			update_configuration_info();
 		} break;
 
 		case NOTIFICATION_UNPARENTED: {
@@ -119,8 +119,8 @@ void CollisionShape3D::resource_changed(Ref<Resource> res) {
 }
 #endif
 
-PackedStringArray CollisionShape3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array CollisionShape3D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	CollisionObject3D *col_object = Object::cast_to<CollisionObject3D>(get_parent());
 	if (col_object == nullptr) {
@@ -196,7 +196,7 @@ void CollisionShape3D::set_shape(const Ref<Shape3D> &p_shape) {
 		// If this is a heightfield shape our center may have changed
 		_update_in_shape_owner(true);
 	}
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Shape3D> CollisionShape3D::get_shape() const {

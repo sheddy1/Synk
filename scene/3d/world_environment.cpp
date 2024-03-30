@@ -81,7 +81,7 @@ void WorldEnvironment::_update_current_environment() {
 	} else {
 		get_viewport()->find_world_3d()->set_environment(Ref<Environment>());
 	}
-	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_warnings");
+	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_environment_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_info");
 }
 
 void WorldEnvironment::_update_current_camera_attributes() {
@@ -92,7 +92,7 @@ void WorldEnvironment::_update_current_camera_attributes() {
 		get_viewport()->find_world_3d()->set_camera_attributes(Ref<CameraAttributes>());
 	}
 
-	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_warnings");
+	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_camera_attributes_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_info");
 }
 
 void WorldEnvironment::_update_current_compositor() {
@@ -103,7 +103,7 @@ void WorldEnvironment::_update_current_compositor() {
 		get_viewport()->find_world_3d()->set_compositor(Ref<Compositor>());
 	}
 
-	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_compositor_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_warnings");
+	get_tree()->call_group_flags(SceneTree::GROUP_CALL_DEFERRED, "_world_compositor_" + itos(get_viewport()->find_world_3d()->get_scenario().get_id()), "update_configuration_info");
 }
 
 void WorldEnvironment::set_environment(const Ref<Environment> &p_environment) {
@@ -123,7 +123,7 @@ void WorldEnvironment::set_environment(const Ref<Environment> &p_environment) {
 	if (is_inside_tree()) {
 		_update_current_environment();
 	} else {
-		update_configuration_warnings();
+		update_configuration_info();
 	}
 }
 
@@ -148,7 +148,7 @@ void WorldEnvironment::set_camera_attributes(const Ref<CameraAttributes> &p_came
 	if (is_inside_tree()) {
 		_update_current_camera_attributes();
 	} else {
-		update_configuration_warnings();
+		update_configuration_info();
 	}
 }
 
@@ -173,7 +173,7 @@ void WorldEnvironment::set_compositor(const Ref<Compositor> &p_compositor) {
 	if (is_inside_tree()) {
 		_update_current_compositor();
 	} else {
-		update_configuration_warnings();
+		update_configuration_info();
 	}
 }
 
@@ -181,8 +181,8 @@ Ref<Compositor> WorldEnvironment::get_compositor() const {
 	return compositor;
 }
 
-PackedStringArray WorldEnvironment::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array WorldEnvironment::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (!environment.is_valid() && !camera_attributes.is_valid()) {
 		warnings.push_back(RTR("To have any visible effect, WorldEnvironment requires its \"Environment\" property to contain an Environment, its \"Camera Attributes\" property to contain a CameraAttributes resource, or both."));

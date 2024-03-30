@@ -30,8 +30,8 @@
 
 #include "range.h"
 
-PackedStringArray Range::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array Range::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (shared->exp_ratio && shared->min <= 0) {
 		warnings.push_back(RTR("If \"Exp Edit\" is enabled, \"Min Value\" must be greater than 0."));
@@ -142,7 +142,7 @@ void Range::set_min(double p_min) {
 
 	shared->emit_changed("min");
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void Range::set_max(double p_max) {
@@ -350,7 +350,7 @@ void Range::set_exp_ratio(bool p_enable) {
 
 	shared->exp_ratio = p_enable;
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 bool Range::is_ratio_exp() const {

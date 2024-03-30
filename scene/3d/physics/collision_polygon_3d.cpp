@@ -104,7 +104,7 @@ void CollisionPolygon3D::_notification(int p_what) {
 			if (collision_object) {
 				_update_in_shape_owner(true);
 			}
-			update_configuration_warnings();
+			update_configuration_info();
 		} break;
 
 		case NOTIFICATION_UNPARENTED: {
@@ -122,7 +122,7 @@ void CollisionPolygon3D::set_polygon(const Vector<Point2> &p_polygon) {
 	if (collision_object) {
 		_build_polygon();
 	}
-	update_configuration_warnings();
+	update_configuration_info();
 	update_gizmos();
 }
 
@@ -168,8 +168,8 @@ void CollisionPolygon3D::set_margin(real_t p_margin) {
 	}
 }
 
-PackedStringArray CollisionPolygon3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array CollisionPolygon3D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<CollisionObject3D>(get_parent())) {
 		warnings.push_back(RTR("CollisionPolygon3D only serves to provide a collision shape to a CollisionObject3D derived node.\nPlease only use it as a child of Area3D, StaticBody3D, RigidBody3D, CharacterBody3D, etc. to give them a shape."));

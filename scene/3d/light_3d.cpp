@@ -42,7 +42,7 @@ void Light3D::set_param(Param p_param, real_t p_value) {
 		update_gizmos();
 
 		if (p_param == PARAM_SPOT_ANGLE) {
-			update_configuration_warnings();
+			update_configuration_info();
 		}
 	}
 }
@@ -57,7 +57,7 @@ void Light3D::set_shadow(bool p_enable) {
 	RS::get_singleton()->light_set_shadow(light, p_enable);
 
 	notify_property_list_changed();
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 bool Light3D::has_shadow() const {
@@ -169,8 +169,8 @@ AABB Light3D::get_aabb() const {
 	return AABB();
 }
 
-PackedStringArray Light3D::get_configuration_warnings() const {
-	PackedStringArray warnings = VisualInstance3D::get_configuration_warnings();
+Array Light3D::get_configuration_info() const {
+	Array warnings = VisualInstance3D::get_configuration_info();
 
 	if (!get_scale().is_equal_approx(Vector3(1, 1, 1))) {
 		warnings.push_back(RTR("A light's scale does not affect the visual size of the light."));
@@ -192,7 +192,7 @@ void Light3D::set_projector(const Ref<Texture2D> &p_texture) {
 	projector = p_texture;
 	RID tex_id = projector.is_valid() ? projector->get_rid() : RID();
 	RS::get_singleton()->light_set_projector(light, tex_id);
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Texture2D> Light3D::get_projector() const {
@@ -281,7 +281,7 @@ void Light3D::_update_visibility() {
 void Light3D::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_TRANSFORM_CHANGED: {
-			update_configuration_warnings();
+			update_configuration_info();
 		} break;
 		case NOTIFICATION_VISIBILITY_CHANGED:
 		case NOTIFICATION_ENTER_TREE: {
@@ -596,8 +596,8 @@ OmniLight3D::ShadowMode OmniLight3D::get_shadow_mode() const {
 	return shadow_mode;
 }
 
-PackedStringArray OmniLight3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Light3D::get_configuration_warnings();
+Array OmniLight3D::get_configuration_info() const {
+	Array warnings = Light3D::get_configuration_info();
 
 	if (!has_shadow() && get_projector().is_valid()) {
 		warnings.push_back(RTR("Projector texture only works with shadows active."));
@@ -628,8 +628,8 @@ OmniLight3D::OmniLight3D() :
 	set_shadow_mode(SHADOW_CUBE);
 }
 
-PackedStringArray SpotLight3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Light3D::get_configuration_warnings();
+Array SpotLight3D::get_configuration_info() const {
+	Array warnings = Light3D::get_configuration_info();
 
 	if (has_shadow() && get_param(PARAM_SPOT_ANGLE) >= 90.0) {
 		warnings.push_back(RTR("A SpotLight3D with an angle wider than 90 degrees cannot cast shadows."));

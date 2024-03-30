@@ -156,14 +156,14 @@ void GPUParticles2D::set_process_material(const Ref<Material> &p_material) {
 	}
 	RS::get_singleton()->particles_set_process_material(particles, material_rid);
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void GPUParticles2D::set_trail_enabled(bool p_enabled) {
 	trail_enabled = p_enabled;
 	RS::get_singleton()->particles_set_trails(particles, trail_enabled, trail_lifetime);
 	queue_redraw();
-	update_configuration_warnings();
+	update_configuration_info();
 
 	RS::get_singleton()->particles_set_transform_align(particles, p_enabled ? RS::PARTICLES_TRANSFORM_ALIGN_Y_TO_VELOCITY : RS::PARTICLES_TRANSFORM_ALIGN_DISABLED);
 }
@@ -326,8 +326,8 @@ float GPUParticles2D::get_interp_to_end() const {
 	return interp_to_end_factor;
 }
 
-PackedStringArray GPUParticles2D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node2D::get_configuration_warnings();
+Array GPUParticles2D::get_configuration_info() const {
+	Array warnings = Node2D::get_configuration_info();
 
 	if (process_material.is_null()) {
 		warnings.push_back(RTR("A material to process the particles is not assigned, so no behavior is imprinted."));
@@ -424,7 +424,7 @@ void GPUParticles2D::set_sub_emitter(const NodePath &p_path) {
 	if (is_inside_tree() && sub_emitter != NodePath()) {
 		_attach_sub_emitter();
 	}
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 NodePath GPUParticles2D::get_sub_emitter() const {

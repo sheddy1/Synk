@@ -336,8 +336,7 @@ inline void draw_glyph_outline(const Glyph &p_gl, const RID &p_canvas, const Col
 }
 
 Array Label::get_configuration_info() const {
-	// PackedStringArray warnings = Control::get_configuration_warnings();
-	Array warnings;
+	Array warnings = Control::get_configuration_info();
 
 	// FIXME: This is not ideal and the sizing model should be fixed,
 	// but for now we have to warn about this impossible to resolve combination.

@@ -453,7 +453,7 @@ void OccluderInstance3D::set_occluder(const Ref<Occluder3D> &p_occluder) {
 	}
 
 	update_gizmos();
-	update_configuration_warnings();
+	update_configuration_info();
 
 #ifdef TOOLS_ENABLED
 	// PolygonOccluder3D is edited via an editor plugin, this ensures the plugin is shown/hidden when necessary
@@ -465,7 +465,7 @@ void OccluderInstance3D::set_occluder(const Ref<Occluder3D> &p_occluder) {
 
 void OccluderInstance3D::_occluder_changed() {
 	update_gizmos();
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<Occluder3D> OccluderInstance3D::get_occluder() const {
@@ -474,7 +474,7 @@ Ref<Occluder3D> OccluderInstance3D::get_occluder() const {
 
 void OccluderInstance3D::set_bake_mask(uint32_t p_mask) {
 	bake_mask = p_mask;
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 uint32_t OccluderInstance3D::get_bake_mask() const {
@@ -693,8 +693,8 @@ OccluderInstance3D::BakeError OccluderInstance3D::bake_scene(Node *p_from_node, 
 	return BAKE_ERROR_OK;
 }
 
-PackedStringArray OccluderInstance3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array OccluderInstance3D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (!bool(GLOBAL_GET("rendering/occlusion_culling/use_occlusion_culling"))) {
 		warnings.push_back(RTR("Occlusion culling is disabled in the Project Settings, which means occlusion culling won't be performed in the root viewport.\nTo resolve this, open the Project Settings and enable Rendering > Occlusion Culling > Use Occlusion Culling."));

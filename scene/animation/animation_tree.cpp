@@ -595,7 +595,7 @@ void AnimationTree::set_root_animation_node(const Ref<AnimationRootNode> &p_anim
 
 	properties_dirty = true;
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 Ref<AnimationRootNode> AnimationTree::get_root_animation_node() const {
@@ -679,8 +679,8 @@ uint64_t AnimationTree::get_last_process_pass() const {
 	return process_pass;
 }
 
-PackedStringArray AnimationTree::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array AnimationTree::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 	if (!root_animation_node.is_valid()) {
 		warnings.push_back(RTR("No root AnimationNode for the graph is set."));
 	}

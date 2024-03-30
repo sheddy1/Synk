@@ -84,7 +84,7 @@ void CollisionObject3D::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_LOCAL_TRANSFORM_CHANGED: {
-			update_configuration_warnings();
+			update_configuration_info();
 		} break;
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
@@ -727,8 +727,8 @@ bool CollisionObject3D::get_capture_input_on_drag() const {
 	return capture_input_on_drag;
 }
 
-PackedStringArray CollisionObject3D::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array CollisionObject3D::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (shapes.is_empty()) {
 		warnings.push_back(RTR("This node has no shape, so it can't collide or interact with other objects.\nConsider adding a CollisionShape3D or CollisionPolygon3D as a child to define its shape."));

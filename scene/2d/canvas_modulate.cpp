@@ -57,7 +57,7 @@ void CanvasModulate::_on_in_canvas_visibility_changed(bool p_new_visibility) {
 		}
 	}
 
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void CanvasModulate::_notification(int p_what) {
@@ -113,8 +113,8 @@ Color CanvasModulate::get_color() const {
 	return color;
 }
 
-PackedStringArray CanvasModulate::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array CanvasModulate::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (is_in_canvas && is_visible_in_tree()) {
 		List<Node *> nodes;

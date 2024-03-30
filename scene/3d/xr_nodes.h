@@ -55,7 +55,7 @@ protected:
 	void _pose_changed(const Ref<XRPose> &p_pose);
 
 public:
-	PackedStringArray get_configuration_warnings() const override;
+	Array get_configuration_info() const override;
 
 	virtual Vector3 project_local_ray_normal(const Point2 &p_pos) const override;
 	virtual Point2 unproject_position(const Vector3 &p_pos) const override;
@@ -113,7 +113,7 @@ public:
 
 	Ref<XRPose> get_pose();
 
-	PackedStringArray get_configuration_warnings() const override;
+	Array get_configuration_info() const override;
 
 	XRNode3D();
 	~XRNode3D();
@@ -198,7 +198,7 @@ protected:
 	static void _bind_methods();
 
 public:
-	PackedStringArray get_configuration_warnings() const override;
+	Array get_configuration_info() const override;
 
 	real_t get_world_scale() const;
 	void set_world_scale(real_t p_world_scale);

@@ -239,7 +239,7 @@ void ShaderGlobalsOverride::_activate() {
 				}
 			}
 
-			update_configuration_warnings(); //may have activated
+			update_configuration_info(); //may have activated
 		}
 	}
 }
@@ -270,8 +270,8 @@ void ShaderGlobalsOverride::_notification(int p_what) {
 	}
 }
 
-PackedStringArray ShaderGlobalsOverride::get_configuration_warnings() const {
-	PackedStringArray warnings = Node::get_configuration_warnings();
+Array ShaderGlobalsOverride::get_configuration_info() const {
+	Array warnings = Node::get_configuration_info();
 
 	if (!active) {
 		warnings.push_back(RTR("ShaderGlobalsOverride is not active because another node of the same type is in the scene."));

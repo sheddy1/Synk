@@ -95,7 +95,7 @@ public:
 
 	bool is_natively_supported() const;
 
-	virtual PackedStringArray get_configuration_warnings() const override;
+	virtual Array get_configuration_info() const override;
 
 	virtual Vector2 intersects_ray(const Vector3 &p_origin, const Vector3 &p_direction) const;
 
