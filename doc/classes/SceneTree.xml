@@ -278,13 +278,19 @@
 		</member>
 	</members>
 	<signals>
+		<signal name="configuration_info_changed">
+			<param index="0" name="object" type="Object" />
+			<description>
+				Emitted when the [param object]'s [code]update_configuration_info[/code] method is called. Only emitted in the editor.
+			</description>
+		</signal>
 		<signal name="node_added">
 			<param index="0" name="node" type="Node" />
 			<description>
 				Emitted when the [param node] enters this tree.
 			</description>
 		</signal>
-		<signal name="node_configuration_warning_changed">
+		<signal name="node_configuration_warning_changed" deprecated="Use [signal configuration_info_changed] instead.">
 			<param index="0" name="node" type="Node" />
 			<description>
 				Emitted when the [param node]'s [method Node.update_configuration_warnings] is called. Only emitted in the editor.

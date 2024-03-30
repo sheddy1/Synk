@@ -45,7 +45,7 @@ void Label::set_autowrap_mode(TextServer::AutowrapMode p_mode) {
 	autowrap_mode = p_mode;
 	lines_dirty = true;
 	queue_redraw();
-	update_configuration_warnings();
+	update_configuration_info();
 
 	if (clip || overrun_behavior != TextServer::OVERRUN_NO_TRIMMING) {
 		update_minimum_size();
@@ -335,8 +335,9 @@ inline void draw_glyph_outline(const Glyph &p_gl, const RID &p_canvas, const Col
 	}
 }
 
-PackedStringArray Label::get_configuration_warnings() const {
-	PackedStringArray warnings = Control::get_configuration_warnings();
+Array Label::get_configuration_info() const {
+	// PackedStringArray warnings = Control::get_configuration_warnings();
+	Array warnings;
 
 	// FIXME: This is not ideal and the sizing model should be fixed,
 	// but for now we have to warn about this impossible to resolve combination.
@@ -369,7 +370,10 @@ PackedStringArray Label::get_configuration_warnings() const {
 		int64_t glyph_count = TS->shaped_text_get_glyph_count(text_rid);
 		for (int64_t i = 0; i < glyph_count; i++) {
 			if (glyph[i].font_rid == RID()) {
-				warnings.push_back(RTR("The current font does not support rendering one or more characters used in this Label's text."));
+				Dictionary warning;
+				warning["message"] = RTR("The current font does not support rendering one or more characters used in this Label's text.");
+				warning["property"] = "text"; // REDMSER TODO: Try accessing the font using its theme override path, see if that actually shows the warning in the correct place.
+				warnings.push_back(warning);
 				break;
 			}
 		}
@@ -392,7 +396,7 @@ void Label::_notification(int p_what) {
 			dirty = true;
 
 			queue_redraw();
-			update_configuration_warnings();
+			update_configuration_info();
 		} break;
 
 		case NOTIFICATION_LAYOUT_DIRECTION_CHANGED: {
@@ -874,7 +878,7 @@ void Label::set_text(const String &p_string) {
 	}
 	queue_redraw();
 	update_minimum_size();
-	update_configuration_warnings();
+	update_configuration_info();
 }
 
 void Label::_invalidate() {

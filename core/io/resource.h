@@ -86,12 +86,11 @@ protected:
 
 	virtual void reset_local_to_scene();
 	GDVIRTUAL0(_setup_local_to_scene);
+	GDVIRTUAL0RC(Array, _get_configuration_info);
 
 public:
 	static Node *(*_get_local_scene_func)(); //used by editor
-	static void (*_update_configuration_warning)(); //used by editor
 
-	void update_configuration_warning();
 	virtual bool editor_can_reload_from_file();
 	virtual void reset_state(); //for resources that use variable amount of properties, either via _validate_property or _get_property_list, this function needs to be implemented to correctly clear state
 	virtual Error copy_from(const Ref<Resource> &p_resource);
@@ -147,6 +146,9 @@ public:
 	void set_id_for_path(const String &p_path, const String &p_id);
 	String get_id_for_path(const String &p_path) const;
 #endif
+
+	Array get_configuration_info() const;
+	void update_configuration_info();
 
 	Resource();
 	~Resource();
