@@ -419,14 +419,14 @@ Array Bone2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 	if (!skeleton) {
 		if (parent_bone) {
-			warnings.push_back(RTR("This Bone2D chain should end at a Skeleton2D node."));
+			CONFIG_WARNING(RTR("This Bone2D chain should end at a Skeleton2D node."));
 		} else {
-			warnings.push_back(RTR("A Bone2D only works with a Skeleton2D or another Bone2D as parent node."));
+			CONFIG_WARNING(RTR("A Bone2D only works with a Skeleton2D or another Bone2D as parent node."));
 		}
 	}
 
 	if (rest == Transform2D(0, 0, 0, 0, 0, 0)) {
-		warnings.push_back(RTR("This bone lacks a proper REST pose. Go to the Skeleton2D node and set one."));
+		CONFIG_WARNING(RTR("This bone lacks a proper REST pose. Go to the Skeleton2D node and set one."));
 	}
 
 	return warnings;

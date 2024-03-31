@@ -654,7 +654,7 @@ Array NavigationAgent2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<Node2D>(get_parent())) {
-		warnings.push_back(RTR("The NavigationAgent2D can be used only under a Node2D inheriting parent node."));
+		CONFIG_WARNING(RTR("The NavigationAgent2D can be used only under a Node2D inheriting parent node."));
 	}
 
 	return warnings;

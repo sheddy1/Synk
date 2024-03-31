@@ -720,7 +720,7 @@ Array NavigationAgent3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<Node3D>(get_parent())) {
-		warnings.push_back(RTR("The NavigationAgent3D can be used only under a Node3D inheriting parent node."));
+		CONFIG_WARNING(RTR("The NavigationAgent3D can be used only under a Node3D inheriting parent node."));
 	}
 
 	return warnings;

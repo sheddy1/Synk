@@ -433,7 +433,7 @@ Array BaseButton::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
 	if (get_button_group().is_valid() && !is_toggle_mode()) {
-		warnings.push_back(RTR("ButtonGroup is intended to be used only with buttons that have toggle_mode set to true."));
+		CONFIG_WARNING(RTR("ButtonGroup is intended to be used only with buttons that have toggle_mode set to true."));
 	}
 
 	return warnings;

@@ -330,7 +330,7 @@ Array GPUParticles2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
 	if (process_material.is_null()) {
-		warnings.push_back(RTR("A material to process the particles is not assigned, so no behavior is imprinted."));
+		CONFIG_WARNING(RTR("A material to process the particles is not assigned, so no behavior is imprinted."));
 	} else {
 		CanvasItemMaterial *mat = Object::cast_to<CanvasItemMaterial>(get_material().ptr());
 
@@ -339,17 +339,17 @@ Array GPUParticles2D::get_configuration_info() const {
 			if (process &&
 					(process->get_param_max(ParticleProcessMaterial::PARAM_ANIM_SPEED) != 0.0 || process->get_param_max(ParticleProcessMaterial::PARAM_ANIM_OFFSET) != 0.0 ||
 							process->get_param_texture(ParticleProcessMaterial::PARAM_ANIM_SPEED).is_valid() || process->get_param_texture(ParticleProcessMaterial::PARAM_ANIM_OFFSET).is_valid())) {
-				warnings.push_back(RTR("Particles2D animation requires the usage of a CanvasItemMaterial with \"Particles Animation\" enabled."));
+				CONFIG_WARNING(RTR("Particles2D animation requires the usage of a CanvasItemMaterial with \"Particles Animation\" enabled."));
 			}
 		}
 	}
 
 	if (trail_enabled && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Particle trails are only available when using the Forward+ or Mobile rendering backends."));
+		CONFIG_WARNING(RTR("Particle trails are only available when using the Forward+ or Mobile rendering backends."));
 	}
 
 	if (sub_emitter != NodePath() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Particle sub-emitters are not available when using the GL Compatibility rendering backend."));
+		CONFIG_WARNING(RTR("Particle sub-emitters are not available when using the GL Compatibility rendering backend."));
 	}
 
 	return warnings;

@@ -663,7 +663,7 @@ Array RigidBody3D::get_configuration_info() const {
 
 	Vector3 scale = get_transform().get_basis().get_scale();
 	if (ABS(scale.x - 1.0) > 0.05 || ABS(scale.y - 1.0) > 0.05 || ABS(scale.z - 1.0) > 0.05) {
-		warnings.push_back(RTR("Scale changes to RigidBody3D will be overridden by the physics engine when running.\nPlease change the size in children collision shapes instead."));
+		CONFIG_WARNING(RTR("Scale changes to RigidBody3D will be overridden by the physics engine when running.\nPlease change the size in children collision shapes instead."));
 	}
 
 	return warnings;

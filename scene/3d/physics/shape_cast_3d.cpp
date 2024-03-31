@@ -183,10 +183,10 @@ Array ShapeCast3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 
 	if (shape.is_null()) {
-		warnings.push_back(RTR("This node cannot interact with other objects unless a Shape3D is assigned."));
+		CONFIG_WARNING(RTR("This node cannot interact with other objects unless a Shape3D is assigned."));
 	}
 	if (shape.is_valid() && Object::cast_to<ConcavePolygonShape3D>(*shape)) {
-		warnings.push_back(RTR("ShapeCast3D does not support ConcavePolygonShape3Ds. Collisions will not be reported."));
+		CONFIG_WARNING(RTR("ShapeCast3D does not support ConcavePolygonShape3Ds. Collisions will not be reported."));
 	}
 	return warnings;
 }

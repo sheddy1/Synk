@@ -178,19 +178,21 @@ Array CollisionShape2D::get_configuration_info() const {
 
 	CollisionObject2D *col_object = Object::cast_to<CollisionObject2D>(get_parent());
 	if (col_object == nullptr) {
-		warnings.push_back(RTR("CollisionShape2D only serves to provide a collision shape to a CollisionObject2D derived node.\nPlease only use it as a child of Area2D, StaticBody2D, RigidBody2D, CharacterBody2D, etc. to give them a shape."));
+		CONFIG_WARNING(RTR("CollisionShape2D only serves to provide a collision shape to a CollisionObject2D derived node.\nPlease only use it as a child of Area2D, StaticBody2D, RigidBody2D, CharacterBody2D, etc. to give them a shape."));
 	}
 	if (!shape.is_valid()) {
-		warnings.push_back(RTR("A shape must be provided for CollisionShape2D to function. Please create a shape resource for it!"));
+		CONFIG_WARNING(RTR("A shape must be provided for CollisionShape2D to function. Please create a shape resource for it!"));
 	}
 	if (one_way_collision && Object::cast_to<Area2D>(col_object)) {
-		warnings.push_back(RTR("The One Way Collision property will be ignored when the collision object is an Area2D."));
+		CONFIG_WARNING_P(
+				RTR("One Way Collision will be ignored when the collision object is an Area2D."),
+				"one_way_collision");
 	}
 
 	Ref<ConvexPolygonShape2D> convex = shape;
 	Ref<ConcavePolygonShape2D> concave = shape;
 	if (convex.is_valid() || concave.is_valid()) {
-		warnings.push_back(RTR("Polygon-based shapes are not meant be used nor edited directly through the CollisionShape2D node. Please use the CollisionPolygon2D node instead."));
+		CONFIG_WARNING(RTR("Polygon-based shapes are not meant be used nor edited directly through the CollisionShape2D node. Please use the CollisionPolygon2D node instead."));
 	}
 
 	return warnings;

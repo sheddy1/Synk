@@ -269,11 +269,11 @@ Array SubViewportContainer::get_configuration_info() const {
 		}
 	}
 	if (!has_viewport) {
-		warnings.push_back(RTR("This node doesn't have a SubViewport as child, so it can't display its intended content.\nConsider adding a SubViewport as a child to provide something displayable."));
+		CONFIG_WARNING(RTR("This node doesn't have a SubViewport as child, so it can't display its intended content.\nConsider adding a SubViewport as a child to provide something displayable."));
 	}
 
 	if (get_default_cursor_shape() != Control::CURSOR_ARROW) {
-		warnings.push_back(RTR("The default mouse cursor shape of SubViewportContainer has no effect.\nConsider leaving it at its initial value `CURSOR_ARROW`."));
+		CONFIG_WARNING(RTR("The default mouse cursor shape of SubViewportContainer has no effect.\nConsider leaving it at its initial value `CURSOR_ARROW`."));
 	}
 
 	return warnings;

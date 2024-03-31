@@ -322,11 +322,11 @@ Array PathFollow3D::get_configuration_info() const {
 
 	if (is_visible_in_tree() && is_inside_tree()) {
 		if (!Object::cast_to<Path3D>(get_parent())) {
-			warnings.push_back(RTR("PathFollow3D only works when set as a child of a Path3D node."));
+			CONFIG_WARNING(RTR("PathFollow3D only works when set as a child of a Path3D node."));
 		} else {
 			Path3D *p = Object::cast_to<Path3D>(get_parent());
 			if (p->get_curve().is_valid() && !p->get_curve()->is_up_vector_enabled() && rotation_mode == ROTATION_ORIENTED) {
-				warnings.push_back(RTR("PathFollow3D's ROTATION_ORIENTED requires \"Up Vector\" to be enabled in its parent Path3D's Curve resource."));
+				CONFIG_WARNING(RTR("PathFollow3D's ROTATION_ORIENTED requires \"Up Vector\" to be enabled in its parent Path3D's Curve resource."));
 			}
 		}
 	}

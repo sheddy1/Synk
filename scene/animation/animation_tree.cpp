@@ -682,7 +682,7 @@ uint64_t AnimationTree::get_last_process_pass() const {
 Array AnimationTree::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 	if (!root_animation_node.is_valid()) {
-		warnings.push_back(RTR("No root AnimationNode for the graph is set."));
+		CONFIG_WARNING(RTR("No root AnimationNode for the graph is set."));
 	}
 	return warnings;
 }

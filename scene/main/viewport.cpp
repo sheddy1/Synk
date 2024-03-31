@@ -3393,7 +3393,7 @@ Array Viewport::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (size.x <= 1 || size.y <= 1) {
-		warnings.push_back(RTR("The Viewport size must be greater than or equal to 2 pixels on both dimensions to render anything."));
+		CONFIG_WARNING(RTR("The Viewport size must be greater than or equal to 2 pixels on both dimensions to render anything."));
 	}
 	return warnings;
 }

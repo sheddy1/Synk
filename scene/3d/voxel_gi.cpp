@@ -521,9 +521,9 @@ Array VoxelGI::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("VoxelGI nodes are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
+		CONFIG_WARNING(RTR("VoxelGI nodes are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
 	} else if (probe_data.is_null()) {
-		warnings.push_back(RTR("No VoxelGI data set, so this node is disabled. Bake static objects to enable GI."));
+		CONFIG_WARNING(RTR("No VoxelGI data set, so this node is disabled. Bake static objects to enable GI."));
 	}
 	return warnings;
 }

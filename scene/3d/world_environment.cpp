@@ -185,7 +185,7 @@ Array WorldEnvironment::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!environment.is_valid() && !camera_attributes.is_valid()) {
-		warnings.push_back(RTR("To have any visible effect, WorldEnvironment requires its \"Environment\" property to contain an Environment, its \"Camera Attributes\" property to contain a CameraAttributes resource, or both."));
+		CONFIG_WARNING(RTR("To have any visible effect, WorldEnvironment requires its \"Environment\" property to contain an Environment, its \"Camera Attributes\" property to contain a CameraAttributes resource, or both."));
 	}
 
 	if (!is_inside_tree()) {
@@ -193,15 +193,15 @@ Array WorldEnvironment::get_configuration_info() const {
 	}
 
 	if (environment.is_valid() && get_viewport()->find_world_3d()->get_environment() != environment) {
-		warnings.push_back(("Only the first Environment has an effect in a scene (or set of instantiated scenes)."));
+		CONFIG_WARNING(RTR("Only the first Environment has an effect in a scene (or set of instantiated scenes)."));
 	}
 
 	if (camera_attributes.is_valid() && get_viewport()->find_world_3d()->get_camera_attributes() != camera_attributes) {
-		warnings.push_back(RTR("Only one WorldEnvironment is allowed per scene (or set of instantiated scenes)."));
+		CONFIG_WARNING(RTR("Only one WorldEnvironment is allowed per scene (or set of instantiated scenes)."));
 	}
 
 	if (compositor.is_valid() && get_viewport()->find_world_3d()->get_compositor() != compositor) {
-		warnings.push_back(("Only the first Compositor has an effect in a scene (or set of instantiated scenes)."));
+		CONFIG_WARNING(RTR("Only the first Compositor has an effect in a scene (or set of instantiated scenes)."));
 	}
 
 	return warnings;

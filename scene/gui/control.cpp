@@ -251,7 +251,9 @@ Array Control::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (data.mouse_filter == MOUSE_FILTER_IGNORE && !data.tooltip.is_empty()) {
-		warnings.push_back(RTR("The Hint Tooltip won't be displayed as the control's Mouse Filter is set to \"Ignore\". To solve this, set the Mouse Filter to \"Stop\" or \"Pass\"."));
+		CONFIG_WARNING_P(
+				RTR("The Tooltip Text won't be displayed as the control's Mouse Filter is set to \"Ignore\". To solve this, set the Mouse Filter to \"Stop\" or \"Pass\"."),
+				"tooltip_text");
 	}
 
 	return warnings;

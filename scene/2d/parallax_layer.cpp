@@ -142,7 +142,7 @@ Array ParallaxLayer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<ParallaxBackground>(get_parent())) {
-		warnings.push_back(RTR("ParallaxLayer node only works when set as child of a ParallaxBackground node."));
+		CONFIG_WARNING(RTR("ParallaxLayer node only works when set as child of a ParallaxBackground node."));
 	}
 
 	return warnings;

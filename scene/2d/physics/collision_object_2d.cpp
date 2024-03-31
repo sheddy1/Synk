@@ -585,7 +585,7 @@ Array CollisionObject2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (shapes.is_empty()) {
-		warnings.push_back(RTR("This node has no shape, so it can't collide or interact with other objects.\nConsider adding a CollisionShape2D or CollisionPolygon2D as a child to define its shape."));
+		CONFIG_WARNING(RTR("This node has no shape, so it can't collide or interact with other objects.\nConsider adding a CollisionShape2D or CollisionPolygon2D as a child to define its shape."));
 	}
 
 	return warnings;

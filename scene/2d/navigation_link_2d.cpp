@@ -341,7 +341,7 @@ Array NavigationLink2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (start_position.is_equal_approx(end_position)) {
-		warnings.push_back(RTR("NavigationLink2D start position should be different than the end position to be useful."));
+		CONFIG_WARNING(RTR("NavigationLink2D start position should be different than the end position to be useful."));
 	}
 
 	return warnings;

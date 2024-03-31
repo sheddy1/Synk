@@ -282,7 +282,9 @@ Array NavigationRegion2D::get_configuration_info() const {
 
 	if (is_visible_in_tree() && is_inside_tree()) {
 		if (!navigation_polygon.is_valid()) {
-			warnings.push_back(RTR("A NavigationMesh resource must be set or created for this node to work. Please set a property or draw a polygon."));
+			CONFIG_WARNING_P(
+					RTR("A NavigationMesh resource must be set or created for this node to work. Please set a property or draw a polygon."),
+					"navigation_polygon");
 		}
 	}
 

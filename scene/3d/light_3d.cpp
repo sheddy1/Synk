@@ -173,7 +173,7 @@ Array Light3D::get_configuration_info() const {
 	Array warnings = VisualInstance3D::get_configuration_info();
 
 	if (!get_scale().is_equal_approx(Vector3(1, 1, 1))) {
-		warnings.push_back(RTR("A light's scale does not affect the visual size of the light."));
+		CONFIG_WARNING(RTR("A light's scale does not affect the visual size of the light."));
 	}
 
 	return warnings;
@@ -600,11 +600,11 @@ Array OmniLight3D::get_configuration_info() const {
 	Array warnings = Light3D::get_configuration_info();
 
 	if (!has_shadow() && get_projector().is_valid()) {
-		warnings.push_back(RTR("Projector texture only works with shadows active."));
+		CONFIG_WARNING(RTR("Projector texture only works with shadows active."));
 	}
 
 	if (get_projector().is_valid() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
+		CONFIG_WARNING(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
 	}
 
 	return warnings;
@@ -632,15 +632,15 @@ Array SpotLight3D::get_configuration_info() const {
 	Array warnings = Light3D::get_configuration_info();
 
 	if (has_shadow() && get_param(PARAM_SPOT_ANGLE) >= 90.0) {
-		warnings.push_back(RTR("A SpotLight3D with an angle wider than 90 degrees cannot cast shadows."));
+		CONFIG_WARNING(RTR("A SpotLight3D with an angle wider than 90 degrees cannot cast shadows."));
 	}
 
 	if (!has_shadow() && get_projector().is_valid()) {
-		warnings.push_back(RTR("Projector texture only works with shadows active."));
+		CONFIG_WARNING(RTR("Projector texture only works with shadows active."));
 	}
 
 	if (get_projector().is_valid() && OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
+		CONFIG_WARNING(RTR("Projector textures are not supported when using the GL Compatibility backend yet. Support will be added in a future release."));
 	}
 
 	return warnings;

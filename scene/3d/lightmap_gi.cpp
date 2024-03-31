@@ -1581,7 +1581,7 @@ Array LightmapGI::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (OS::get_singleton()->get_current_rendering_method() == "gl_compatibility") {
-		warnings.push_back(RTR("Lightmap can only be baked from a device that supports the RD backends. Lightmap baking may fail."));
+		CONFIG_WARNING(RTR("Lightmap can only be baked from a device that supports the RD backends. Lightmap baking may fail."));
 		return warnings;
 	}
 

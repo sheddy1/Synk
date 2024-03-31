@@ -380,7 +380,7 @@ Array SoftBody3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (mesh.is_null()) {
-		warnings.push_back(RTR("This body will be ignored until you set a mesh."));
+		CONFIG_WARNING(RTR("This body will be ignored until you set a mesh."));
 	}
 
 	return warnings;

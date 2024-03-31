@@ -913,7 +913,7 @@ Array TileMap::get_configuration_info() const {
 	// Check if we have a non-sorted layer in a Z-index with a Y-sorted layer.
 	for (const TileMapLayer *layer : layers) {
 		if (!layer->is_y_sort_enabled() && y_sorted_z_index.has(layer->get_z_index())) {
-			warnings.push_back(RTR("A Y-sorted layer has the same Z-index value as a not Y-sorted layer.\nThis may lead to unwanted behaviors, as a layer that is not Y-sorted will be Y-sorted as a whole with tiles from Y-sorted layers."));
+			CONFIG_WARNING(RTR("A Y-sorted layer has the same Z-index value as a not Y-sorted layer.\nThis may lead to unwanted behaviors, as a layer that is not Y-sorted will be Y-sorted as a whole with tiles from Y-sorted layers."));
 			break;
 		}
 	}
@@ -922,7 +922,7 @@ Array TileMap::get_configuration_info() const {
 		// Check if Y-sort is enabled on a layer but not on the node.
 		for (const TileMapLayer *layer : layers) {
 			if (layer->is_y_sort_enabled()) {
-				warnings.push_back(RTR("A TileMap layer is set as Y-sorted, but Y-sort is not enabled on the TileMap node itself."));
+				CONFIG_WARNING(RTR("A TileMap layer is set as Y-sorted, but Y-sort is not enabled on the TileMap node itself."));
 				break;
 			}
 		}
@@ -936,7 +936,7 @@ Array TileMap::get_configuration_info() const {
 			}
 		}
 		if (need_warning) {
-			warnings.push_back(RTR("The TileMap node is set as Y-sorted, but Y-sort is not enabled on any of the TileMap's layers.\nThis may lead to unwanted behaviors, as a layer that is not Y-sorted will be Y-sorted as a whole."));
+			CONFIG_WARNING(RTR("The TileMap node is set as Y-sorted, but Y-sort is not enabled on any of the TileMap's layers.\nThis may lead to unwanted behaviors, as a layer that is not Y-sorted will be Y-sorted as a whole."));
 		}
 	}
 
@@ -953,7 +953,7 @@ Array TileMap::get_configuration_info() const {
 		}
 
 		if (warn) {
-			warnings.push_back(RTR("Isometric TileSet will likely not look as intended without Y-sort enabled for the TileMap and all of its layers."));
+			CONFIG_WARNING(RTR("Isometric TileSet will likely not look as intended without Y-sort enabled for the TileMap and all of its layers."));
 		}
 	}
 

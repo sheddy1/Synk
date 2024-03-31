@@ -121,12 +121,12 @@ Array FogVolume::get_configuration_info() const {
 	Ref<Environment> environment = get_viewport()->find_world_3d()->get_environment();
 
 	if (OS::get_singleton()->get_current_rendering_method() != "forward_plus") {
-		warnings.push_back(RTR("Fog Volumes are only visible when using the Forward+ backend."));
+		CONFIG_WARNING(RTR("Fog Volumes are only visible when using the Forward+ backend."));
 		return warnings;
 	}
 
 	if (environment.is_valid() && !environment->is_volumetric_fog_enabled()) {
-		warnings.push_back(RTR("Fog Volumes need volumetric fog to be enabled in the scene's Environment in order to be visible."));
+		CONFIG_WARNING(RTR("Fog Volumes need volumetric fog to be enabled in the scene's Environment in order to be visible."));
 	}
 
 	return warnings;

@@ -274,7 +274,7 @@ Array ShaderGlobalsOverride::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!active) {
-		warnings.push_back(RTR("ShaderGlobalsOverride is not active because another node of the same type is in the scene."));
+		CONFIG_WARNING(RTR("ShaderGlobalsOverride is not active because another node of the same type is in the scene."));
 	}
 
 	return warnings;

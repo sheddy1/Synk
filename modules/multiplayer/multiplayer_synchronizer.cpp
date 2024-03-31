@@ -147,7 +147,9 @@ Array MultiplayerSynchronizer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (root_path.is_empty() || !has_node(root_path)) {
-		warnings.push_back(RTR("A valid NodePath must be set in the \"Root Path\" property in order for MultiplayerSynchronizer to be able to synchronize properties."));
+		CONFIG_WARNING_P(
+				RTR("A valid NodePath must be set in order for MultiplayerSynchronizer to be able to synchronize properties."),
+				"root_path");
 	}
 
 	return warnings;

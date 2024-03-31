@@ -406,7 +406,7 @@ Array ShapeCast2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
 	if (shape.is_null()) {
-		warnings.push_back(RTR("This node cannot interact with other objects unless a Shape2D is assigned."));
+		CONFIG_WARNING(RTR("This node cannot interact with other objects unless a Shape2D is assigned."));
 	}
 	return warnings;
 }

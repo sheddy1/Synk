@@ -199,7 +199,7 @@ Array Container::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
 	if (get_class() == "Container" && get_script().is_null()) {
-		warnings.push_back(RTR("Container by itself serves no purpose unless a script configures its children placement behavior.\nIf you don't intend to add a script, use a plain Control node instead."));
+		CONFIG_WARNING(RTR("Container by itself serves no purpose unless a script configures its children placement behavior.\nIf you don't intend to add a script, use a plain Control node instead."));
 	}
 
 	return warnings;

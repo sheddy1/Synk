@@ -172,16 +172,16 @@ Array CollisionPolygon3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<CollisionObject3D>(get_parent())) {
-		warnings.push_back(RTR("CollisionPolygon3D only serves to provide a collision shape to a CollisionObject3D derived node.\nPlease only use it as a child of Area3D, StaticBody3D, RigidBody3D, CharacterBody3D, etc. to give them a shape."));
+		CONFIG_WARNING(RTR("CollisionPolygon3D only serves to provide a collision shape to a CollisionObject3D derived node.\nPlease only use it as a child of Area3D, StaticBody3D, RigidBody3D, CharacterBody3D, etc. to give them a shape."));
 	}
 
 	if (polygon.is_empty()) {
-		warnings.push_back(RTR("An empty CollisionPolygon3D has no effect on collision."));
+		CONFIG_WARNING(RTR("An empty CollisionPolygon3D has no effect on collision."));
 	}
 
 	Vector3 scale = get_transform().get_basis().get_scale();
 	if (!(Math::is_zero_approx(scale.x - scale.y) && Math::is_zero_approx(scale.y - scale.z))) {
-		warnings.push_back(RTR("A non-uniformly scaled CollisionPolygon3D node will probably not function as expected.\nPlease make its scale uniform (i.e. the same on all axes), and change its polygon's vertices instead."));
+		CONFIG_WARNING(RTR("A non-uniformly scaled CollisionPolygon3D node will probably not function as expected.\nPlease make its scale uniform (i.e. the same on all axes), and change its polygon's vertices instead."));
 	}
 
 	return warnings;

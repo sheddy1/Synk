@@ -109,7 +109,7 @@ Array VehicleWheel3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!Object::cast_to<VehicleBody3D>(get_parent())) {
-		warnings.push_back(RTR("VehicleWheel3D serves to provide a wheel system to a VehicleBody3D. Please use it as a child of a VehicleBody3D."));
+		CONFIG_WARNING(RTR("VehicleWheel3D serves to provide a wheel system to a VehicleBody3D. Please use it as a child of a VehicleBody3D."));
 	}
 
 	return warnings;

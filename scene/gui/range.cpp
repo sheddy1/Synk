@@ -34,7 +34,7 @@ Array Range::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (shared->exp_ratio && shared->min <= 0) {
-		warnings.push_back(RTR("If \"Exp Edit\" is enabled, \"Min Value\" must be greater than 0."));
+		CONFIG_WARNING(RTR("If \"Exp Edit\" is enabled, \"Min Value\" must be greater than 0."));
 	}
 
 	return warnings;

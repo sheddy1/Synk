@@ -37,7 +37,7 @@ void SkeletonModifier3D::_validate_property(PropertyInfo &p_property) const {
 Array SkeletonModifier3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 	if (skeleton_id.is_null()) {
-		warnings.push_back(RTR("Skeleton3D node not set! SkeletonModifier3D must be child of Skeleton3D or set a path to an external skeleton."));
+		CONFIG_WARNING(RTR("Skeleton3D node not set! SkeletonModifier3D must be child of Skeleton3D or set a path to an external skeleton."));
 	}
 	return warnings;
 }

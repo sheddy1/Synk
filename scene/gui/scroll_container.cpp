@@ -548,7 +548,7 @@ Array ScrollContainer::get_configuration_info() const {
 	}
 
 	if (found != 1) {
-		warnings.push_back(RTR("ScrollContainer is intended to work with a single child control.\nUse a container as child (VBox, HBox, etc.), or a Control and set the custom minimum size manually."));
+		CONFIG_WARNING(RTR("ScrollContainer is intended to work with a single child control.\nUse a container as child (VBox, HBox, etc.), or a Control and set the custom minimum size manually."));
 	}
 
 	return warnings;

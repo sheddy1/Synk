@@ -204,7 +204,7 @@ Array Joint3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 
 	if (!warning.is_empty()) {
-		warnings.push_back(warning);
+		CONFIG_WARNING(warning);
 	}
 
 	return warnings;

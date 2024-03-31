@@ -204,7 +204,9 @@ Array RemoteTransform3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!has_node(remote_node) || !Object::cast_to<Node3D>(get_node(remote_node))) {
-		warnings.push_back(RTR("The \"Remote Path\" property must point to a valid Node3D or Node3D-derived node to work."));
+		CONFIG_WARNING_P(
+				RTR("Path must point to a valid Node3D or Node3D-derived node to work."),
+				"path");
 	}
 
 	return warnings;

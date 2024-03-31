@@ -93,17 +93,17 @@ Array BoneAttachment3D::get_configuration_info() const {
 
 	if (use_external_skeleton) {
 		if (external_skeleton_node_cache.is_null()) {
-			warnings.push_back(RTR("External Skeleton3D node not set! Please set a path to an external Skeleton3D node."));
+			CONFIG_WARNING(RTR("External Skeleton3D node not set! Please set a path to an external Skeleton3D node."));
 		}
 	} else {
 		Skeleton3D *parent = Object::cast_to<Skeleton3D>(get_parent());
 		if (!parent) {
-			warnings.push_back(RTR("Parent node is not a Skeleton3D node! Please use an external Skeleton3D if you intend to use the BoneAttachment3D without it being a child of a Skeleton3D node."));
+			CONFIG_WARNING(RTR("Parent node is not a Skeleton3D node! Please use an external Skeleton3D if you intend to use the BoneAttachment3D without it being a child of a Skeleton3D node."));
 		}
 	}
 
 	if (bone_idx == -1) {
-		warnings.push_back(RTR("BoneAttachment3D node is not bound to any bones! Please select a bone to attach this node."));
+		CONFIG_WARNING(RTR("BoneAttachment3D node is not bound to any bones! Please select a bone to attach this node."));
 	}
 
 	return warnings;

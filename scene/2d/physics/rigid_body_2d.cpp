@@ -644,7 +644,7 @@ Array RigidBody2D::get_configuration_info() const {
 	Array warnings = CollisionObject2D::get_configuration_info();
 
 	if (ABS(t.columns[0].length() - 1.0) > 0.05 || ABS(t.columns[1].length() - 1.0) > 0.05) {
-		warnings.push_back(RTR("Size changes to RigidBody2D will be overridden by the physics engine when running.\nChange the size in children collision shapes instead."));
+		CONFIG_WARNING(RTR("Size changes to RigidBody2D will be overridden by the physics engine when running.\nChange the size in children collision shapes instead."));
 	}
 
 	return warnings;

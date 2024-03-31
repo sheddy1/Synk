@@ -420,7 +420,9 @@ Array PointLight2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (!texture.is_valid()) {
-		warnings.push_back(RTR("A texture with the shape of the light must be supplied to the \"Texture\" property."));
+		CONFIG_WARNING_P(
+				RTR("A texture with the shape of the light must be supplied."),
+				"texture");
 	}
 
 	return warnings;

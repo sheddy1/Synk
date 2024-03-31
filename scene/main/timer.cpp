@@ -184,7 +184,7 @@ Array Timer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
 	if (wait_time < 0.05 - CMP_EPSILON) {
-		warnings.push_back(RTR("Very low timer wait times (< 0.05 seconds) may behave in significantly different ways depending on the rendered or physics frame rate.\nConsider using a script's process loop instead of relying on a Timer for very low wait times."));
+		CONFIG_WARNING(RTR("Very low timer wait times (< 0.05 seconds) may behave in significantly different ways depending on the rendered or physics frame rate.\nConsider using a script's process loop instead of relying on a Timer for very low wait times."));
 	}
 
 	return warnings;

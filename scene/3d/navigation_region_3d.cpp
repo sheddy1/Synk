@@ -275,7 +275,7 @@ Array NavigationRegion3D::get_configuration_info() const {
 
 	if (is_visible_in_tree() && is_inside_tree()) {
 		if (!navigation_mesh.is_valid()) {
-			warnings.push_back(RTR("A NavigationMesh resource must be set or created for this node to work."));
+			CONFIG_WARNING(RTR("A NavigationMesh resource must be set or created for this node to work."));
 		}
 	}
 
