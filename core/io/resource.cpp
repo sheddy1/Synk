@@ -37,6 +37,11 @@
 #include "core/os/os.h"
 #include "scene/main/node.h" //only so casting works
 
+#ifdef TOOLS_ENABLED
+#include "editor/editor_node.h"
+#include "editor/editor_string_names.h"
+#endif // TOOLS_ENABLED
+
 #include <stdio.h>
 
 void Resource::emit_changed() {
@@ -536,8 +541,9 @@ Array Resource::get_configuration_info() const {
 
 void Resource::update_configuration_info() {
 #ifdef TOOLS_ENABLED
-	// REDMSER TODO: Signal has to be moved elsewhere. It doesn't even belong in SceneTree due to being editor-centric... EditorNode perhaps?
-	OS::get_singleton()->get_main_loop()->emit_signal(SceneStringName(configuration_info_changed), this);
+	if (Engine::get_singleton()->is_editor_hint()) {
+		EditorNode::get_singleton()->emit_signal(EditorStringName(configuration_info_changed), this);
+	}
 #endif
 }
 

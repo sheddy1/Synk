@@ -1677,7 +1677,6 @@ void SceneTree::_bind_methods() {
 #ifndef DISABLE_DEPRECATED
 	ADD_SIGNAL(MethodInfo("node_configuration_warning_changed", PropertyInfo(Variant::OBJECT, "node", PROPERTY_HINT_RESOURCE_TYPE, "Node")));
 #endif
-	ADD_SIGNAL(MethodInfo("configuration_info_changed", PropertyInfo(Variant::OBJECT, "object")));
 
 	ADD_SIGNAL(MethodInfo("process_frame"));
 	ADD_SIGNAL(MethodInfo("physics_frame"));

@@ -112,7 +112,6 @@ SceneStringNames::SceneStringNames() {
 #ifndef DISABLE_DEPRECATED
 	node_configuration_warning_changed = StaticCString::create("node_configuration_warning_changed");
 #endif
-	configuration_info_changed = StaticCString::create("configuration_info_changed");
 
 	output = StaticCString::create("output");
 
