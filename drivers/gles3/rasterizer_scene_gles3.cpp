@@ -1528,6 +1528,10 @@ void RasterizerSceneGLES3::_fill_render_list(RenderListType p_render_list, const
 				if (surf->flags & GeometryInstanceSurface::FLAG_PASS_SHADOW) {
 					rl->add_element(surf);
 				}
+			} else if (p_pass_mode == PASS_MODE_MATERIAL) {
+				if (surf->flags & (GeometryInstanceSurface::FLAG_PASS_DEPTH | GeometryInstanceSurface::FLAG_PASS_OPAQUE | GeometryInstanceSurface::FLAG_PASS_ALPHA)) {
+					rl->add_element(surf);
+				}
 			} else {
 				if (surf->flags & (GeometryInstanceSurface::FLAG_PASS_DEPTH | GeometryInstanceSurface::FLAG_PASS_OPAQUE)) {
 					rl->add_element(surf);
