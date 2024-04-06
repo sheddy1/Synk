@@ -1324,6 +1324,7 @@ void Variant::get_property_list(List<PropertyInfo> *p_list) const {
 				}
 				break;
 			}
+			[[fallthrough]];
 		}
 		default: {
 			List<StringName> members;
