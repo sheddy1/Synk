@@ -199,9 +199,16 @@ public:
 
 	Error validate_set_type();
 	void set_typed(uint32_t p_type, const StringName &p_class_name, const Variant &p_script);
-	void set_struct(const StructInfo &p_struct_info);
+	void set_struct(const StructInfo &p_struct_info, bool p_is_array_of_structs = false);
+
+protected:
+	void initialize_typed(uint32_t p_type, const StringName &p_class_name, const Variant &p_script);
+	void initialize_struct_type(const StructInfo &p_struct_info, bool p_is_array_of_structs = false);
+
+public:
 	bool is_typed() const;
 	bool is_struct() const;
+	bool is_array_of_structs() const;
 	bool is_same_typed(const Array &p_other) const;
 	uint32_t get_typed_builtin() const;
 	StringName get_typed_class_name() const;
@@ -215,7 +222,7 @@ public:
 	Array(const Array &p_from);
 	Array(const Array &p_from, const StructInfo &p_struct_info);
 	Array(const Dictionary &p_from, const StructInfo &p_struct_info);
-	Array(const StructInfo &p_struct_info);
+	Array(const StructInfo &p_struct_info, bool p_is_array_of_structs = false);
 	Array(const Vector<Variant> &p_vec);
 	Array();
 	~Array();

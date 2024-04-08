@@ -74,16 +74,16 @@ public:
 		set(get_member_index<StructMember>(), StructMember::to_variant(p_struct_member));
 	}
 	_FORCE_INLINE_ Struct(const T &p_struct) :
-			Array(T::Layout::to_array(p_struct), T::Layout::get_struct_info()) {
+			Array(T::Layout::to_array(p_struct), T::get_struct_info()) {
 	}
 	_FORCE_INLINE_ Struct(const Variant &p_variant) :
-			Array(Array(p_variant), T::Layout::get_struct_info()) {
+			Array(Array(p_variant), T::get_struct_info()) {
 	}
 	_FORCE_INLINE_ Struct(const Array &p_array) :
-			Array(p_array, T::Layout::get_struct_info()) {
+			Array(p_array, T::get_struct_info()) {
 	}
 	_FORCE_INLINE_ Struct() :
-			Array(T::Layout::get_struct_info()) {
+			Array(T::get_struct_info()) {
 	}
 	_FORCE_INLINE_ operator Dictionary() {
 		Dictionary dict;

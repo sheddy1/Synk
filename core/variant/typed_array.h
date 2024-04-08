@@ -52,7 +52,7 @@ public:
 			Array(p_array, Variant::OBJECT, T::get_class_static(), Variant()) {
 	}
 	_FORCE_INLINE_ TypedArray() {
-		set_typed(Variant::OBJECT, T::get_class_static(), Variant());
+		initialize_typed(Variant::OBJECT, T::get_class_static(), Variant());
 	}
 };
 
@@ -75,16 +75,16 @@ public:
 		_ref(p_array);
 	}
 	_FORCE_INLINE_ TypedArray(const Variant &p_variant) :
-			Array(Array(p_variant), Variant::ARRAY, T::get_struct_name(), Variant()) {
+			Array(Array(p_variant), T::get_struct_info()) {
 	}
-	_FORCE_INLINE_ TypedArray(const Array &p_array) :
-			Array(p_array, Variant::ARRAY, T::get_struct_name(), Variant()) {
+	_FORCE_INLINE_ TypedArray(const Array &p_array) : // TypedArray(struct) creates [ struct ]
+			Array(p_array.is_array_of_structs() ? p_array : Array({ p_array }, T::get_struct_info()), T::get_struct_info()) {
 	}
 	_FORCE_INLINE_ TypedArray() {
-		set_typed(Variant::ARRAY, T::get_struct_name(), Variant());
+		initialize_struct_type(T::get_struct_info(), true);
 	}
 	_FORCE_INLINE_ TypedArray(const List<T> *p_list) {
-		set_typed(Variant::ARRAY, T::get_struct_name(), Variant());
+		initialize_struct_type(T::get_struct_info(), true);
 		for (const List<T>::Element *E = p_list->front(); E; E = E->next()) {
 			push_back(Struct<T>(E->get()));
 		}
@@ -131,7 +131,7 @@ struct GetTypeInfo<const TypedArray<Struct<T>> &> {
 				Array(p_array, m_variant_type, StringName(), Variant()) {                                        \
 		}                                                                                                        \
 		_FORCE_INLINE_ TypedArray() {                                                                            \
-			set_typed(m_variant_type, StringName(), Variant());                                                  \
+			initialize_typed(m_variant_type, StringName(), Variant());                                           \
 		}                                                                                                        \
 	};
 
