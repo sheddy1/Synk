@@ -29,7 +29,33 @@
 /**************************************************************************/
 
 #include "struct_generator.h"
+
 #include "core/variant/struct.h"
+#include "core/variant/typed_array.h"
+
+Dictionary StructInfo::to_dict() const {
+	Dictionary dict;
+	dict["name"] = name;
+	dict["count"] = count;
+	dict["names"] = names;
+	PackedInt32Array packed_types;
+	packed_types.resize(count);
+	for (int i = 0; i < count; i++) {
+		packed_types.write[i] = types[i];
+	}
+	dict["types"] = packed_types;
+	dict["class_names"] = class_names;
+	TypedArray<Dictionary> member_info_dictionaries;
+	member_info_dictionaries.resize(count);
+	for (int i = 0; i < count; i++) {
+		const StructInfo *member_info = struct_member_infos[i];
+		// TODO: Recursion limit?
+		member_info_dictionaries[i] = member_info ? member_info->to_dict() : Dictionary();
+	}
+	dict["struct_member_infos"] = member_info_dictionaries;
+	dict["default_values"] = default_values;
+	return dict;
+}
 
 // Needs to be in .cpp so struct.h can be included
 template <typename StructType, typename... StructMembers>

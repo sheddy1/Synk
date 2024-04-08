@@ -50,7 +50,8 @@ struct ContainerTypeValidate {
 	StringName class_name;
 	Ref<Script> script;
 
-	const StructInfo *struct_info;
+	bool is_array_of_structs = false;
+	const StructInfo *struct_info; // TODO: if is_array_of_structs == true, then require struct_info != nullptr, but not sure the best way to enforce this.
 	const char *where = "container";
 
 	ContainerTypeValidate(const Variant::Type p_type = Variant::NIL, const StringName &p_class_name = StringName(), const Ref<Script> &p_script = Ref<Script>(), const char *p_where = "container") {
@@ -60,16 +61,13 @@ struct ContainerTypeValidate {
 		struct_info = nullptr;
 		where = p_where;
 	}
-	ContainerTypeValidate(const StructInfo &p_struct_info) {
+	ContainerTypeValidate(const StructInfo &p_struct_info, bool p_is_array_of_structs = false) {
 		type = Variant::ARRAY;
 		class_name = p_struct_info.name;
 		script = Ref<Script>();
+		is_array_of_structs = p_is_array_of_structs;
 		struct_info = &p_struct_info;
-		where = "Struct";
-	}
-
-	_FORCE_INLINE_ bool is_struct() const {
-		return struct_info != nullptr;
+		where = p_is_array_of_structs ? "TypedArray" : "Struct";
 	}
 
 	_FORCE_INLINE_ bool can_reference(const ContainerTypeValidate &p_type) const {
@@ -77,6 +75,9 @@ struct ContainerTypeValidate {
 			return true;
 		}
 		if (type != p_type.type) {
+			return false;
+		}
+		if (is_array_of_structs != p_type.is_array_of_structs) {
 			return false;
 		}
 		if (!StructInfo::is_compatible(struct_info, p_type.struct_info)) {
@@ -105,10 +106,10 @@ struct ContainerTypeValidate {
 	}
 
 	_FORCE_INLINE_ bool operator==(const ContainerTypeValidate &p_type) const {
-		return type == p_type.type && class_name == p_type.class_name && script == p_type.script && StructInfo::is_compatible(struct_info, p_type.struct_info);
+		return type == p_type.type && class_name == p_type.class_name && script == p_type.script && is_array_of_structs == p_type.is_array_of_structs && StructInfo::is_compatible(struct_info, p_type.struct_info);
 	}
 	_FORCE_INLINE_ bool operator!=(const ContainerTypeValidate &p_type) const {
-		return type != p_type.type || class_name != p_type.class_name || script != p_type.script || StructInfo::is_compatible(struct_info, p_type.struct_info);
+		return type != p_type.type || class_name != p_type.class_name || script != p_type.script || is_array_of_structs != p_type.is_array_of_structs || !StructInfo::is_compatible(struct_info, p_type.struct_info);
 	}
 
 	_FORCE_INLINE_ static ValidatedVariant validate_variant_type(const Variant::Type p_type, const Variant &p_variant, const char *p_where, const char *p_operation = "use") {
@@ -175,12 +176,33 @@ struct ContainerTypeValidate {
 		return true;
 	}
 
-	_FORCE_INLINE_ ValidatedVariant validate(const Variant &p_variant, const char *p_operation = "use", const int p_struct_index = -1) const {
+	_FORCE_INLINE_ ValidatedVariant validate(const Variant &p_variant, const char *p_operation = "use") const {
+		// TODO: Ensure !is_struct ?
 		// Coerces String and StringName into each other and int into float when needed.
-		if (struct_info) {
-			CRASH_BAD_INDEX_MSG(p_struct_index, struct_info->count, "Struct tried validation for a non-existent member");
+		ValidatedVariant ret = ContainerTypeValidate::validate_variant_type(type, p_variant, where, p_operation);
+		if (!ret.valid) {
+			return ret;
 		}
-		const Variant::Type variant_type = struct_info ? struct_info->types[p_struct_index] : type;
+
+		// Variant types match
+		if (type == Variant::ARRAY) {
+			const Array array = p_variant;
+			if (array.is_struct()) { // validating a struct into a typed array of structs
+				ret.valid = StructInfo::is_compatible(struct_info, array.get_struct_info());
+			} else { // validating a typed array into a typed array of typed arrays (which is currently not supported)
+				ret.valid = class_name == array.get_typed_class_name();
+			}
+		} else if (type == Variant::OBJECT) {
+			ret.valid = validate_object(p_variant, p_operation);
+		}
+		return ret;
+	}
+
+	_FORCE_INLINE_ ValidatedVariant validate_struct_member(const Variant &p_variant, const int p_struct_index, const char *p_operation = "use") const {
+		// TODO: Ensure is_struct and struct_info != nullptr ?
+		CRASH_BAD_INDEX_MSG(p_struct_index, struct_info->count, "Struct tried validation for a non-existent member");
+		const Variant::Type variant_type = struct_info->types[p_struct_index];
+		// Coerces String and StringName into each other and int into float when needed.
 		ValidatedVariant ret = ContainerTypeValidate::validate_variant_type(variant_type, p_variant, where, p_operation);
 		if (!ret.valid) {
 			return ret;
@@ -189,13 +211,10 @@ struct ContainerTypeValidate {
 		// Variant types match
 		if (variant_type == Variant::ARRAY) {
 			const Array array = p_variant;
-			if (struct_info) {
-				ret.valid = StructInfo::is_compatible(struct_info->struct_member_infos[p_struct_index], array.get_struct_info());
-			} else { // TypedArray of structs.
-				ret.valid = class_name == array.get_typed_class_name();
-			}
+			// Valid if (the struct member is itself a struct and the other array is a compatible struct) or (neither the struct member nor the other array are a struct).
+			ret.valid = StructInfo::is_compatible(struct_info->struct_member_infos[p_struct_index], array.get_struct_info());
 		} else if (variant_type == Variant::OBJECT) {
-			ret.valid = struct_info ? validate_object(struct_info->class_names[p_struct_index], Ref<Script>(), p_variant, where, p_operation) : validate_object(p_variant, p_operation);
+			ret.valid = validate_object(struct_info->class_names[p_struct_index], Ref<Script>(), p_variant, where, p_operation);
 		}
 		return ret;
 	}

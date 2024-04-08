@@ -50,14 +50,16 @@ public:
 	Variant *read_only = nullptr; // If enabled, a pointer is used to a temporary value that is used to return read-only values.
 	ContainerTypeValidate typed;
 
-	int32_t member_count = 0;
-
 	_FORCE_INLINE_ bool is_struct() const {
-		return typed.is_struct();
+		return !typed.is_array_of_structs && typed.struct_info != nullptr;
+	}
+
+	_FORCE_INLINE_ bool is_array_of_structs() const {
+		return typed.is_array_of_structs;
 	}
 
 	_FORCE_INLINE_ bool is_struct_array() const {
-		return member_count > 0; // TODO: this seems fishy
+		return false; // TODO: not supported yet
 	}
 
 	_FORCE_INLINE_ int32_t find_member_index(const StringName &p_member) const {
@@ -286,12 +288,12 @@ void Array::assign(const Array &p_array) {
 
 	if (is_struct()) {
 		if (source_typed.type != Variant::NIL) {
-			ERR_FAIL_COND_MSG(typed != source_typed, "Attempted to assign an array to a struct with incompatible types.");
+			ERR_FAIL_COND_MSG(typed != source_typed, "Attempted to assign a typed array to a struct.");
 			_p->array = p_array._p->array;
 			return;
 		}
 		for (int i = 0; i < size; i++) {
-			ValidatedVariant validated = typed.validate(source[i], "assign", i);
+			ValidatedVariant validated = typed.validate_struct_member(source[i], i, "assign");
 			ERR_FAIL_COND_MSG(!validated.valid, vformat(R"(Unable to convert array index %i from "%s" to "%s".)", i, Variant::get_type_name(source[i].get_type()), Variant::get_type_name(typed.type)));
 			array.write[i] = validated.value;
 		}
@@ -354,13 +356,21 @@ void Array::append_array(const Array &p_array) {
 Error Array::resize(int p_new_size) {
 	ERR_FAIL_COND_V_MSG(_p->read_only, ERR_LOCKED, "Array is in read-only state.");
 	ERR_FAIL_COND_V_MSG(_p->is_struct(), ERR_LOCKED, "Array is a struct."); // TODO: better error message
-	Variant::Type &variant_type = _p->typed.type;
 	int old_size = _p->array.size();
+
+	Variant::Type &variant_type = _p->typed.type;
 	Error err = _p->array.resize_zeroed(p_new_size);
-	if (!err && variant_type != Variant::NIL && variant_type != Variant::OBJECT) {
+	if (err || variant_type == Variant::NIL || variant_type == Variant::OBJECT) {
+		return err;
+	}
+	if (const StructInfo *info = _p->typed.struct_info) { // Typed array of structs
 		for (int i = old_size; i < p_new_size; i++) {
-			VariantInternal::initialize(&_p->array.write[i], variant_type);
+			_p->array.write[i] = Array(*info);
 		}
+		return err;
+	}
+	for (int i = old_size; i < p_new_size; i++) {
+		VariantInternal::initialize(&_p->array.write[i], variant_type);
 	}
 	return err;
 }
@@ -498,7 +508,7 @@ void Array::remove_at(int p_pos) {
 void Array::set(int p_idx, const Variant &p_value) {
 	ERR_FAIL_COND_MSG(_p->read_only, "Array is in read-only state.");
 	ERR_FAIL_COND_MSG(_p->is_struct() && (p_idx >= size()), "Array is a struct."); // TODO: better error message
-	ValidatedVariant validated = _p->typed.validate(p_value, "set", is_struct() ? p_idx : -1);
+	ValidatedVariant validated = _p->is_struct() ? _p->typed.validate_struct_member(p_value, p_idx, "set") : _p->typed.validate(p_value, "set");
 	ERR_FAIL_COND(!validated.valid); // TODO: wrong error message
 	operator[](p_idx) = validated.value;
 }
@@ -898,7 +908,7 @@ const void *Array::id() const {
 Array::Array(const Array &p_from, uint32_t p_type, const StringName &p_class_name, const Variant &p_script) {
 	_p = memnew(ArrayPrivate);
 	_p->refcount.init();
-	set_typed(p_type, p_class_name, p_script);
+	initialize_typed(p_type, p_class_name, p_script);
 	assign(p_from);
 }
 
@@ -923,14 +933,28 @@ void Array::set_typed(uint32_t p_type, const StringName &p_class_name, const Var
 	_p->typed = ContainerTypeValidate(Variant::Type(p_type), p_class_name, script, "TypedArray");
 }
 
-void Array::set_struct(const StructInfo &p_struct_info) {
+void Array::set_struct(const StructInfo &p_struct_info, bool p_is_array_of_structs) {
 	if (validate_set_type() != OK) {
 		return;
 	}
 	const int32_t size = p_struct_info.count;
 	_p->array.resize(size);
-	_p->member_count = size;
-	_p->typed = ContainerTypeValidate(p_struct_info);
+	_p->typed = ContainerTypeValidate(p_struct_info, p_is_array_of_structs);
+}
+
+void Array::initialize_typed(uint32_t p_type, const StringName &p_class_name, const Variant &p_script) {
+	ERR_FAIL_COND_MSG(p_class_name != StringName() && !(p_type == Variant::OBJECT || p_type == Variant::ARRAY), "Class names can only be set for type OBJECT or ARRAY");
+	Ref<Script> script = p_script;
+	ERR_FAIL_COND_MSG(script.is_valid() && p_class_name == StringName(), "Script class can only be set together with base class name");
+
+	_p->typed = ContainerTypeValidate(Variant::Type(p_type), p_class_name, script, "TypedArray");
+}
+
+void Array::initialize_struct_type(const StructInfo &p_struct_info, bool is_array_of_structs) {
+	if (!is_array_of_structs) {
+		_p->array.resize(p_struct_info.count);
+	}
+	_p->typed = ContainerTypeValidate(p_struct_info, is_array_of_structs);
 }
 
 bool Array::is_typed() const {
@@ -939,6 +963,10 @@ bool Array::is_typed() const {
 
 bool Array::is_struct() const {
 	return _p->is_struct();
+}
+
+bool Array::is_array_of_structs() const {
+	return _p->is_array_of_structs();
 }
 
 bool Array::is_same_typed(const Array &p_other) const {
@@ -980,7 +1008,7 @@ Array::Array(const Array &p_from, const StructInfo &p_struct_info) {
 	_p = memnew(ArrayPrivate);
 	_p->refcount.init(); // TODO: should this be _ref(p_from)?
 
-	set_struct(p_struct_info);
+	initialize_struct_type(p_struct_info, p_from.is_array_of_structs());
 	assign(p_from);
 }
 
@@ -988,21 +1016,23 @@ Array::Array(const Dictionary &p_from, const StructInfo &p_struct_info) {
 	_p = memnew(ArrayPrivate);
 	_p->refcount.init(); // TODO: should this be _ref(p_from)?
 
-	set_struct(p_struct_info);
+	initialize_struct_type(p_struct_info, false);
 	Variant *pw = _p->array.ptrw();
 	for (int32_t i = 0; i < p_struct_info.count; i++) {
 		pw[i] = p_from.has(p_struct_info.names[i]) ? p_from[p_struct_info.names[i]] : p_struct_info.default_values[i];
 	}
 }
 
-Array::Array(const StructInfo &p_struct_info) {
+Array::Array(const StructInfo &p_struct_info, bool is_array_of_structs) {
 	_p = memnew(ArrayPrivate);
 	_p->refcount.init();
 
-	set_struct(p_struct_info);
-	Variant *pw = _p->array.ptrw();
-	for (int32_t i = 0; i < p_struct_info.count; i++) {
-		pw[i] = p_struct_info.default_values[i];
+	initialize_struct_type(p_struct_info, is_array_of_structs);
+	if (!is_array_of_structs) {
+		Variant *pw = _p->array.ptrw();
+		for (int32_t i = 0; i < p_struct_info.count; i++) {
+			pw[i] = p_struct_info.default_values[i];
+		}
 	}
 }
 

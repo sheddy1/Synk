@@ -370,6 +370,11 @@ TEST_CASE("[Struct] Nesting") {
 		array.push_back(basic_struct_lookalike);
 		CHECK_EQ(array.size(), 2);
 		ERR_PRINT_ON;
+
+		TypedArray<Struct<BasicStruct>> array_of_defaults;
+		array_of_defaults.resize(2);
+		CHECK_EQ(array_of_defaults[0], Variant(Struct<BasicStruct>()));
+		CHECK_EQ(array_of_defaults[1], Variant(Struct<BasicStruct>()));
 	}
 }
 
