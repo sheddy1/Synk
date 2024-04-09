@@ -1867,15 +1867,9 @@ ScriptEditorDebugger::ScriptEditorDebugger() {
 		docontinue->set_shortcut(ED_GET_SHORTCUT("debugger/continue"));
 		docontinue->connect("pressed", callable_mp(this, &ScriptEditorDebugger::debug_continue));
 
-		HSplitContainer *parent_sc = memnew(HSplitContainer);
-		vbc->add_child(parent_sc);
-		parent_sc->set_v_size_flags(SIZE_EXPAND_FILL);
-		parent_sc->set_split_offset(500 * EDSCALE);
-
 		HSplitContainer *sc = memnew(HSplitContainer);
+		vbc->add_child(sc);
 		sc->set_v_size_flags(SIZE_EXPAND_FILL);
-		sc->set_h_size_flags(SIZE_EXPAND_FILL);
-		parent_sc->add_child(sc);
 
 		VBoxContainer *stack_vb = memnew(VBoxContainer);
 		stack_vb->set_h_size_flags(SIZE_EXPAND_FILL);
@@ -1933,7 +1927,7 @@ ScriptEditorDebugger::ScriptEditorDebugger() {
 		breakpoints_tree->connect("item_mouse_selected", callable_mp(this, &ScriptEditorDebugger::_breakpoints_item_rmb_selected));
 		breakpoints_tree->create_item();
 
-		parent_sc->add_child(breakpoints_tree);
+		sc->add_child(breakpoints_tree);
 		tabs->add_child(dbg);
 
 		breakpoints_menu = memnew(PopupMenu);
