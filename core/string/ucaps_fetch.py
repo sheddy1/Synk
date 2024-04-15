@@ -5,7 +5,7 @@ to extract case mappings for Unicode characters.
 """
 
 import urllib.request
-from typing import List
+from typing import List, Tuple
 import os
 
 
@@ -54,19 +54,15 @@ for line in lines:
     )
     case_mappings.append(case_mapping)
 
-case_mappings_parsed = [
-    (case_mapping.mapping, case_mapping.code, case_mapping.name)
-    for case_mapping in case_mappings
-    if case_mapping.status in ["C", "F", "S", "T"]
-    and len(case_mapping.code) == 4
-    and case_mapping.mapping != case_mapping.code
+case_mappings_parsed: List[Tuple[List[str], str]] = [
+    (case_mapping.mapping.split(), case_mapping.code) for case_mapping in case_mappings if len(case_mapping.code) == 4
 ]
 
-case_mappings_parsed.sort(key=lambda x: x[0])
+# Add `Latin Small Letter Reversed E` (ɘ)
+# which is missing for some reason.
+case_mappings_parsed.append((["0258"], "018E"))
 
-CAPS_LEN = len(case_mappings_parsed)
-
-ucaps_str = f"""/**************************************************************************/
+ucaps_str = """/**************************************************************************/
 /*  ucaps.h                                                               */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -99,35 +95,40 @@ ucaps_str = f"""/***************************************************************
 #ifndef UCAPS_H
 #define UCAPS_H
 
-#define CAPS_LEN {CAPS_LEN}
-
-static const int caps_table[CAPS_LEN][2] = {{
+static const int caps_table[][2] = {
 \t"""
 
-for code, mapping, _ in case_mappings_parsed:
-    ucaps_str += f"{{ 0x{code}, 0x{mapping} }},\n\t"
+case_mappings_parsed.sort(key=lambda x: int(x[0][0], 16))
+lower_to_caps_used = set()
 
-# for code, mapping, name in case_mappings_parsed:
-#     ucaps_str += f"{{ 0x{code}, 0x{mapping} }},  // {name}.\n\t"
+for code, mapping in case_mappings_parsed:
+    code_tmp = code[0]
+    if code_tmp in lower_to_caps_used:
+        continue
+    ucaps_str += f"{{ 0x{code_tmp}, 0x{mapping} }},\n\t"
+    lower_to_caps_used.add(code_tmp)
 
 ucaps_str = ucaps_str[:-1]  # Remove trailing tab.
 ucaps_str += """};
 
-static const int reverse_caps_table[CAPS_LEN][2] = {
+static const int reverse_caps_table[][2] = {
 \t"""
 
-for code, mapping, _ in case_mappings_parsed:
-    ucaps_str += f"{{ 0x{mapping}, 0x{code} }},\n\t"
+case_mappings_parsed.sort(key=lambda x: int(x[1], 16))
+caps_to_lower_used = set()
 
-# for code, mapping, name in case_mappings_parsed:
-#     ucaps_str += f"{{ 0x{mapping}, 0x{code} }},  // {name}.\n\t"
+for code, mapping in case_mappings_parsed:
+    if mapping in caps_to_lower_used:
+        continue
+    ucaps_str += f"{{ 0x{mapping}, 0x{code[0]} }},\n\t"
+    caps_to_lower_used.add(mapping)
 
 ucaps_str = ucaps_str[:-1]  # Remove trailing tab.
 ucaps_str += """};
 
 static int _find_upper(int ch) {
 \tint low = 0;
-\tint high = CAPS_LEN - 1;
+\tint high = sizeof(caps_table)/sizeof(caps_table[0]) - 1;
 \tint middle;
 
 \twhile (low <= high) {
@@ -147,7 +148,7 @@ static int _find_upper(int ch) {
 
 static int _find_lower(int ch) {
 \tint low = 0;
-\tint high = CAPS_LEN - 2;
+\tint high = sizeof(caps_table)/sizeof(caps_table[0]) - 2;
 \tint middle;
 
 \twhile (low <= high) {
