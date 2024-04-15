@@ -120,7 +120,7 @@ static int _find_lower(int ch) {
 """
 
 ucaps_path = os.path.join(os.path.dirname(__file__), "ucaps.h")
-with open(ucaps_path, "w") as f:
+with open(ucaps_path, "w", newline="\n") as f:
     f.write(ucaps_str)
 
 print("`ucaps.h` generated successfully.")
