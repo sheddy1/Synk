@@ -10,14 +10,14 @@ from typing import List, Tuple
 lower_to_upper: List[Tuple[str, str]] = []
 for i in range(int("FFFF", 16)):
     char = chr(i)
-    if char.islower() and len(char.upper()) == 1:
+    if char.islower() and len(char.upper()) == 1 and char != char.upper():
         lower_to_upper.append((f"0x{i:04X}", f"0x{ord(char.upper()):04X}"))
 ltu_len = len(lower_to_upper)
 
 upper_to_lower: List[Tuple[str, str]] = []
 for i in range(int("FFFF", 16)):
     char = chr(i)
-    if char.isupper() and len(char.lower()) == 1:
+    if char.isupper() and len(char.lower()) == 1 and char != char.lower():
         upper_to_lower.append((f"0x{i:04X}", f"0x{ord(char.lower()):04X}"))
 utl_len = len(upper_to_lower)
 
