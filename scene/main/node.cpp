@@ -2816,7 +2816,9 @@ Node *Node::duplicate(int p_flags) const {
 	ERR_THREAD_GUARD_V(nullptr);
 	Node *dupe = _duplicate(p_flags);
 
-	if (dupe && (p_flags & DUPLICATE_SIGNALS)) {
+	ERR_FAIL_NULL_V_MSG(dupe, nullptr, "Failed to duplicate node (Node::_duplicate returned nullptr)");
+
+	if (p_flags & DUPLICATE_SIGNALS) {
 		_duplicate_signals(this, dupe);
 	}
 
@@ -2832,6 +2834,8 @@ Node *Node::duplicate_from_editor(HashMap<const Node *, Node *> &r_duplimap) con
 
 Node *Node::duplicate_from_editor(HashMap<const Node *, Node *> &r_duplimap, const HashMap<Ref<Resource>, Ref<Resource>> &p_resource_remap) const {
 	Node *dupe = _duplicate(DUPLICATE_SIGNALS | DUPLICATE_GROUPS | DUPLICATE_SCRIPTS | DUPLICATE_USE_INSTANTIATION | DUPLICATE_FROM_EDITOR, &r_duplimap);
+
+	ERR_FAIL_NULL_V_MSG(dupe, nullptr, "Failed to duplicate node (Node::_duplicate returned nullptr)");
 
 	// This is used by SceneTreeDock's paste functionality. When pasting to foreign scene, resources are duplicated.
 	if (!p_resource_remap.is_empty()) {
