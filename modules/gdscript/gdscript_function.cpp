@@ -32,6 +32,13 @@
 
 #include "gdscript.h"
 
+const StructInfo *GDScriptDataType::get_struct_info() const {
+	if (script_type) {
+		return script_type->get_struct_info(native_type);
+	}
+	return nullptr;
+}
+
 Variant GDScriptFunction::get_constant(int p_idx) const {
 	ERR_FAIL_INDEX_V(p_idx, constants.size(), "<errconst>");
 	return constants[p_idx];

@@ -180,6 +180,12 @@ GDScriptDataType GDScriptCompiler::_gdtype_from_datatype(const GDScriptParser::D
 				result.native_type = p_datatype.native_type;
 			}
 		} break;
+		case GDScriptParser::DataType::STRUCT: {
+			result.kind = GDScriptDataType::BUILTIN;
+			result.builtin_type = Variant::ARRAY;
+			result.native_type = p_datatype.native_type;
+			result.script_type = p_owner;
+		} break;
 		case GDScriptParser::DataType::ENUM:
 			if (p_handle_metatype && p_datatype.is_meta_type) {
 				result.kind = GDScriptDataType::BUILTIN;
@@ -511,8 +517,9 @@ GDScriptCodeGenerator::Address GDScriptCompiler::_parse_expression(CodeGen &code
 				}
 				values.push_back(val);
 			}
-
-			if (array_type.has_container_element_type(0)) {
+			if (array_type.get_struct_info()) { //TODO: type check the values?
+				gen->write_construct_struct(result, array_type, values);
+			} else if (array_type.has_container_element_type(0)) {
 				gen->write_construct_typed_array(result, array_type.get_container_element_type(0), values);
 			} else {
 				gen->write_construct_array(result, values);
@@ -2136,7 +2143,9 @@ Error GDScriptCompiler::_parse_block(CodeGen &codegen, const GDScriptParser::Sui
 					initialized = true;
 				} else if (local_type.has_type) {
 					// Initialize with default for type.
-					if (local_type.has_container_element_type(0)) {
+					if (local_type.get_struct_info()) {
+						codegen.generator->write_construct_struct(local, local_type, Vector<GDScriptCodeGenerator::Address>());
+					} else if (local_type.has_container_element_type(0)) {
 						codegen.generator->write_construct_typed_array(local, local_type.get_container_element_type(0), Vector<GDScriptCodeGenerator::Address>());
 						initialized = true;
 					} else if (local_type.kind == GDScriptDataType::BUILTIN) {
@@ -2279,7 +2288,9 @@ GDScriptFunction *GDScriptCompiler::_parse_function(Error &r_error, GDScript *p_
 
 				GDScriptCodeGenerator::Address dst_address(GDScriptCodeGenerator::Address::MEMBER, codegen.script->member_indices[field->identifier->name].index, field_type);
 
-				if (field_type.has_container_element_type(0)) {
+				if (field_type.get_struct_info()) {
+					codegen.generator->write_construct_struct(dst_address, field_type, Vector<GDScriptCodeGenerator::Address>());
+				} else if (field_type.has_container_element_type(0)) {
 					codegen.generator->write_construct_typed_array(dst_address, field_type.get_container_element_type(0), Vector<GDScriptCodeGenerator::Address>());
 				} else if (field_type.kind == GDScriptDataType::BUILTIN) {
 					codegen.generator->write_construct(dst_address, field_type.builtin_type, Vector<GDScriptCodeGenerator::Address>());
@@ -2469,17 +2480,18 @@ GDScriptFunction *GDScriptCompiler::_make_static_initializer(Error &r_error, GDS
 		if (field_type.has_type) {
 			codegen.generator->write_newline(field->start_line);
 
-			if (field_type.has_container_element_type(0)) {
-				GDScriptCodeGenerator::Address temp = codegen.add_temporary(field_type);
+			GDScriptCodeGenerator::Address temp = codegen.add_temporary(field_type);
+			codegen.generator->write_construct(temp, field_type.builtin_type, Vector<GDScriptCodeGenerator::Address>());
+			codegen.generator->write_set_static_variable(temp, class_addr, p_script->static_variables_indices[field->identifier->name].index);
+			if (field_type.get_struct_info()) {
+				codegen.generator->write_construct_struct(temp, field_type, Vector<GDScriptCodeGenerator::Address>());
+			} else if (field_type.has_container_element_type(0)) {
 				codegen.generator->write_construct_typed_array(temp, field_type.get_container_element_type(0), Vector<GDScriptCodeGenerator::Address>());
-				codegen.generator->write_set_static_variable(temp, class_addr, p_script->static_variables_indices[field->identifier->name].index);
-				codegen.generator->pop_temporary();
+
 			} else if (field_type.kind == GDScriptDataType::BUILTIN) {
-				GDScriptCodeGenerator::Address temp = codegen.add_temporary(field_type);
 				codegen.generator->write_construct(temp, field_type.builtin_type, Vector<GDScriptCodeGenerator::Address>());
-				codegen.generator->write_set_static_variable(temp, class_addr, p_script->static_variables_indices[field->identifier->name].index);
-				codegen.generator->pop_temporary();
 			}
+			codegen.generator->pop_temporary();
 			// The `else` branch is for objects, in such case we leave it as `null`.
 		}
 	}
@@ -2595,6 +2607,7 @@ Error GDScriptCompiler::_prepare_compilation(GDScript *p_script, const GDScriptP
 	p_script->base = Ref<GDScript>();
 	p_script->_base = nullptr;
 	p_script->members.clear();
+	p_script->structs.clear();
 
 	// This makes possible to clear script constants and member_functions without heap-use-after-free errors.
 	HashMap<StringName, Variant> constants;
@@ -2784,6 +2797,26 @@ Error GDScriptCompiler::_prepare_compilation(GDScript *p_script, const GDScriptP
 				StringName name = enum_value.identifier->name;
 
 				p_script->constants.insert(name, enum_value.value);
+			} break;
+
+			case GDScriptParser::ClassNode::Member::STRUCT: {
+				if (!member.m_struct) {
+					break;
+				}
+				const GDScriptParser::StructNode &struct_node = *member.m_struct;
+				StructInfo struct_info = StructInfo(struct_node.identifier->name, struct_node.members.size());
+				for (int j = 0; j < struct_info.count; j++) {
+					const GDScriptParser::VariableNode *struct_member = struct_node.members[j];
+					Variant default_value = struct_member->initializer ? struct_member->initializer->reduced_value : Variant(); // TODO: need better logic here.
+					struct_info.set(j,
+							struct_member->identifier->name,
+							struct_member->datatype.builtin_type,
+							struct_member->datatype.native_type,
+							nullptr,
+							default_value);
+					//TODO: does not yet support nested structs.
+				}
+				p_script->structs.insert(struct_info.name, struct_info);
 			} break;
 
 			case GDScriptParser::ClassNode::Member::SIGNAL: {
@@ -2995,7 +3028,8 @@ void GDScriptCompiler::convert_to_initializer_type(Variant &p_variant, const GDS
 	GDScriptParser::DataType member_t = p_node->datatype;
 	GDScriptParser::DataType init_t = p_node->initializer->datatype;
 	if (member_t.is_hard_type() && init_t.is_hard_type() &&
-			member_t.kind == GDScriptParser::DataType::BUILTIN && init_t.kind == GDScriptParser::DataType::BUILTIN) {
+			(member_t.kind == GDScriptParser::DataType::BUILTIN || member_t.kind == GDScriptParser::DataType::STRUCT) &&
+			(init_t.kind == GDScriptParser::DataType::BUILTIN || init_t.kind == GDScriptParser::DataType::STRUCT)) {
 		if (Variant::can_convert_strict(init_t.builtin_type, member_t.builtin_type)) {
 			Variant *v = &p_node->initializer->reduced_value;
 			Callable::CallError ce;

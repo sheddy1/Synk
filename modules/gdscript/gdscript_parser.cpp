@@ -499,6 +499,7 @@ void GDScriptParser::synchronize() {
 			case GDScriptTokenizer::Token::VAR:
 			case GDScriptTokenizer::Token::CONST:
 			case GDScriptTokenizer::Token::SIGNAL:
+			case GDScriptTokenizer::Token::STRUCT:
 			//case GDScriptTokenizer::Token::IF: // Can also be inside expressions.
 			case GDScriptTokenizer::Token::FOR:
 			case GDScriptTokenizer::Token::WHILE:
@@ -809,6 +810,52 @@ GDScriptParser::ClassNode *GDScriptParser::parse_class(bool p_is_static) {
 	return n_class;
 }
 
+GDScriptParser::StructNode *GDScriptParser::parse_struct(bool p_is_static) {
+	StructNode *struct_node = alloc_node<StructNode>();
+	reset_extents(struct_node, current);
+
+	if (!consume(GDScriptTokenizer::Token::IDENTIFIER, R"(Expected identifier for the struct name after "struct".)")) {
+		complete_extents(struct_node);
+		return nullptr;
+	}
+
+	struct_node->identifier = parse_identifier();
+	update_extents(struct_node);
+
+	if (!consume(GDScriptTokenizer::Token::COLON, R"(Expected ":" after struct name.)")) {
+		complete_extents(struct_node);
+		return nullptr;
+	}
+
+	if (!consume(GDScriptTokenizer::Token::NEWLINE, R"(Expected newline after struct name.)")) {
+		complete_extents(struct_node);
+		return nullptr;
+	}
+
+	if (!consume(GDScriptTokenizer::Token::INDENT, R"(Expected indented block after struct declaration.)")) {
+		complete_extents(struct_node);
+		return struct_node;
+	}
+
+	while (!check(GDScriptTokenizer::Token::DEDENT) && !is_at_end()) {
+		if (match(GDScriptTokenizer::Token::VAR)) {
+			VariableNode *member = parse_variable(false, false);
+			if (member != nullptr) {
+				struct_node->members.push_back(member);
+			}
+		} else {
+			make_completion_context(COMPLETION_IDENTIFIER, nullptr);
+			push_error(vformat(R"(Unexpected "%s" in struct body.)", current.get_name()));
+			advance();
+		}
+	}
+
+	consume(GDScriptTokenizer::Token::DEDENT, R"(Missing unindent at the end of the struct body.)");
+	complete_extents(struct_node);
+
+	return struct_node;
+}
+
 void GDScriptParser::parse_class_name() {
 	if (consume(GDScriptTokenizer::Token::IDENTIFIER, R"(Expected identifier for the global class name after "class_name".)")) {
 		current_class->identifier = parse_identifier();
@@ -961,6 +1008,9 @@ void GDScriptParser::parse_class_body(bool p_is_multiline) {
 					push_error(R"(Expected "func" or "var" after "static".)");
 				}
 			} break;
+			case GDScriptTokenizer::Token::STRUCT:
+				parse_class_member(&GDScriptParser::parse_struct, AnnotationInfo::STRUCT, "struct");
+				break;
 			case GDScriptTokenizer::Token::ANNOTATION: {
 				advance();
 
@@ -3908,6 +3958,7 @@ GDScriptParser::ParseRule *GDScriptParser::get_rule(GDScriptTokenizer::Token::Ty
 		{ &GDScriptParser::parse_self,                   	nullptr,                                        PREC_NONE }, // SELF,
 		{ nullptr,                                          nullptr,                                        PREC_NONE }, // SIGNAL,
 		{ nullptr,                                          nullptr,                                        PREC_NONE }, // STATIC,
+		{ nullptr,                                          nullptr,                                        PREC_NONE }, // STRUCT,
 		{ &GDScriptParser::parse_call,						nullptr,                                        PREC_NONE }, // SUPER,
 		{ nullptr,                                          nullptr,                                        PREC_NONE }, // TRAIT,
 		{ nullptr,                                          nullptr,                                        PREC_NONE }, // VAR,
@@ -4277,6 +4328,11 @@ bool GDScriptParser::export_annotations(const AnnotationNode *p_annotation, Node
 				variable->export_info.hint = PROPERTY_HINT_NONE;
 				variable->export_info.hint_string = Variant::get_type_name(export_type.builtin_type);
 				break;
+			case GDScriptParser::DataType::STRUCT:
+				variable->export_info.type = export_type.builtin_type;
+				variable->export_info.hint = PROPERTY_HINT_ARRAY_TYPE;
+				variable->export_info.hint_string = export_type.native_type;
+				break;
 			case GDScriptParser::DataType::NATIVE:
 				if (ClassDB::is_parent_class(export_type.native_type, SNAME("Resource"))) {
 					variable->export_info.type = Variant::OBJECT;
@@ -4446,24 +4502,27 @@ bool GDScriptParser::export_group_annotations(const AnnotationNode *p_annotation
 	switch (t_usage) {
 		case PROPERTY_USAGE_CATEGORY: {
 			annotation->export_info.usage = t_usage;
-		} break;
+			return true;
+		}
 
 		case PROPERTY_USAGE_GROUP: {
 			annotation->export_info.usage = t_usage;
 			if (annotation->resolved_arguments.size() == 2) {
 				annotation->export_info.hint_string = annotation->resolved_arguments[1];
 			}
-		} break;
+			return true;
+		}
 
 		case PROPERTY_USAGE_SUBGROUP: {
 			annotation->export_info.usage = t_usage;
 			if (annotation->resolved_arguments.size() == 2) {
 				annotation->export_info.hint_string = annotation->resolved_arguments[1];
 			}
-		} break;
+			return true;
+		}
+		default:
+			return true;
 	}
-
-	return true;
 }
 
 bool GDScriptParser::warning_annotations(const AnnotationNode *p_annotation, Node *p_target, ClassNode *p_class) {
@@ -4661,6 +4720,7 @@ String GDScriptParser::DataType::to_string() const {
 				return vformat("Array[%s]", container_element_types[0].to_string());
 			}
 			return Variant::get_type_name(builtin_type);
+		case STRUCT:
 		case NATIVE:
 			if (is_meta_type) {
 				return GDScriptNativeClass::get_class_static();
@@ -4709,6 +4769,7 @@ PropertyInfo GDScriptParser::DataType::to_property_info(const String &p_name) co
 	}
 
 	switch (kind) {
+		case STRUCT:
 		case BUILTIN:
 			result.type = builtin_type;
 			if (builtin_type == Variant::ARRAY && has_container_element_type(0)) {
@@ -4718,6 +4779,7 @@ PropertyInfo GDScriptParser::DataType::to_property_info(const String &p_name) co
 						result.hint = PROPERTY_HINT_ARRAY_TYPE;
 						result.hint_string = Variant::get_type_name(elem_type.builtin_type);
 						break;
+					case STRUCT:
 					case NATIVE:
 						result.hint = PROPERTY_HINT_ARRAY_TYPE;
 						result.hint_string = elem_type.native_type;
@@ -4827,6 +4889,22 @@ GDScriptParser::DataType GDScriptParser::DataType::get_typed_container_type() co
 	type.kind = GDScriptParser::DataType::BUILTIN;
 	type.builtin_type = _variant_type_to_typed_array_element_type(builtin_type);
 	return type;
+}
+
+const StructInfo *GDScriptParser::DataType::get_struct_info() {
+	if (const StructInfo *info = ClassDB::get_struct_info(native_type)) {
+		return info;
+	}
+	if (unlikely(!struct_type)) {
+		return nullptr;
+	}
+	if (unlikely(!struct_type->resolved)) {
+		return nullptr;
+	}
+	if (const StructInfo *info = script_type->get_struct_info(native_type)) {
+		return info;
+	}
+	return nullptr;
 }
 
 void GDScriptParser::complete_extents(Node *p_node) {
@@ -5152,6 +5230,9 @@ void GDScriptParser::TreePrinter::print_class(ClassNode *p_class) {
 				break;
 			case ClassNode::Member::ENUM_VALUE:
 				break; // Nothing. Will be printed by enum.
+			case ClassNode::Member::STRUCT:
+				print_struct(m.m_struct);
+				break;
 			case ClassNode::Member::GROUP:
 				break; // Nothing. Groups are only used by inspector.
 			case ClassNode::Member::UNDEFINED:
@@ -5581,6 +5662,18 @@ void GDScriptParser::TreePrinter::print_statement(Node *p_statement) {
 			}
 			break;
 	}
+}
+
+void GDScriptParser::TreePrinter::print_struct(StructNode *p_struct) {
+	push_text("Struct ");
+	print_identifier(p_struct->identifier);
+
+	push_line(" :");
+	increase_indent();
+	for (int i = 0; i < p_struct->members.size(); i++) {
+		print_variable(p_struct->members[i]);
+	}
+	decrease_indent();
 }
 
 void GDScriptParser::TreePrinter::print_suite(SuiteNode *p_suite) {
