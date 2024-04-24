@@ -38,7 +38,10 @@
 #include "editor/filesystem_dock.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/project_settings_editor.h"
+#include "editor/scene_create_dialog.h"
 #include "editor/themes/editor_scale.h"
+#include "scene/gui/button.h"
+#include "scene/gui/tree.h"
 #include "scene/main/window.h"
 #include "scene/resources/packed_scene.h"
 
@@ -48,11 +51,16 @@ void EditorAutoloadSettings::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
 			List<String> afn;
-			ResourceLoader::get_recognized_extensions_for_type("Script", &afn);
 			ResourceLoader::get_recognized_extensions_for_type("PackedScene", &afn);
 
 			for (const String &E : afn) {
-				file_dialog->add_filter("*." + E);
+				scene_file_dialog->add_filter("*." + E);
+			}
+
+			ResourceLoader::get_recognized_extensions_for_type("Script", &afn);
+
+			for (const String &E : afn) {
+				autoload_file_dialog->add_filter("*." + E);
 			}
 
 			for (const AutoloadInfo &info : autoload_cache) {
@@ -60,42 +68,44 @@ void EditorAutoloadSettings::_notification(int p_what) {
 					callable_mp((Node *)get_tree()->get_root(), &Node::add_child).call_deferred(info.node, false, Node::INTERNAL_MODE_DISABLED);
 				}
 			}
-			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
 		} break;
 
 		case NOTIFICATION_THEME_CHANGED: {
-			browse_button->set_icon(get_editor_theme_icon(SNAME("Folder")));
-			add_autoload->set_icon(get_editor_theme_icon(SNAME("Add")));
+			browse_button->set_icon(get_editor_theme_icon(SNAME("FileBrowse")));
+			create_script_autoload->set_icon(get_editor_theme_icon(SNAME("Add")));
+			create_scene_autoload->set_icon(get_editor_theme_icon(SNAME("Add")));
 		} break;
 
 		case NOTIFICATION_VISIBILITY_CHANGED: {
+			if (!was_visible && !is_visible_in_tree()) {
+				break;
+			}
+
 			FileSystemDock *dock = FileSystemDock::get_singleton();
+			ScriptCreateDialog *script_dialog = dock->get_script_create_dialog();
+			SceneCreateDialog *scene_dialog = dock->get_scene_create_dialog();
 
-			if (dock != nullptr) {
-				ScriptCreateDialog *dialog = dock->get_script_create_dialog();
+			const Callable script_created = callable_mp(this, &EditorAutoloadSettings::_script_created);
+			const Callable scene_created = callable_mp(this, &EditorAutoloadSettings::_scene_created);
 
-				if (dialog != nullptr) {
-					Callable script_created = callable_mp(this, &EditorAutoloadSettings::_script_created);
-
-					if (is_visible_in_tree()) {
-						if (!dialog->is_connected(SNAME("script_created"), script_created)) {
-							dialog->connect("script_created", script_created);
-						}
-					} else {
-						if (dialog->is_connected(SNAME("script_created"), script_created)) {
-							dialog->disconnect("script_created", script_created);
-						}
-					}
-				}
+			if (is_visible_in_tree()) {
+				was_visible = true;
+				script_dialog->connect("script_created", script_created);
+				scene_dialog->connect("confirmed", scene_created.bind(scene_dialog));
+			} else {
+				script_dialog->disconnect("script_created", script_created);
+				scene_dialog->disconnect("confirmed", scene_created);
 			}
 		} break;
 	}
 }
 
 bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, String *r_error) {
+	const String base_error = vformat(TTR("Invalid name: \"%s\"."), p_name);
+
 	if (!p_name.is_valid_identifier()) {
 		if (r_error) {
-			*r_error = TTR("Invalid name.") + " ";
+			*r_error = base_error + " ";
 			if (p_name.size() > 0 && p_name.left(1).is_numeric()) {
 				*r_error += TTR("Cannot begin with a digit.");
 			} else {
@@ -108,7 +118,7 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 
 	if (ClassDB::class_exists(p_name)) {
 		if (r_error) {
-			*r_error = TTR("Invalid name.") + " " + TTR("Must not collide with an existing engine class name.");
+			*r_error = base_error + " " + TTR("Must not collide with an existing engine class name.");
 		}
 
 		return false;
@@ -116,7 +126,7 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 
 	if (ScriptServer::is_global_class(p_name)) {
 		if (r_error) {
-			*r_error = TTR("Invalid name.") + "\n" + TTR("Must not collide with an existing global script class name.");
+			*r_error = base_error + "\n" + TTR("Must not collide with an existing global script class name.");
 		}
 
 		return false;
@@ -125,7 +135,7 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 	for (int i = 0; i < Variant::VARIANT_MAX; i++) {
 		if (Variant::get_type_name(Variant::Type(i)) == p_name) {
 			if (r_error) {
-				*r_error = TTR("Invalid name.") + " " + TTR("Must not collide with an existing built-in type name.");
+				*r_error = base_error + " " + TTR("Must not collide with an existing built-in type name.");
 			}
 
 			return false;
@@ -135,7 +145,7 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 	for (int i = 0; i < CoreConstants::get_global_constant_count(); i++) {
 		if (CoreConstants::get_global_constant_name(i) == p_name) {
 			if (r_error) {
-				*r_error = TTR("Invalid name.") + " " + TTR("Must not collide with an existing global constant name.");
+				*r_error = base_error + " " + TTR("Must not collide with an existing global constant name.");
 			}
 
 			return false;
@@ -148,7 +158,7 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 		for (const String &E : keywords) {
 			if (E == p_name) {
 				if (r_error) {
-					*r_error = TTR("Invalid name.") + " " + TTR("Keyword cannot be used as an Autoload name.");
+					*r_error = base_error + " " + TTR("Keyword cannot be used as an Autoload name.");
 				}
 
 				return false;
@@ -157,25 +167,6 @@ bool EditorAutoloadSettings::_autoload_name_is_valid(const String &p_name, Strin
 	}
 
 	return true;
-}
-
-void EditorAutoloadSettings::_autoload_add() {
-	if (autoload_add_path->get_text().is_empty()) {
-		ScriptCreateDialog *dialog = FileSystemDock::get_singleton()->get_script_create_dialog();
-		String fpath = path;
-		if (!fpath.ends_with("/")) {
-			fpath = fpath.get_base_dir();
-		}
-		dialog->config("Node", fpath.path_join(vformat("%s.gd", autoload_add_name->get_text())), false, false);
-		dialog->popup_centered();
-	} else {
-		if (autoload_add(autoload_add_name->get_text(), autoload_add_path->get_text())) {
-			autoload_add_path->set_text("");
-		}
-
-		autoload_add_name->set_text("");
-		add_autoload->set_disabled(true);
-	}
 }
 
 void EditorAutoloadSettings::_autoload_selected() {
@@ -370,36 +361,6 @@ void EditorAutoloadSettings::_autoload_open(const String &fpath) {
 	ProjectSettingsEditor::get_singleton()->hide();
 }
 
-void EditorAutoloadSettings::_autoload_file_callback(const String &p_path) {
-	// Convert the file name to PascalCase, which is the convention for classes in GDScript.
-	const String class_name = p_path.get_file().get_basename().to_pascal_case();
-
-	// If the name collides with a built-in class, prefix the name to make it possible to add without having to edit the name.
-	// The prefix is subjective, but it provides better UX than leaving the Add button disabled :)
-	const String prefix = ClassDB::class_exists(class_name) ? "Global" : "";
-
-	autoload_add_name->set_text(prefix + class_name);
-	add_autoload->set_disabled(false);
-}
-
-void EditorAutoloadSettings::_autoload_text_submitted(const String &p_name) {
-	if (!autoload_add_path->get_text().is_empty() && _autoload_name_is_valid(p_name, nullptr)) {
-		_autoload_add();
-	}
-}
-
-void EditorAutoloadSettings::_autoload_path_text_changed(const String &p_path) {
-	add_autoload->set_disabled(!_autoload_name_is_valid(autoload_add_name->get_text(), nullptr));
-}
-
-void EditorAutoloadSettings::_autoload_text_changed(const String &p_name) {
-	String error_string;
-	bool is_name_valid = _autoload_name_is_valid(p_name, &error_string);
-	add_autoload->set_disabled(!is_name_valid);
-	error_message->set_text(error_string);
-	error_message->set_visible(!autoload_add_name->get_text().is_empty() && !is_name_valid);
-}
-
 Node *EditorAutoloadSettings::_create_autoload(const String &p_path) {
 	Node *n = nullptr;
 	if (ResourceLoader::get_resource_type(p_path) == "PackedScene") {
@@ -434,6 +395,51 @@ Node *EditorAutoloadSettings::_create_autoload(const String &p_path) {
 	ERR_FAIL_NULL_V_MSG(n, nullptr, vformat("Failed to create an autoload, path is not pointing to a scene or a script: %s.", p_path));
 
 	return n;
+}
+
+void EditorAutoloadSettings::_create_script_autoload() {
+	ScriptCreateDialog *dialog = FileSystemDock::get_singleton()->get_script_create_dialog();
+	dialog->config("Node", "res://new_autoload_script.gd", false, false);
+	dialog->popup_centered();
+}
+
+void EditorAutoloadSettings::_create_scene_autoload() {
+	scene_file_dialog->set_current_path("res://new_autoload_scene.tscn");
+	scene_file_dialog->popup_file_dialog();
+}
+
+void EditorAutoloadSettings::_autoload_file_selected(const String &p_path) {
+	_add_autoload(p_path.get_file().get_basename(), p_path);
+}
+
+void EditorAutoloadSettings::_scene_file_selected(const String &p_path) {
+	SceneCreateDialog *dialog = FileSystemDock::get_singleton()->get_scene_create_dialog();
+	dialog->config(p_path.get_base_dir(), p_path.get_file().get_basename());
+	dialog->popup_centered();
+}
+
+void EditorAutoloadSettings::_script_created(Ref<Script> p_script) {
+	FileSystemDock::get_singleton()->get_script_create_dialog()->hide();
+	path = p_script->get_path().get_base_dir();
+	_add_autoload(p_script->get_path().get_file().get_basename(), p_script->get_path());
+}
+
+void EditorAutoloadSettings::_scene_created(SceneCreateDialog *p_dialog) {
+	_add_autoload(p_dialog->get_root_name(), p_dialog->get_scene_path());
+}
+
+void EditorAutoloadSettings::_add_autoload(const String &p_name, const String &p_path) {
+	// Convert the file name to PascalCase, which is the convention for classes in GDScript.
+	String autoload_name = p_name.to_pascal_case();
+
+	// If the name collides with a built-in class, prefix the name to make it possible to add without having to edit the name.
+	// The prefix is subjective, but it provides better UX than throwing an error :)
+	if (ClassDB::class_exists(autoload_name)) {
+		autoload_name += "Global";
+	}
+
+	autoload_name.validate_identifier();
+	autoload_add(autoload_name, p_path);
 }
 
 void EditorAutoloadSettings::update_autoload() {
@@ -577,18 +583,6 @@ void EditorAutoloadSettings::update_autoload() {
 	}
 
 	updating_autoload = false;
-}
-
-void EditorAutoloadSettings::_script_created(Ref<Script> p_script) {
-	FileSystemDock::get_singleton()->get_script_create_dialog()->hide();
-	path = p_script->get_path().get_base_dir();
-	autoload_add_path->set_text(p_script->get_path());
-	autoload_add_name->set_text(p_script->get_path().get_file().get_basename().to_pascal_case());
-	_autoload_add();
-}
-
-LineEdit *EditorAutoloadSettings::get_path_box() const {
-	return autoload_add_path;
 }
 
 Variant EditorAutoloadSettings::get_drag_data_fw(const Point2 &p_point, Control *p_control) {
@@ -881,53 +875,30 @@ EditorAutoloadSettings::EditorAutoloadSettings() {
 	HBoxContainer *hbc = memnew(HBoxContainer);
 	add_child(hbc);
 
-	error_message = memnew(Label);
-	error_message->hide();
-	error_message->set_horizontal_alignment(HORIZONTAL_ALIGNMENT_RIGHT);
-	error_message->add_theme_color_override("font_color", EditorNode::get_singleton()->get_editor_theme()->get_color(SNAME("error_color"), EditorStringName(Editor)));
-	add_child(error_message);
+	autoload_file_dialog = memnew(EditorFileDialog);
+	autoload_file_dialog->set_file_mode(EditorFileDialog::FILE_MODE_OPEN_FILE);
+	hbc->add_child(autoload_file_dialog);
+	autoload_file_dialog->connect("file_selected", callable_mp(this, &EditorAutoloadSettings::_autoload_file_selected));
 
-	Label *l = memnew(Label);
-	l->set_text(TTR("Path:"));
-	hbc->add_child(l);
-
-	autoload_add_path = memnew(LineEdit);
-	hbc->add_child(autoload_add_path);
-	autoload_add_path->set_h_size_flags(Control::SIZE_EXPAND_FILL);
-	autoload_add_path->set_clear_button_enabled(true);
-	autoload_add_path->set_placeholder(vformat(TTR("Set path or press \"%s\" to create a script."), TTR("Add")));
-	autoload_add_path->connect("text_changed", callable_mp(this, &EditorAutoloadSettings::_autoload_path_text_changed));
+	scene_file_dialog = memnew(EditorFileDialog);
+	scene_file_dialog->set_file_mode(EditorFileDialog::FILE_MODE_SAVE_FILE);
+	hbc->add_child(scene_file_dialog);
+	scene_file_dialog->connect("file_selected", callable_mp(this, &EditorAutoloadSettings::_scene_file_selected));
 
 	browse_button = memnew(Button);
+	browse_button->set_text(TTR("Select Script/Scene"));
 	hbc->add_child(browse_button);
-	browse_button->connect("pressed", callable_mp(this, &EditorAutoloadSettings::_browse_autoload_add_path));
+	browse_button->connect("pressed", callable_mp(autoload_file_dialog, &EditorFileDialog::popup_file_dialog));
 
-	file_dialog = memnew(EditorFileDialog);
-	hbc->add_child(file_dialog);
-	file_dialog->connect("file_selected", callable_mp(this, &EditorAutoloadSettings::_set_autoload_add_path));
-	file_dialog->connect("dir_selected", callable_mp(this, &EditorAutoloadSettings::_set_autoload_add_path));
-	file_dialog->connect("files_selected", callable_mp(this, &EditorAutoloadSettings::_set_autoload_add_path));
+	create_script_autoload = memnew(Button);
+	create_script_autoload->set_text(TTR("Create Script Autoload"));
+	hbc->add_child(create_script_autoload);
+	create_script_autoload->connect("pressed", callable_mp(this, &EditorAutoloadSettings::_create_script_autoload));
 
-	hbc->set_h_size_flags(SIZE_EXPAND_FILL);
-	file_dialog->set_file_mode(EditorFileDialog::FILE_MODE_OPEN_FILE);
-	file_dialog->connect("file_selected", callable_mp(this, &EditorAutoloadSettings::_autoload_file_callback));
-
-	l = memnew(Label);
-	l->set_text(TTR("Node Name:"));
-	hbc->add_child(l);
-
-	autoload_add_name = memnew(LineEdit);
-	autoload_add_name->set_h_size_flags(SIZE_EXPAND_FILL);
-	autoload_add_name->connect("text_submitted", callable_mp(this, &EditorAutoloadSettings::_autoload_text_submitted));
-	autoload_add_name->connect("text_changed", callable_mp(this, &EditorAutoloadSettings::_autoload_text_changed));
-	hbc->add_child(autoload_add_name);
-
-	add_autoload = memnew(Button);
-	add_autoload->set_text(TTR("Add"));
-	add_autoload->connect("pressed", callable_mp(this, &EditorAutoloadSettings::_autoload_add));
-	// The button will be enabled once a valid name is entered (either automatically or manually).
-	add_autoload->set_disabled(true);
-	hbc->add_child(add_autoload);
+	create_scene_autoload = memnew(Button);
+	create_scene_autoload->set_text(TTR("Create Scene Autoload"));
+	hbc->add_child(create_scene_autoload);
+	create_scene_autoload->connect("pressed", callable_mp(this, &EditorAutoloadSettings::_create_scene_autoload));
 
 	tree = memnew(Tree);
 	tree->set_hide_root(true);
@@ -968,13 +939,4 @@ EditorAutoloadSettings::~EditorAutoloadSettings() {
 			memdelete(info.node);
 		}
 	}
-}
-
-void EditorAutoloadSettings::_set_autoload_add_path(const String &p_text) {
-	autoload_add_path->set_text(p_text);
-	autoload_add_path->emit_signal(SNAME("text_submitted"), p_text);
-}
-
-void EditorAutoloadSettings::_browse_autoload_add_path() {
-	file_dialog->popup_file_dialog();
 }
