@@ -21,14 +21,17 @@
 
 #define FLAGS_LIGHT_COUNT_SHIFT 20
 
-#define FLAGS_DEFAULT_NORMAL_MAP_USED (1 << 26)
-#define FLAGS_DEFAULT_SPECULAR_MAP_USED (1 << 27)
+#define FLAGS_DEFAULT_NORMAL_MAP_USED (1 << 24)
+#define FLAGS_DEFAULT_SPECULAR_MAP_USED (1 << 25)
 
-#define FLAGS_USE_MSDF (1 << 28)
-#define FLAGS_USE_LCD (1 << 29)
+#define FLAGS_USE_MSDF (1 << 26)
+#define FLAGS_USE_LCD (1 << 27)
 
-#define FLAGS_FLIP_H (1 << 30)
-#define FLAGS_FLIP_V (1 << 31)
+#define FLAGS_FLIP_H (1 << 28)
+#define FLAGS_FLIP_V (1 << 29)
+
+#define FLAGS_UBERSHADER_USE_LIGHTING (1 << 30)
+#define FLAGS_UBERSHADER_USE_POINT_SIZE (1 << 31)
 
 // Push Constant
 
@@ -54,6 +57,33 @@ layout(push_constant, std430) uniform DrawData {
 	uint lights[4];
 }
 draw_data;
+
+// Specialization constants.
+
+#ifdef UBERSHADER
+
+bool sc_use_lighting() {
+	return bool(draw_data.flags & FLAGS_UBERSHADER_USE_LIGHTING);
+}
+
+bool sc_use_point_size() {
+	return bool(draw_data.flags & FLAGS_UBERSHADER_USE_POINT_SIZE);
+}
+
+#else
+
+// Pull the constants from the pipeline's specialization constants.
+layout(constant_id = 0) const uint pso_sc_packed_0 = 0;
+
+bool sc_use_lighting() {
+	return ((pso_sc_packed_0 >> 0) & 1U) != 0;
+}
+
+bool sc_use_point_size() {
+	return ((pso_sc_packed_0 >> 1) & 1U) != 0;
+}
+
+#endif
 
 // In vulkan, sets should always be ordered using the following logic:
 // Lower Sets: Sets that change format and layout less often

@@ -351,6 +351,150 @@ void RendererCanvasRenderRD::free_polygon(PolygonID p_polygon) {
 
 ////////////////////
 
+static RD::RenderPrimitive _primitive_type_to_render_primitive(RS::PrimitiveType p_primitive) {
+	switch (p_primitive) {
+		case RS::PRIMITIVE_POINTS:
+			return RD::RENDER_PRIMITIVE_POINTS;
+		case RS::PRIMITIVE_LINES:
+			return RD::RENDER_PRIMITIVE_LINES;
+		case RS::PRIMITIVE_LINE_STRIP:
+			return RD::RENDER_PRIMITIVE_LINESTRIPS;
+		case RS::PRIMITIVE_TRIANGLES:
+			return RD::RENDER_PRIMITIVE_TRIANGLES;
+		case RS::PRIMITIVE_TRIANGLE_STRIP:
+			return RD::RENDER_PRIMITIVE_TRIANGLE_STRIPS;
+		default:
+			return RD::RENDER_PRIMITIVE_MAX;
+	}
+}
+
+#if PRELOAD_CANVAS_PIPELINES
+
+void RendererCanvasRenderRD::_update_global_pipeline_data_requirements_from_project() {
+	const int msaa_2d_mode = GLOBAL_GET("rendering/anti_aliasing/quality/msaa_2d");
+	const bool use_hdr_2d = GLOBAL_GET("rendering/viewport/hdr_2d");
+	global_pipeline_data_required.texture_samples = RenderSceneBuffersRD::msaa_to_samples(RS::ViewportMSAA(msaa_2d_mode));
+	global_pipeline_data_required.use_hdr = use_hdr_2d;
+}
+
+void RendererCanvasRenderRD::_check_canvas_pipelines() {
+	if (global_pipeline_data_compiled.key != global_pipeline_data_required.key) {
+		// Go through the entire list and compile pipelines for everything again.
+		SelfList<CanvasShaderData> *list = shader_data_dirty_list.first();
+		while (list != nullptr) {
+			CanvasShaderData *shader_data = list->self();
+			_generate_pipelines_for_shader_data(shader_data, global_pipeline_data_required);
+
+			if (shader_data->dirty_element.in_list()) {
+				// Remove any elements from the dirty list as they don't need to be processed again.
+				shader_data_dirty_list.remove(&shader_data->dirty_element);
+			}
+
+			list = list->next();
+		}
+
+		global_pipeline_data_compiled.key = global_pipeline_data_required.key;
+	} else {
+		// Compile pipelines only for the dirty list.
+		while (shader_data_dirty_list.first() != nullptr) {
+			CanvasShaderData *shader_data = shader_data_dirty_list.first()->self();
+			_generate_pipelines_for_shader_data(shader_data, global_pipeline_data_required);
+			shader_data->dirty_element.remove_from_list();
+		}
+	}
+}
+
+void RendererCanvasRenderRD::_generate_pipeline_for_shader_data(CanvasShaderData *p_shader_data, const PipelineKey &p_pipeline_key) {
+	p_shader_data->pipeline_hash_map.compile_pipeline(p_pipeline_key, p_pipeline_key.hash(), RS::PIPELINE_SOURCE_CANVAS);
+}
+
+static RD::FramebufferFormatID _get_render_target_framebuffer_format_for_pipeline(bool p_use_hdr, RD::TextureSamples p_samples) {
+	RD::AttachmentFormat attachment;
+	thread_local Vector<RD::AttachmentFormat> attachments;
+	attachments.clear();
+
+	attachment.format = RendererRD::TextureStorage::render_target_get_color_format(p_use_hdr, false);
+	attachment.usage_flags = RendererRD::TextureStorage::render_target_get_color_usage_bits(p_samples != RD::TEXTURE_SAMPLES_1);
+	attachment.samples = p_samples;
+	attachments.push_back(attachment);
+
+	return RD::get_singleton()->framebuffer_format_create(attachments);
+}
+
+void RendererCanvasRenderRD::_generate_pipelines_for_shader_data(CanvasShaderData *p_shader_data, const GlobalPipelineData &p_global) {
+	PipelineKey pipeline_key;
+	pipeline_key.vertex_format_id = RD::INVALID_ID;
+	pipeline_key.framebuffer_format_id = _get_render_target_framebuffer_format_for_pipeline(p_global.use_hdr, RD::TextureSamples(p_global.texture_samples));
+	pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_TRIANGLES;
+	pipeline_key.ubershader = true;
+
+	// Quad and LCD blend variants.
+	pipeline_key.variant = SHADER_VARIANT_QUAD;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+
+	pipeline_key.lcd_blend = 1;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+
+	// Nine patch variant.
+	pipeline_key.lcd_blend = 0;
+	pipeline_key.variant = SHADER_VARIANT_NINEPATCH;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+
+	// Primitive variants for triangles, lines and points.
+	pipeline_key.variant = SHADER_VARIANT_PRIMITIVE;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+
+	pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_LINES;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+
+	pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_POINTS;
+	_generate_pipeline_for_shader_data(p_shader_data, pipeline_key);
+}
+
+#endif
+
+RID RendererCanvasRenderRD::_get_pipeline_specialization_or_ubershader(CanvasShaderData *p_shader_data, PipelineKey &r_pipeline_key, PushConstant &r_push_constant, RID p_mesh_instance, void *p_surface, uint32_t p_surface_index, RID *r_vertex_array) {
+	r_pipeline_key.ubershader = 0;
+
+	const uint32_t ubershader_iterations = PRELOAD_CANVAS_PIPELINES ? 2 : 1;
+	while (r_pipeline_key.ubershader < ubershader_iterations) {
+		if (r_vertex_array != nullptr) {
+			RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
+			uint64_t input_mask = p_shader_data->get_vertex_input_mask(r_pipeline_key.variant, r_pipeline_key.ubershader);
+			if (p_mesh_instance.is_valid()) {
+				mesh_storage->mesh_instance_surface_get_vertex_arrays_and_format(p_mesh_instance, p_surface_index, input_mask, false, *r_vertex_array, r_pipeline_key.vertex_format_id);
+			} else {
+				mesh_storage->mesh_surface_get_vertex_arrays_and_format(p_surface, input_mask, false, *r_vertex_array, r_pipeline_key.vertex_format_id);
+			}
+		}
+
+		if (r_pipeline_key.ubershader) {
+			r_push_constant.flags |= r_pipeline_key.shader_specialization.use_lighting ? FLAGS_UBERSHADER_USE_LIGHTING : 0;
+			r_push_constant.flags |= r_pipeline_key.shader_specialization.use_point_size ? FLAGS_UBERSHADER_USE_POINT_SIZE : 0;
+			r_pipeline_key.shader_specialization = {};
+
+		} else {
+			r_push_constant.flags &= ~(FLAGS_UBERSHADER);
+		}
+
+		bool wait_for_compilation = r_pipeline_key.ubershader || ubershader_iterations == 1;
+#if PRELOAD_CANVAS_PIPELINES
+		RS::PipelineSource source = r_pipeline_key.ubershader ? RS::PIPELINE_SOURCE_DRAW : RS::PIPELINE_SOURCE_SPECIALIZATION;
+#else
+		RS::PipelineSource source = RS::PIPELINE_SOURCE_CANVAS;
+#endif
+		RID pipeline = p_shader_data->pipeline_hash_map.get_pipeline(r_pipeline_key, r_pipeline_key.hash(), wait_for_compilation, source);
+		if (pipeline.is_valid()) {
+			return pipeline;
+		}
+
+		r_pipeline_key.ubershader++;
+	}
+
+	// This case should never be reached unless the shader wasn't available.
+	return RID();
+}
+
 void RendererCanvasRenderRD::_bind_canvas_texture(RD::DrawListID p_draw_list, RID p_texture, RS::CanvasItemTextureFilter p_base_filter, RS::CanvasItemTextureRepeat p_base_repeat, RID &r_last_texture, PushConstant &push_constant, Size2 &r_texpixel_size, bool p_texture_is_data) {
 	if (p_texture == RID()) {
 		p_texture = default_canvas_texture;
@@ -407,7 +551,7 @@ _FORCE_INLINE_ static uint32_t _indices_to_primitives(RS::PrimitiveType p_primit
 	return (p_indices - subtractor[p_primitive]) / divisor[p_primitive];
 }
 
-void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_render_target, const Item *p_item, RD::FramebufferFormatID p_framebuffer_format, const Transform2D &p_canvas_transform_inverse, Item *&current_clip, Light *p_lights, PipelineVariants *p_pipeline_variants, bool &r_sdf_used, const Point2 &p_offset, RenderingMethod::RenderInfo *r_render_info) {
+void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_render_target, const Item *p_item, RD::FramebufferFormatID p_framebuffer_format, const Transform2D &p_canvas_transform_inverse, Item *&current_clip, Light *p_lights, CanvasShaderData *p_shader_data, bool &r_sdf_used, const Point2 &p_offset, RenderingMethod::RenderInfo *r_render_info) {
 	//create an empty push constant
 	RendererRD::TextureStorage *texture_storage = RendererRD::TextureStorage::get_singleton();
 	RendererRD::MeshStorage *mesh_storage = RendererRD::MeshStorage::get_singleton();
@@ -459,7 +603,6 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 	base_flags |= use_linear_colors ? FLAGS_CONVERT_ATTRIBUTES_TO_LINEAR : 0;
 
 	uint16_t light_count = 0;
-	PipelineLightMode light_mode;
 
 	{
 		Light *light = p_lights;
@@ -481,9 +624,9 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 		base_flags |= light_count << FLAGS_LIGHT_COUNT_SHIFT;
 	}
 
-	light_mode = (light_count > 0 || using_directional_lights) ? PIPELINE_LIGHT_MODE_ENABLED : PIPELINE_LIGHT_MODE_DISABLED;
-
-	PipelineVariants *pipeline_variants = p_pipeline_variants;
+	bool light_enabled = (light_count > 0 || using_directional_lights);
+	RID pipeline;
+	PipelineKey pipeline_key;
 
 	bool reclip = false;
 
@@ -509,15 +652,19 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 					current_repeat = RenderingServer::CanvasItemTextureRepeat::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED;
 				}
 
-				//bind pipeline
+				pipeline_key = PipelineKey();
+				pipeline_key.variant = SHADER_VARIANT_QUAD;
+				pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_TRIANGLES;
+				pipeline_key.framebuffer_format_id = p_framebuffer_format;
+				pipeline_key.shader_specialization.use_lighting = light_enabled;
+
 				if (rect->flags & CANVAS_RECT_LCD) {
-					RID pipeline = pipeline_variants->variants[light_mode][PIPELINE_VARIANT_QUAD_LCD_BLEND].get_render_pipeline(RD::INVALID_ID, p_framebuffer_format);
-					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
+					pipeline_key.lcd_blend = 1;
 					RD::get_singleton()->draw_list_set_blend_constants(p_draw_list, rect->modulate);
-				} else {
-					RID pipeline = pipeline_variants->variants[light_mode][PIPELINE_VARIANT_QUAD].get_render_pipeline(RD::INVALID_ID, p_framebuffer_format);
-					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 				}
+
+				pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant);
+				RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 
 				//bind textures
 
@@ -617,11 +764,15 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 			case Item::Command::TYPE_NINEPATCH: {
 				const Item::CommandNinePatch *np = static_cast<const Item::CommandNinePatch *>(c);
 
-				//bind pipeline
-				{
-					RID pipeline = pipeline_variants->variants[light_mode][PIPELINE_VARIANT_NINEPATCH].get_render_pipeline(RD::INVALID_ID, p_framebuffer_format);
-					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
-				}
+				// Bind pipeline.
+				pipeline_key = PipelineKey();
+				pipeline_key.variant = SHADER_VARIANT_NINEPATCH;
+				pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_TRIANGLES;
+				pipeline_key.framebuffer_format_id = p_framebuffer_format;
+				pipeline_key.shader_specialization.use_lighting = light_enabled;
+
+				pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant);
+				RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 
 				//bind textures
 
@@ -697,11 +848,19 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 
 				PolygonBuffers *pb = polygon_buffers.polygons.getptr(polygon->polygon.polygon_id);
 				ERR_CONTINUE(!pb);
-				//bind pipeline
+
+				// Bind pipeline.
 				{
-					static const PipelineVariant variant[RS::PRIMITIVE_MAX] = { PIPELINE_VARIANT_ATTRIBUTE_POINTS, PIPELINE_VARIANT_ATTRIBUTE_LINES, PIPELINE_VARIANT_ATTRIBUTE_LINES_STRIP, PIPELINE_VARIANT_ATTRIBUTE_TRIANGLES, PIPELINE_VARIANT_ATTRIBUTE_TRIANGLE_STRIP };
 					ERR_CONTINUE(polygon->primitive < 0 || polygon->primitive >= RS::PRIMITIVE_MAX);
-					RID pipeline = pipeline_variants->variants[light_mode][variant[polygon->primitive]].get_render_pipeline(pb->vertex_format_id, p_framebuffer_format);
+
+					pipeline_key = PipelineKey();
+					pipeline_key.variant = SHADER_VARIANT_ATTRIBUTES;
+					pipeline_key.framebuffer_format_id = p_framebuffer_format;
+					pipeline_key.vertex_format_id = pb->vertex_format_id;
+					pipeline_key.shader_specialization.use_lighting = light_enabled;
+					pipeline_key.render_primitive = _primitive_type_to_render_primitive(polygon->primitive);
+
+					pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant);
 					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 				}
 
@@ -747,13 +906,33 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 			case Item::Command::TYPE_PRIMITIVE: {
 				const Item::CommandPrimitive *primitive = static_cast<const Item::CommandPrimitive *>(c);
 
-				//bind pipeline
-				{
-					static const PipelineVariant variant[4] = { PIPELINE_VARIANT_PRIMITIVE_POINTS, PIPELINE_VARIANT_PRIMITIVE_LINES, PIPELINE_VARIANT_PRIMITIVE_TRIANGLES, PIPELINE_VARIANT_PRIMITIVE_TRIANGLES };
-					ERR_CONTINUE(primitive->point_count == 0 || primitive->point_count > 4);
-					RID pipeline = pipeline_variants->variants[light_mode][variant[primitive->point_count - 1]].get_render_pipeline(RD::INVALID_ID, p_framebuffer_format);
-					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
-				}
+				// Bind Pipeline.
+				ERR_CONTINUE(primitive->point_count == 0 || primitive->point_count > 4);
+
+				pipeline_key = PipelineKey();
+				pipeline_key.variant = SHADER_VARIANT_PRIMITIVE;
+				pipeline_key.framebuffer_format_id = p_framebuffer_format;
+				pipeline_key.shader_specialization.use_lighting = light_enabled;
+
+				switch (primitive->point_count) {
+					case 1:
+						pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_POINTS;
+						pipeline_key.shader_specialization.use_point_size = true;
+						break;
+					case 2:
+						pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_LINES;
+						break;
+					case 3:
+					case 4:
+						pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_TRIANGLES;
+						break;
+					default:
+						// Unknown point count.
+						break;
+				};
+
+				pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant);
+				RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 
 				//bind textures
 
@@ -914,7 +1093,6 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 				_bind_canvas_texture(p_draw_list, texture, current_filter, current_repeat, last_texture, push_constant, texpixel_size);
 
 				uint32_t surf_count = mesh_storage->mesh_get_surface_count(mesh);
-				static const PipelineVariant variant[RS::PRIMITIVE_MAX] = { PIPELINE_VARIANT_ATTRIBUTE_POINTS, PIPELINE_VARIANT_ATTRIBUTE_LINES, PIPELINE_VARIANT_ATTRIBUTE_LINES_STRIP, PIPELINE_VARIANT_ATTRIBUTE_TRIANGLES, PIPELINE_VARIANT_ATTRIBUTE_TRIANGLE_STRIP };
 
 				Color modulated = modulate * base_color;
 				if (use_linear_colors) {
@@ -938,18 +1116,14 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 					RS::PrimitiveType primitive = mesh_storage->mesh_surface_get_primitive(surface);
 					ERR_CONTINUE(primitive < 0 || primitive >= RS::PRIMITIVE_MAX);
 
-					uint64_t input_mask = pipeline_variants->variants[light_mode][variant[primitive]].get_vertex_input_mask();
+					pipeline_key = PipelineKey();
+					pipeline_key.variant = SHADER_VARIANT_ATTRIBUTES;
+					pipeline_key.framebuffer_format_id = p_framebuffer_format;
+					pipeline_key.shader_specialization.use_lighting = light_enabled;
+					pipeline_key.render_primitive = _primitive_type_to_render_primitive(primitive);
 
 					RID vertex_array;
-					RD::VertexFormatID vertex_format = RD::INVALID_FORMAT_ID;
-
-					if (mesh_instance.is_valid()) {
-						mesh_storage->mesh_instance_surface_get_vertex_arrays_and_format(mesh_instance, j, input_mask, false, vertex_array, vertex_format);
-					} else {
-						mesh_storage->mesh_surface_get_vertex_arrays_and_format(surface, input_mask, false, vertex_array, vertex_format);
-					}
-
-					RID pipeline = pipeline_variants->variants[light_mode][variant[primitive]].get_render_pipeline(vertex_format, p_framebuffer_format);
+					pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant, mesh_instance, surface, j, &vertex_array);
 					RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 
 					RID index_array = mesh_storage->mesh_surface_get_index_array(surface, 0);
@@ -1012,7 +1186,12 @@ void RendererCanvasRenderRD::_render_item(RD::DrawListID p_draw_list, RID p_rend
 		Color dc = debug_redraw_color;
 		dc.a *= p_item->debug_redraw_time / debug_redraw_time;
 
-		RID pipeline = pipeline_variants->variants[PIPELINE_LIGHT_MODE_DISABLED][PIPELINE_VARIANT_QUAD].get_render_pipeline(RD::INVALID_ID, p_framebuffer_format);
+		pipeline_key = PipelineKey();
+		pipeline_key.variant = SHADER_VARIANT_QUAD;
+		pipeline_key.render_primitive = RD::RENDER_PRIMITIVE_TRIANGLES;
+		pipeline_key.framebuffer_format_id = p_framebuffer_format;
+
+		pipeline = _get_pipeline_specialization_or_ubershader(p_shader_data, pipeline_key, push_constant);
 		RD::get_singleton()->draw_list_bind_render_pipeline(p_draw_list, pipeline);
 
 		//bind textures
@@ -1190,7 +1369,7 @@ void RendererCanvasRenderRD::_render_items(RID p_to_render_target, int p_item_co
 
 	RID prev_material;
 
-	PipelineVariants *pipeline_variants = &shader.pipeline_variants;
+	CanvasShaderData *shader_data = &shader.default_version_data;
 
 	for (int i = 0; i < p_item_count; i++) {
 		Item *ci = items[i];
@@ -1230,8 +1409,8 @@ void RendererCanvasRenderRD::_render_items(RID p_to_render_target, int p_item_co
 			}
 
 			if (material_data) {
-				if (material_data->shader_data->version.is_valid() && material_data->shader_data->valid) {
-					pipeline_variants = &material_data->shader_data->pipeline_variants;
+				if (material_data->shader_data->is_valid()) {
+					shader_data = material_data->shader_data;
 					// Update uniform set.
 					RID uniform_set = texture_storage->render_target_is_using_hdr(p_to_render_target) ? material_data->uniform_set : material_data->uniform_set_srgb;
 					if (uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(uniform_set)) { // Material may not have a uniform set.
@@ -1239,15 +1418,15 @@ void RendererCanvasRenderRD::_render_items(RID p_to_render_target, int p_item_co
 						material_data->set_as_used();
 					}
 				} else {
-					pipeline_variants = &shader.pipeline_variants;
+					shader_data = &shader.default_version_data;
 				}
 			} else {
-				pipeline_variants = &shader.pipeline_variants;
+				shader_data = &shader.default_version_data;
 			}
 		}
 
 		if (!ci->repeat_size.x && !ci->repeat_size.y) {
-			_render_item(draw_list, p_to_render_target, ci, fb_format, canvas_transform_inverse, current_clip, p_lights, pipeline_variants, r_sdf_used, Point2(), r_render_info);
+			_render_item(draw_list, p_to_render_target, ci, fb_format, canvas_transform_inverse, current_clip, p_lights, shader_data, r_sdf_used, Point2(), r_render_info);
 		} else {
 			Point2 start_pos = ci->repeat_size * -(ci->repeat_times / 2);
 			Point2 end_pos = ci->repeat_size * ci->repeat_times + ci->repeat_size + start_pos;
@@ -1255,7 +1434,7 @@ void RendererCanvasRenderRD::_render_items(RID p_to_render_target, int p_item_co
 
 			do {
 				do {
-					_render_item(draw_list, p_to_render_target, ci, fb_format, canvas_transform_inverse, current_clip, p_lights, pipeline_variants, r_sdf_used, pos, r_render_info);
+					_render_item(draw_list, p_to_render_target, ci, fb_format, canvas_transform_inverse, current_clip, p_lights, shader_data, r_sdf_used, pos, r_render_info);
 					pos.y += ci->repeat_size.y;
 				} while (pos.y < end_pos.y);
 
@@ -1277,6 +1456,11 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 
 	r_sdf_used = false;
 	int item_count = 0;
+
+#if PRELOAD_CANVAS_PIPELINES
+	// Check if there's any pipelines we should compile before rendering.
+	_check_canvas_pipelines();
+#endif
 
 	//setup canvas state uniforms if needed
 
@@ -1525,7 +1709,7 @@ void RendererCanvasRenderRD::canvas_render_items(RID p_to_render_target, Item *p
 
 		if (material.is_valid()) {
 			CanvasMaterialData *md = static_cast<CanvasMaterialData *>(material_storage->material_get_data(material, RendererRD::MaterialStorage::SHADER_TYPE_2D));
-			if (md && md->shader_data->valid) {
+			if (md && md->shader_data->is_valid()) {
 				if (md->shader_data->uses_screen_texture && canvas_group_owner == nullptr) {
 					if (!material_screen_texture_cached) {
 						backbuffer_copy = true;
@@ -2160,17 +2344,72 @@ void RendererCanvasRenderRD::occluder_polygon_set_cull_mode(RID p_occluder, RS::
 	oc->cull_mode = p_mode;
 }
 
+void RendererCanvasRenderRD::CanvasShaderData::_clear_vertex_input_mask_cache() {
+	for (uint32_t i = 0; i < VERTEX_INPUT_MASKS_SIZE; i++) {
+		vertex_input_masks[i].store(0);
+	}
+}
+
+void RendererCanvasRenderRD::CanvasShaderData::_create_pipeline(PipelineKey p_pipeline_key) {
+#if PRINT_PIPELINE_COMPILATION_KEYS
+	print_line(
+			"HASH:", p_pipeline_key.hash(),
+			"SHADER:", p_pipeline_key.shader,
+			"FRAMEBUFFER:", p_pipeline_key.framebuffer_format_id,
+			"VERTEX:", p_pipeline_key.vertex_format_id,
+			"PRIMITIVE:", p_pipeline_key.render_primitive,
+			"SPEC PACKED #0:", p_pipeline_key.shader_specialization.packed_0,
+			"LCD:", p_pipeline_key.lcd_blend);
+#endif
+
+	bool uses_blend_alpha = false;
+	RendererRD::MaterialStorage::ShaderData::BlendMode blend_mode_rd = RendererRD::MaterialStorage::ShaderData::BlendMode(blend_mode);
+	RD::PipelineColorBlendState blend_state;
+	RD::PipelineColorBlendState::Attachment attachment;
+	uint32_t dynamic_state_flags = 0;
+	if (p_pipeline_key.lcd_blend) {
+		attachment.enable_blend = true;
+		attachment.alpha_blend_op = RD::BLEND_OP_ADD;
+		attachment.color_blend_op = RD::BLEND_OP_ADD;
+		attachment.src_color_blend_factor = RD::BLEND_FACTOR_CONSTANT_COLOR;
+		attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+		attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
+		attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		dynamic_state_flags = RD::DYNAMIC_STATE_BLEND_CONSTANTS;
+	} else {
+		attachment = RendererRD::MaterialStorage::ShaderData::blend_mode_to_blend_attachment(blend_mode_rd, uses_blend_alpha);
+	}
+
+	blend_state.attachments.push_back(attachment);
+
+	// Convert the specialization from the key to pipeline specialization constants.
+	Vector<RD::PipelineSpecializationConstant> specialization_constants;
+	RD::PipelineSpecializationConstant sc;
+	sc.constant_id = 0;
+	sc.int_value = p_pipeline_key.shader_specialization.packed_0;
+	sc.type = RD::PIPELINE_SPECIALIZATION_CONSTANT_TYPE_INT;
+	specialization_constants.push_back(sc);
+
+	RID shader_rid = get_shader(p_pipeline_key.variant, p_pipeline_key.ubershader);
+	ERR_FAIL_COND(shader_rid.is_null());
+
+	RID pipeline = RD::get_singleton()->render_pipeline_create(shader_rid, p_pipeline_key.framebuffer_format_id, p_pipeline_key.vertex_format_id, p_pipeline_key.render_primitive, RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), blend_state, dynamic_state_flags, 0, specialization_constants);
+	ERR_FAIL_COND(pipeline.is_null());
+
+	pipeline_hash_map.add_compiled_pipeline(p_pipeline_key.hash(), pipeline);
+}
+
 void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 	//compile
 
 	code = p_code;
-	valid = false;
 	ubo_size = 0;
 	uniforms.clear();
 	uses_screen_texture = false;
 	uses_screen_texture_mipmaps = false;
 	uses_sdf = false;
 	uses_time = false;
+	_clear_vertex_input_mask_cache();
 
 	if (code.is_empty()) {
 		return; //just invalid, but no error
@@ -2178,7 +2417,7 @@ void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 
 	ShaderCompiler::GeneratedCode gen_code;
 
-	int blend_mode = BLEND_MODE_MIX;
+	blend_mode = BLEND_MODE_MIX;
 
 	ShaderCompiler::IdentifierActions actions;
 	actions.entry_point_stages["vertex"] = ShaderCompiler::STAGE_VERTEX;
@@ -2189,7 +2428,7 @@ void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 	actions.render_mode_values["blend_mix"] = Pair<int *, int>(&blend_mode, BLEND_MODE_MIX);
 	actions.render_mode_values["blend_sub"] = Pair<int *, int>(&blend_mode, BLEND_MODE_SUB);
 	actions.render_mode_values["blend_mul"] = Pair<int *, int>(&blend_mode, BLEND_MODE_MUL);
-	actions.render_mode_values["blend_premul_alpha"] = Pair<int *, int>(&blend_mode, BLEND_MODE_PMALPHA);
+	actions.render_mode_values["blend_premul_alpha"] = Pair<int *, int>(&blend_mode, BLEND_MODE_PREMULTIPLIED_ALPHA);
 	actions.render_mode_values["blend_disabled"] = Pair<int *, int>(&blend_mode, BLEND_MODE_DISABLED);
 
 	actions.usage_flag_pointers["texture_sdf"] = &uses_sdf;
@@ -2198,12 +2437,15 @@ void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 	actions.uniforms = &uniforms;
 
 	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+	MutexLock lock(canvas_singleton->shader.mutex);
 
 	Error err = canvas_singleton->shader.compiler.compile(RS::SHADER_CANVAS_ITEM, code, &actions, path, gen_code);
 	ERR_FAIL_COND_MSG(err != OK, "Shader compilation failed.");
 
 	uses_screen_texture_mipmaps = gen_code.uses_screen_texture_mipmaps;
 	uses_screen_texture = gen_code.uses_screen_texture;
+
+	pipeline_hash_map.clear_pipelines();
 
 	if (version.is_null()) {
 		version = canvas_singleton->shader.canvas_shader.version_create();
@@ -2227,148 +2469,16 @@ void RendererCanvasRenderRD::CanvasShaderData::set_code(const String &p_code) {
 	print_line("\n**fragment_globals:\n" + gen_code.stage_globals[ShaderCompiler::STAGE_FRAGMENT]);
 #endif
 	canvas_singleton->shader.canvas_shader.version_set_code(version, gen_code.code, gen_code.uniforms, gen_code.stage_globals[ShaderCompiler::STAGE_VERTEX], gen_code.stage_globals[ShaderCompiler::STAGE_FRAGMENT], gen_code.defines);
-	ERR_FAIL_COND(!canvas_singleton->shader.canvas_shader.version_is_valid(version));
 
 	ubo_size = gen_code.uniform_total_size;
 	ubo_offsets = gen_code.uniform_offsets;
 	texture_uniforms = gen_code.texture_uniforms;
 
-	//update them pipelines
-
-	RD::PipelineColorBlendState::Attachment attachment;
-
-	switch (blend_mode) {
-		case BLEND_MODE_DISABLED: {
-			// nothing to do here, disabled by default
-
-		} break;
-		case BLEND_MODE_MIX: {
-			attachment.enable_blend = true;
-			attachment.color_blend_op = RD::BLEND_OP_ADD;
-			attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-			attachment.alpha_blend_op = RD::BLEND_OP_ADD;
-			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-			attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-		} break;
-		case BLEND_MODE_ADD: {
-			attachment.enable_blend = true;
-			attachment.alpha_blend_op = RD::BLEND_OP_ADD;
-			attachment.color_blend_op = RD::BLEND_OP_ADD;
-			attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE;
-			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-			attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-
-		} break;
-		case BLEND_MODE_SUB: {
-			attachment.enable_blend = true;
-			attachment.alpha_blend_op = RD::BLEND_OP_REVERSE_SUBTRACT;
-			attachment.color_blend_op = RD::BLEND_OP_REVERSE_SUBTRACT;
-			attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE;
-			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-			attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-
-		} break;
-		case BLEND_MODE_MUL: {
-			attachment.enable_blend = true;
-			attachment.alpha_blend_op = RD::BLEND_OP_ADD;
-			attachment.color_blend_op = RD::BLEND_OP_ADD;
-			attachment.src_color_blend_factor = RD::BLEND_FACTOR_DST_COLOR;
-			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ZERO;
-			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_DST_ALPHA;
-			attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ZERO;
-
-		} break;
-		case BLEND_MODE_PMALPHA: {
-			attachment.enable_blend = true;
-			attachment.alpha_blend_op = RD::BLEND_OP_ADD;
-			attachment.color_blend_op = RD::BLEND_OP_ADD;
-			attachment.src_color_blend_factor = RD::BLEND_FACTOR_ONE;
-			attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-			attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-			attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-		} break;
+#if PRELOAD_CANVAS_PIPELINES
+	if (!dirty_element.in_list()) {
+		canvas_singleton->shader_data_dirty_list.add(&dirty_element);
 	}
-
-	RD::PipelineColorBlendState blend_state;
-	blend_state.attachments.push_back(attachment);
-
-	RD::PipelineColorBlendState::Attachment attachment_lcd;
-	attachment_lcd.enable_blend = true;
-	attachment_lcd.alpha_blend_op = RD::BLEND_OP_ADD;
-	attachment_lcd.color_blend_op = RD::BLEND_OP_ADD;
-	attachment_lcd.src_color_blend_factor = RD::BLEND_FACTOR_CONSTANT_COLOR;
-	attachment_lcd.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-	attachment_lcd.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-	attachment_lcd.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-	RD::PipelineColorBlendState blend_state_lcd;
-	blend_state_lcd.attachments.push_back(attachment_lcd);
-
-	//update pipelines
-
-	for (int i = 0; i < PIPELINE_LIGHT_MODE_MAX; i++) {
-		for (int j = 0; j < PIPELINE_VARIANT_MAX; j++) {
-			RD::RenderPrimitive primitive[PIPELINE_VARIANT_MAX] = {
-				RD::RENDER_PRIMITIVE_TRIANGLES,
-				RD::RENDER_PRIMITIVE_TRIANGLES,
-				RD::RENDER_PRIMITIVE_TRIANGLES,
-				RD::RENDER_PRIMITIVE_LINES,
-				RD::RENDER_PRIMITIVE_POINTS,
-				RD::RENDER_PRIMITIVE_TRIANGLES,
-				RD::RENDER_PRIMITIVE_TRIANGLE_STRIPS,
-				RD::RENDER_PRIMITIVE_LINES,
-				RD::RENDER_PRIMITIVE_LINESTRIPS,
-				RD::RENDER_PRIMITIVE_POINTS,
-				RD::RENDER_PRIMITIVE_TRIANGLES,
-			};
-
-			ShaderVariant shader_variants[PIPELINE_LIGHT_MODE_MAX][PIPELINE_VARIANT_MAX] = {
-				{
-						//non lit
-						SHADER_VARIANT_QUAD,
-						SHADER_VARIANT_NINEPATCH,
-						SHADER_VARIANT_PRIMITIVE,
-						SHADER_VARIANT_PRIMITIVE,
-						SHADER_VARIANT_PRIMITIVE_POINTS,
-						SHADER_VARIANT_ATTRIBUTES,
-						SHADER_VARIANT_ATTRIBUTES,
-						SHADER_VARIANT_ATTRIBUTES,
-						SHADER_VARIANT_ATTRIBUTES,
-						SHADER_VARIANT_ATTRIBUTES_POINTS,
-						SHADER_VARIANT_QUAD,
-				},
-				{
-						//lit
-						SHADER_VARIANT_QUAD_LIGHT,
-						SHADER_VARIANT_NINEPATCH_LIGHT,
-						SHADER_VARIANT_PRIMITIVE_LIGHT,
-						SHADER_VARIANT_PRIMITIVE_LIGHT,
-						SHADER_VARIANT_PRIMITIVE_POINTS_LIGHT,
-						SHADER_VARIANT_ATTRIBUTES_LIGHT,
-						SHADER_VARIANT_ATTRIBUTES_LIGHT,
-						SHADER_VARIANT_ATTRIBUTES_LIGHT,
-						SHADER_VARIANT_ATTRIBUTES_LIGHT,
-						SHADER_VARIANT_ATTRIBUTES_POINTS_LIGHT,
-						SHADER_VARIANT_QUAD_LIGHT,
-				},
-			};
-
-			RID shader_variant = canvas_singleton->shader.canvas_shader.version_get_shader(version, shader_variants[i][j]);
-			if (j == PIPELINE_VARIANT_QUAD_LCD_BLEND) {
-				pipeline_variants.variants[i][j].setup(shader_variant, primitive[j], RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), blend_state_lcd, RD::DYNAMIC_STATE_BLEND_CONSTANTS);
-			} else {
-				pipeline_variants.variants[i][j].setup(shader_variant, primitive[j], RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), blend_state, 0);
-			}
-		}
-	}
-
-	valid = true;
+#endif
 }
 
 bool RendererCanvasRenderRD::CanvasShaderData::is_animated() const {
@@ -2381,14 +2491,62 @@ bool RendererCanvasRenderRD::CanvasShaderData::casts_shadows() const {
 
 RS::ShaderNativeSourceCode RendererCanvasRenderRD::CanvasShaderData::get_native_source_code() const {
 	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+	MutexLock lock(canvas_singleton->shader.mutex);
 	return canvas_singleton->shader.canvas_shader.version_get_native_source_code(version);
 }
 
-RendererCanvasRenderRD::CanvasShaderData::~CanvasShaderData() {
-	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
-	ERR_FAIL_NULL(canvas_singleton);
-	//pipeline variants will clear themselves if shader is gone
+RID RendererCanvasRenderRD::CanvasShaderData::get_shader(ShaderVariant p_shader_variant, bool p_ubershader) const {
 	if (version.is_valid()) {
+		uint32_t variant_index = p_shader_variant + (p_ubershader ? SHADER_VARIANT_MAX : 0);
+		RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+		MutexLock lock(canvas_singleton->shader.mutex);
+		return canvas_singleton->shader.canvas_shader.version_get_shader(version, variant_index);
+	} else {
+		return RID();
+	}
+}
+
+uint64_t RendererCanvasRenderRD::CanvasShaderData::get_vertex_input_mask(ShaderVariant p_shader_variant, bool p_ubershader) {
+	// Vertex input masks require knowledge of the shader. Since querying the shader can be expensive due to high contention and the necessary mutex, we cache the result instead.
+	uint32_t input_mask_index = p_shader_variant + (p_ubershader ? SHADER_VARIANT_MAX : 0);
+	uint64_t input_mask = vertex_input_masks[input_mask_index].load(std::memory_order_relaxed);
+	if (input_mask == 0) {
+		RID shader_rid = get_shader(p_shader_variant, p_ubershader);
+		ERR_FAIL_COND_V(shader_rid.is_null(), 0);
+
+		input_mask = RD::get_singleton()->shader_get_vertex_input_attribute_mask(shader_rid);
+		vertex_input_masks[input_mask_index].store(input_mask, std::memory_order_relaxed);
+	}
+
+	return input_mask;
+}
+
+bool RendererCanvasRenderRD::CanvasShaderData::is_valid() const {
+	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+	MutexLock lock(canvas_singleton->shader.mutex);
+	return canvas_singleton->shader.canvas_shader.version_is_valid(version);
+}
+
+RendererCanvasRenderRD::CanvasShaderData::CanvasShaderData()
+#if PRELOAD_CANVAS_PIPELINES
+		:
+		dirty_element(this), all_element(this)
+#endif
+{
+	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+	pipeline_hash_map.set_creation_object_and_function(this, &CanvasShaderData::_create_pipeline);
+	pipeline_hash_map.set_compilations(&canvas_singleton->shader.pipeline_compilations[0], &canvas_singleton->shader.mutex);
+#if PRELOAD_CANVAS_PIPELINES
+	canvas_singleton->shader_data_all_list.add(&all_element);
+#endif
+}
+
+RendererCanvasRenderRD::CanvasShaderData::~CanvasShaderData() {
+	pipeline_hash_map.clear_pipelines();
+
+	if (version.is_valid()) {
+		RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+		MutexLock lock(canvas_singleton->shader.mutex);
 		canvas_singleton->shader.canvas_shader.version_free(version);
 	}
 }
@@ -2400,8 +2558,10 @@ RendererRD::MaterialStorage::ShaderData *RendererCanvasRenderRD::_create_shader_
 
 bool RendererCanvasRenderRD::CanvasMaterialData::update_parameters(const HashMap<StringName, Variant> &p_parameters, bool p_uniform_dirty, bool p_textures_dirty) {
 	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
-	bool uniform_set_changed = update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set, canvas_singleton->shader.canvas_shader.version_get_shader(shader_data->version, 0), MATERIAL_UNIFORM_SET, true, false);
-	bool uniform_set_srgb_changed = update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set_srgb, canvas_singleton->shader.canvas_shader.version_get_shader(shader_data->version, 0), MATERIAL_UNIFORM_SET, false, false);
+	MutexLock lock(canvas_singleton->shader.mutex);
+	RID shader_to_update = canvas_singleton->shader.canvas_shader.version_get_shader(shader_data->version, 0);
+	bool uniform_set_changed = update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set, shader_to_update, MATERIAL_UNIFORM_SET, true, false);
+	bool uniform_set_srgb_changed = update_parameters_uniform_set(p_parameters, p_uniform_dirty, p_textures_dirty, shader_data->uniforms, shader_data->ubo_offsets.ptr(), shader_data->texture_uniforms, shader_data->default_texture_params, shader_data->ubo_size, uniform_set_srgb, shader_to_update, MATERIAL_UNIFORM_SET, false, false);
 	return uniform_set_changed || uniform_set_srgb_changed;
 }
 
@@ -2422,6 +2582,9 @@ void RendererCanvasRenderRD::set_time(double p_time) {
 }
 
 void RendererCanvasRenderRD::update() {
+#if PRELOAD_CANVAS_PIPELINES
+	_update_global_pipeline_data_requirements_from_project();
+#endif
 }
 
 RendererCanvasRenderRD::RendererCanvasRenderRD() {
@@ -2451,108 +2614,25 @@ RendererCanvasRenderRD::RendererCanvasRenderRD() {
 		global_defines += "\n#define SAMPLERS_BINDING_FIRST_INDEX " + itos(SAMPLERS_BINDING_FIRST_INDEX) + "\n";
 
 		state.light_uniforms = memnew_arr(LightUniform, state.max_lights_per_render);
+
 		Vector<String> variants;
-		//non light variants
-		variants.push_back(""); //none by default is first variant
-		variants.push_back("#define USE_NINEPATCH\n"); //ninepatch is the second variant
-		variants.push_back("#define USE_PRIMITIVE\n"); //primitive is the third
-		variants.push_back("#define USE_PRIMITIVE\n#define USE_POINT_SIZE\n"); //points need point size
-		variants.push_back("#define USE_ATTRIBUTES\n"); // attributes for vertex arrays
-		variants.push_back("#define USE_ATTRIBUTES\n#define USE_POINT_SIZE\n"); //attributes with point size
-		//light variants
-		variants.push_back("#define USE_LIGHTING\n"); //none by default is first variant
-		variants.push_back("#define USE_LIGHTING\n#define USE_NINEPATCH\n"); //ninepatch is the second variant
-		variants.push_back("#define USE_LIGHTING\n#define USE_PRIMITIVE\n"); //primitive is the third
-		variants.push_back("#define USE_LIGHTING\n#define USE_PRIMITIVE\n#define USE_POINT_SIZE\n"); //points need point size
-		variants.push_back("#define USE_LIGHTING\n#define USE_ATTRIBUTES\n"); // attributes for vertex arrays
-		variants.push_back("#define USE_LIGHTING\n#define USE_ATTRIBUTES\n#define USE_POINT_SIZE\n"); //attributes with point size
+		const uint32_t ubershader_iterations = PRELOAD_CANVAS_PIPELINES ? 2 : 1;
+		for (uint32_t ubershader = 0; ubershader < ubershader_iterations; ubershader++) {
+			const String base_define = ubershader ? "\n#define UBERSHADER\n" : "";
+			variants.push_back(base_define + ""); // SHADER_VARIANT_QUAD
+			variants.push_back(base_define + "#define USE_NINEPATCH\n"); // SHADER_VARIANT_NINEPATCH
+			variants.push_back(base_define + "#define USE_PRIMITIVE\n"); // SHADER_VARIANT_PRIMITIVE
+			variants.push_back(base_define + "#define USE_ATTRIBUTES\n"); // SHADER_VARIANT_ATTRIBUTES
+		}
 
 		shader.canvas_shader.initialize(variants, global_defines);
 
-		shader.default_version = shader.canvas_shader.version_create();
-		shader.default_version_rd_shader = shader.canvas_shader.version_get_shader(shader.default_version, SHADER_VARIANT_QUAD);
-
-		RD::PipelineColorBlendState blend_state;
-		RD::PipelineColorBlendState::Attachment blend_attachment;
-
-		blend_attachment.enable_blend = true;
-		blend_attachment.color_blend_op = RD::BLEND_OP_ADD;
-		blend_attachment.src_color_blend_factor = RD::BLEND_FACTOR_SRC_ALPHA;
-		blend_attachment.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-		blend_attachment.alpha_blend_op = RD::BLEND_OP_ADD;
-		blend_attachment.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-		blend_attachment.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-		blend_state.attachments.push_back(blend_attachment);
-
-		RD::PipelineColorBlendState::Attachment attachment_lcd;
-		attachment_lcd.enable_blend = true;
-		attachment_lcd.alpha_blend_op = RD::BLEND_OP_ADD;
-		attachment_lcd.color_blend_op = RD::BLEND_OP_ADD;
-		attachment_lcd.src_color_blend_factor = RD::BLEND_FACTOR_CONSTANT_COLOR;
-		attachment_lcd.dst_color_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-		attachment_lcd.src_alpha_blend_factor = RD::BLEND_FACTOR_ONE;
-		attachment_lcd.dst_alpha_blend_factor = RD::BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-		RD::PipelineColorBlendState blend_state_lcd;
-		blend_state_lcd.attachments.push_back(attachment_lcd);
-
-		for (int i = 0; i < PIPELINE_LIGHT_MODE_MAX; i++) {
-			for (int j = 0; j < PIPELINE_VARIANT_MAX; j++) {
-				RD::RenderPrimitive primitive[PIPELINE_VARIANT_MAX] = {
-					RD::RENDER_PRIMITIVE_TRIANGLES,
-					RD::RENDER_PRIMITIVE_TRIANGLES,
-					RD::RENDER_PRIMITIVE_TRIANGLES,
-					RD::RENDER_PRIMITIVE_LINES,
-					RD::RENDER_PRIMITIVE_POINTS,
-					RD::RENDER_PRIMITIVE_TRIANGLES,
-					RD::RENDER_PRIMITIVE_TRIANGLE_STRIPS,
-					RD::RENDER_PRIMITIVE_LINES,
-					RD::RENDER_PRIMITIVE_LINESTRIPS,
-					RD::RENDER_PRIMITIVE_POINTS,
-					RD::RENDER_PRIMITIVE_TRIANGLES,
-				};
-
-				ShaderVariant shader_variants[PIPELINE_LIGHT_MODE_MAX][PIPELINE_VARIANT_MAX] = {
-					{
-							//non lit
-							SHADER_VARIANT_QUAD,
-							SHADER_VARIANT_NINEPATCH,
-							SHADER_VARIANT_PRIMITIVE,
-							SHADER_VARIANT_PRIMITIVE,
-							SHADER_VARIANT_PRIMITIVE_POINTS,
-							SHADER_VARIANT_ATTRIBUTES,
-							SHADER_VARIANT_ATTRIBUTES,
-							SHADER_VARIANT_ATTRIBUTES,
-							SHADER_VARIANT_ATTRIBUTES,
-							SHADER_VARIANT_ATTRIBUTES_POINTS,
-							SHADER_VARIANT_QUAD,
-					},
-					{
-							//lit
-							SHADER_VARIANT_QUAD_LIGHT,
-							SHADER_VARIANT_NINEPATCH_LIGHT,
-							SHADER_VARIANT_PRIMITIVE_LIGHT,
-							SHADER_VARIANT_PRIMITIVE_LIGHT,
-							SHADER_VARIANT_PRIMITIVE_POINTS_LIGHT,
-							SHADER_VARIANT_ATTRIBUTES_LIGHT,
-							SHADER_VARIANT_ATTRIBUTES_LIGHT,
-							SHADER_VARIANT_ATTRIBUTES_LIGHT,
-							SHADER_VARIANT_ATTRIBUTES_LIGHT,
-							SHADER_VARIANT_ATTRIBUTES_POINTS_LIGHT,
-							SHADER_VARIANT_QUAD_LIGHT,
-					},
-				};
-
-				RID shader_variant = shader.canvas_shader.version_get_shader(shader.default_version, shader_variants[i][j]);
-				if (j == PIPELINE_VARIANT_QUAD_LCD_BLEND) {
-					shader.pipeline_variants.variants[i][j].setup(shader_variant, primitive[j], RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), blend_state_lcd, RD::DYNAMIC_STATE_BLEND_CONSTANTS);
-				} else {
-					shader.pipeline_variants.variants[i][j].setup(shader_variant, primitive[j], RD::PipelineRasterizationState(), RD::PipelineMultisampleState(), RD::PipelineDepthStencilState(), blend_state, 0);
-				}
-			}
-		}
+		shader.default_version_data.version = shader.canvas_shader.version_create();
+		shader.default_version_data.blend_mode = RendererRD::MaterialStorage::ShaderData::BLEND_MODE_MIX;
+		shader.default_version_rd_shader = shader.default_version_data.get_shader(SHADER_VARIANT_QUAD, false);
+#if PRELOAD_CANVAS_PIPELINES
+		shader_data_dirty_list.add(&shader.default_version_data.dirty_element);
+#endif
 	}
 
 	{
@@ -2837,8 +2917,6 @@ void fragment() {
 
 		material_storage->material_set_shader(default_clip_children_material, default_clip_children_shader);
 	}
-
-	static_assert(sizeof(PushConstant) == 128);
 }
 
 bool RendererCanvasRenderRD::free(RID p_rid) {
@@ -2888,6 +2966,12 @@ void RendererCanvasRenderRD::set_debug_redraw(bool p_enabled, double p_time, con
 	debug_redraw_color = p_color;
 }
 
+uint32_t RendererCanvasRenderRD::get_pipeline_compilations(RS::PipelineSource p_source) {
+	RendererCanvasRenderRD *canvas_singleton = static_cast<RendererCanvasRenderRD *>(RendererCanvasRender::singleton);
+	MutexLock lock(canvas_singleton->shader.mutex);
+	return shader.pipeline_compilations[p_source];
+}
+
 RendererCanvasRenderRD::~RendererCanvasRenderRD() {
 	RendererRD::MaterialStorage *material_storage = RendererRD::MaterialStorage::get_singleton();
 	//canvas state
@@ -2913,11 +2997,6 @@ RendererCanvasRenderRD::~RendererCanvasRenderRD() {
 		//this will also automatically clear all pipelines
 		RD::get_singleton()->free(state.shadow_sampler);
 	}
-	//bindings
-
-	//shaders
-
-	shader.canvas_shader.version_free(shader.default_version);
 
 	//buffers
 	{
