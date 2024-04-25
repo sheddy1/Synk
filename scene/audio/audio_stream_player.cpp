@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "audio_stream_player.h"
+#include "audio_stream_player.compat.inc"
 
 #include "scene/audio/audio_stream_player_internal.h"
 #include "servers/audio/audio_stream.h"
@@ -58,6 +59,7 @@ Ref<AudioStream> AudioStreamPlayer::get_stream() const {
 }
 
 void AudioStreamPlayer::set_volume_db(float p_volume) {
+	ERR_FAIL_COND_MSG(Math::is_nan(p_volume), "Volume can't be set to NaN.");
 	internal->volume_db = p_volume;
 
 	Vector<AudioFrame> volume_vector = _get_volume_vector();
@@ -126,7 +128,7 @@ void AudioStreamPlayer::set_autoplay(bool p_enable) {
 	internal->autoplay = p_enable;
 }
 
-bool AudioStreamPlayer::is_autoplay_enabled() {
+bool AudioStreamPlayer::is_autoplay_enabled() const {
 	return internal->autoplay;
 }
 

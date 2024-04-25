@@ -260,7 +260,7 @@ void SceneShaderForwardClustered::ShaderData::set_code(const String &p_code) {
 
 	if (depth_test != DEPTH_TEST_DISABLED) {
 		depth_stencil_state.enable_depth_test = true;
-		depth_stencil_state.depth_compare_operator = RD::COMPARE_OP_LESS_OR_EQUAL;
+		depth_stencil_state.depth_compare_operator = RD::COMPARE_OP_GREATER_OR_EQUAL;
 		depth_stencil_state.enable_depth_write = depth_draw != DEPTH_DRAW_DISABLED ? true : false;
 	}
 	bool depth_pre_pass_enabled = bool(GLOBAL_GET("rendering/driver/depth_prepass/enable"));
@@ -559,6 +559,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		actions.renames["INV_PROJECTION_MATRIX"] = "inv_projection_matrix";
 		actions.renames["MODELVIEW_MATRIX"] = "modelview";
 		actions.renames["MODELVIEW_NORMAL_MATRIX"] = "modelview_normal";
+		actions.renames["MAIN_CAM_INV_VIEW_MATRIX"] = "scene_data.main_cam_inv_view_matrix";
 
 		actions.renames["VERTEX"] = "vertex";
 		actions.renames["NORMAL"] = "normal";
@@ -623,6 +624,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		actions.renames["CUSTOM2"] = "custom2_attrib";
 		actions.renames["CUSTOM3"] = "custom3_attrib";
 		actions.renames["OUTPUT_IS_SRGB"] = "SHADER_IS_SRGB";
+		actions.renames["LIGHT_VERTEX"] = "light_vertex";
 
 		actions.renames["NODE_POSITION_WORLD"] = "read_model_matrix[3].xyz";
 		actions.renames["CAMERA_POSITION_WORLD"] = "scene_data.inv_view_matrix[3].xyz";
@@ -669,6 +671,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		actions.usage_defines["COLOR"] = "#define COLOR_USED\n";
 		actions.usage_defines["INSTANCE_CUSTOM"] = "#define ENABLE_INSTANCE_CUSTOM\n";
 		actions.usage_defines["POSITION"] = "#define OVERRIDE_POSITION\n";
+		actions.usage_defines["LIGHT_VERTEX"] = "#define LIGHT_VERTEX_USED\n";
 
 		actions.usage_defines["ALPHA_SCISSOR_THRESHOLD"] = "#define ALPHA_SCISSOR_USED\n";
 		actions.usage_defines["ALPHA_HASH_SCALE"] = "#define ALPHA_HASH_USED\n";
@@ -736,7 +739,7 @@ void SceneShaderForwardClustered::init(const String p_defines) {
 		default_shader = material_storage->shader_allocate();
 		material_storage->shader_initialize(default_shader);
 		material_storage->shader_set_code(default_shader, R"(
-// Default 3D material shader (clustered).
+// Default 3D material shader (Forward+).
 
 shader_type spatial;
 
@@ -767,11 +770,11 @@ void fragment() {
 		material_storage->shader_initialize(overdraw_material_shader);
 		// Use relatively low opacity so that more "layers" of overlapping objects can be distinguished.
 		material_storage->shader_set_code(overdraw_material_shader, R"(
-// 3D editor Overdraw debug draw mode shader (clustered).
+// 3D editor Overdraw debug draw mode shader (Forward+).
 
 shader_type spatial;
 
-render_mode blend_add, unshaded;
+render_mode blend_add, unshaded, fog_disabled;
 
 void fragment() {
 	ALBEDO = vec3(0.4, 0.8, 0.8);
@@ -791,11 +794,11 @@ void fragment() {
 		debug_shadow_splits_material_shader = material_storage->shader_allocate();
 		material_storage->shader_initialize(debug_shadow_splits_material_shader);
 		material_storage->shader_set_code(debug_shadow_splits_material_shader, R"(
-// 3D debug shadow splits mode shader(mobile).
+// 3D debug shadow splits mode shader (Forward+).
 
 shader_type spatial;
 
-render_mode debug_shadow_splits;
+render_mode debug_shadow_splits, fog_disabled;
 
 void fragment() {
 	ALBEDO = vec3(1.0, 1.0, 1.0);
@@ -826,7 +829,7 @@ void fragment() {
 		sampler.mag_filter = RD::SAMPLER_FILTER_LINEAR;
 		sampler.min_filter = RD::SAMPLER_FILTER_LINEAR;
 		sampler.enable_compare = true;
-		sampler.compare_op = RD::COMPARE_OP_LESS;
+		sampler.compare_op = RD::COMPARE_OP_GREATER;
 		shadow_sampler = RD::get_singleton()->sampler_create(sampler);
 	}
 }

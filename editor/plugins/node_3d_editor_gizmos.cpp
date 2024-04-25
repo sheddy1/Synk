@@ -36,7 +36,7 @@
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/plugins/node_3d_editor_plugin.h"
-#include "scene/resources/primitive_meshes.h"
+#include "scene/resources/3d/primitive_meshes.h"
 
 #define HANDLE_HALF_SIZE 9.5
 
@@ -969,7 +969,7 @@ void EditorNode3DGizmoPlugin::add_material(const String &p_name, Ref<StandardMat
 
 Ref<StandardMaterial3D> EditorNode3DGizmoPlugin::get_material(const String &p_name, const Ref<EditorNode3DGizmo> &p_gizmo) {
 	ERR_FAIL_COND_V(!materials.has(p_name), Ref<StandardMaterial3D>());
-	ERR_FAIL_COND_V(materials[p_name].size() == 0, Ref<StandardMaterial3D>());
+	ERR_FAIL_COND_V(materials[p_name].is_empty(), Ref<StandardMaterial3D>());
 
 	if (p_gizmo.is_null() || materials[p_name].size() == 1) {
 		return materials[p_name][0];
@@ -979,10 +979,11 @@ Ref<StandardMaterial3D> EditorNode3DGizmoPlugin::get_material(const String &p_na
 
 	Ref<StandardMaterial3D> mat = materials[p_name][index];
 
-	if (current_state == ON_TOP && p_gizmo->is_selected()) {
+	bool on_top_mat = mat->get_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST);
+
+	if (!on_top_mat && current_state == ON_TOP && p_gizmo->is_selected()) {
+		mat = mat->duplicate();
 		mat->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, true);
-	} else {
-		mat->set_flag(StandardMaterial3D::FLAG_DISABLE_DEPTH_TEST, false);
 	}
 
 	return mat;

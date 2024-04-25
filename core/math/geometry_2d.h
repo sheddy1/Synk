@@ -377,10 +377,8 @@ public:
 		Vector2 further_away_opposite(1e20, 1e20);
 
 		for (int i = 0; i < c; i++) {
-			further_away.x = MAX(p[i].x, further_away.x);
-			further_away.y = MAX(p[i].y, further_away.y);
-			further_away_opposite.x = MIN(p[i].x, further_away_opposite.x);
-			further_away_opposite.y = MIN(p[i].y, further_away_opposite.y);
+			further_away = further_away.max(p[i]);
+			further_away_opposite = further_away_opposite.min(p[i]);
 		}
 
 		// Make point outside that won't intersect with points in segment from p_point.
@@ -489,7 +487,7 @@ public:
 		return points;
 	}
 
-	static Vector<Vector<Vector2>> decompose_polygon_in_convex(Vector<Point2> polygon);
+	static Vector<Vector<Vector2>> decompose_polygon_in_convex(const Vector<Point2> &polygon);
 
 	static void make_atlas(const Vector<Size2i> &p_rects, Vector<Point2i> &r_result, Size2i &r_size);
 	static Vector<Vector3i> partial_pack_rects(const Vector<Vector2i> &p_sizes, const Size2i &p_atlas_size);

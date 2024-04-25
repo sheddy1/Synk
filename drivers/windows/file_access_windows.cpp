@@ -41,13 +41,14 @@
 #include <windows.h>
 
 #include <errno.h>
+#include <io.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <tchar.h>
 #include <wchar.h>
 
 #ifdef _MSC_VER
-#define S_ISREG(m) ((m)&_S_IFREG)
+#define S_ISREG(m) ((m) & _S_IFREG)
 #endif
 
 void FileAccessWindows::check_errors() const {
@@ -60,12 +61,12 @@ void FileAccessWindows::check_errors() const {
 
 bool FileAccessWindows::is_path_invalid(const String &p_path) {
 	// Check for invalid operating system file.
-	String fname = p_path;
+	String fname = p_path.get_file().to_lower();
+
 	int dot = fname.find(".");
 	if (dot != -1) {
 		fname = fname.substr(0, dot);
 	}
-	fname = fname.to_lower();
 	return invalid_files.has(fname);
 }
 
@@ -367,6 +368,24 @@ uint64_t FileAccessWindows::get_buffer(uint8_t *p_dst, uint64_t p_length) const 
 
 Error FileAccessWindows::get_error() const {
 	return last_error;
+}
+
+Error FileAccessWindows::resize(int64_t p_length) {
+	ERR_FAIL_NULL_V_MSG(f, FAILED, "File must be opened before use.");
+	errno_t res = _chsize_s(_fileno(f), p_length);
+	switch (res) {
+		case 0:
+			return OK;
+		case EACCES:
+		case EBADF:
+			return ERR_FILE_CANT_OPEN;
+		case ENOSPC:
+			return ERR_OUT_OF_MEMORY;
+		case EINVAL:
+			return ERR_INVALID_PARAMETER;
+		default:
+			return FAILED;
+	}
 }
 
 void FileAccessWindows::flush() {

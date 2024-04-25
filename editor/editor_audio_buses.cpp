@@ -34,11 +34,13 @@
 #include "core/input/input.h"
 #include "core/io/resource_saver.h"
 #include "core/os/keyboard.h"
+#include "editor/editor_command_palette.h"
 #include "editor/editor_node.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/filesystem_dock.h"
+#include "editor/gui/editor_bottom_panel.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/themes/editor_scale.h"
 #include "editor/themes/editor_theme_manager.h"
@@ -923,6 +925,7 @@ EditorAudioBus::EditorAudioBus(EditorAudioBuses *p_buses, bool p_is_master) {
 	effects->connect("gui_input", callable_mp(this, &EditorAudioBus::_effects_gui_input));
 
 	send = memnew(OptionButton);
+	send->set_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	send->set_clip_text(true);
 	send->connect("item_selected", callable_mp(this, &EditorAudioBus::_send_selected));
 	vb->add_child(send);
@@ -1040,7 +1043,7 @@ void EditorAudioBuses::_rebuild_buses() {
 
 EditorAudioBuses *EditorAudioBuses::register_editor() {
 	EditorAudioBuses *audio_buses = memnew(EditorAudioBuses);
-	EditorNode::get_singleton()->add_bottom_panel_item(TTR("Audio"), audio_buses);
+	EditorNode::get_bottom_panel()->add_item(TTR("Audio"), audio_buses, ED_SHORTCUT_AND_COMMAND("bottom_panels/toggle_audio_bottom_panel", TTR("Toggle Audio Bottom Panel"), KeyModifierMask::ALT | Key::A));
 	return audio_buses;
 }
 
@@ -1149,6 +1152,7 @@ void EditorAudioBuses::_duplicate_bus(int p_which) {
 		ur->add_do_method(AudioServer::get_singleton(), "add_bus_effect", add_at_pos, AudioServer::get_singleton()->get_bus_effect(p_which, i));
 		ur->add_do_method(AudioServer::get_singleton(), "set_bus_effect_enabled", add_at_pos, i, AudioServer::get_singleton()->is_bus_effect_enabled(p_which, i));
 	}
+	ur->add_do_method(this, "_update_bus", add_at_pos);
 	ur->add_undo_method(AudioServer::get_singleton(), "remove_bus", add_at_pos);
 	ur->commit_action();
 }
@@ -1224,7 +1228,10 @@ void EditorAudioBuses::_load_layout() {
 void EditorAudioBuses::_load_default_layout() {
 	String layout_path = GLOBAL_GET("audio/buses/default_bus_layout");
 
-	Ref<AudioBusLayout> state = ResourceLoader::load(layout_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE);
+	Ref<AudioBusLayout> state;
+	if (ResourceLoader::exists(layout_path)) {
+		state = ResourceLoader::load(layout_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE);
+	}
 	if (state.is_null()) {
 		EditorNode::get_singleton()->show_warning(vformat(TTR("There is no '%s' file."), layout_path));
 		return;
@@ -1357,7 +1364,7 @@ EditorAudioBuses::EditorAudioBuses() {
 }
 
 void EditorAudioBuses::open_layout(const String &p_path) {
-	EditorNode::get_singleton()->make_bottom_panel_item_visible(this);
+	EditorNode::get_bottom_panel()->make_item_visible(this);
 
 	Ref<AudioBusLayout> state = ResourceLoader::load(p_path, "", ResourceFormatLoader::CACHE_MODE_IGNORE);
 	if (state.is_null()) {

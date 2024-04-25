@@ -106,7 +106,7 @@ namespace Godot
                 instance = instance.Substring(1);
             }
 
-            if (instance.StartsWith("0b"))
+            if (instance.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
             {
                 instance = instance.Substring(2);
             }
@@ -314,7 +314,7 @@ namespace Godot
         /// <returns>The capitalized string.</returns>
         public static string Capitalize(this string instance)
         {
-            string aux = instance.CamelcaseToUnderscore(true).Replace("_", " ").Trim();
+            string aux = instance.CamelcaseToUnderscore(true).Replace("_", " ", StringComparison.Ordinal).Trim();
             string cap = string.Empty;
 
             for (int i = 0; i < aux.GetSliceCount(" "); i++)
@@ -742,7 +742,7 @@ namespace Godot
             byte[] ret = new byte[len];
             for (int i = 0; i < len; i++)
             {
-                ret[i] = (byte)int.Parse(instance.AsSpan(i * 2, 2), NumberStyles.AllowHexSpecifier);
+                ret[i] = (byte)int.Parse(instance.AsSpan(i * 2, 2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture);
             }
             return ret;
         }
@@ -816,12 +816,12 @@ namespace Godot
                 instance = instance.Substring(1);
             }
 
-            if (instance.StartsWith("0x"))
+            if (instance.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
             {
                 instance = instance.Substring(2);
             }
 
-            return sign * int.Parse(instance, NumberStyles.HexNumber);
+            return sign * int.Parse(instance, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -878,7 +878,7 @@ namespace Godot
             if (string.IsNullOrEmpty(instance))
                 return false;
             else if (instance.Length > 1)
-                return instance[0] == '/' || instance[0] == '\\' || instance.Contains(":/") || instance.Contains(":\\");
+                return instance[0] == '/' || instance[0] == '\\' || instance.Contains(":/", StringComparison.Ordinal) || instance.Contains(":\\", StringComparison.Ordinal);
             else
                 return instance[0] == '/' || instance[0] == '\\';
         }
@@ -1120,7 +1120,7 @@ namespace Godot
         /// <returns>If the string contains a valid IP address.</returns>
         public static bool IsValidIPAddress(this string instance)
         {
-            if (instance.Contains(':'))
+            if (instance.Contains(':', StringComparison.Ordinal))
             {
                 string[] ip = instance.Split(':');
 
@@ -1208,39 +1208,39 @@ namespace Godot
         /// Do a simple expression match, where '*' matches zero or more
         /// arbitrary characters and '?' matches any single character except '.'.
         /// </summary>
-        /// <param name="instance">The string to check.</param>
-        /// <param name="expr">Expression to check.</param>
+        /// <param name="str">The string to check.</param>
+        /// <param name="pattern">Expression to check.</param>
         /// <param name="caseSensitive">
         /// If <see langword="true"/>, the check will be case sensitive.
         /// </param>
         /// <returns>If the expression has any matches.</returns>
-        private static bool ExprMatch(this string instance, string expr, bool caseSensitive)
+        private static bool WildcardMatch(ReadOnlySpan<char> str, ReadOnlySpan<char> pattern, bool caseSensitive)
         {
             // case '\0':
-            if (expr.Length == 0)
-                return instance.Length == 0;
+            if (pattern.IsEmpty)
+                return str.IsEmpty;
 
-            switch (expr[0])
+            switch (pattern[0])
             {
                 case '*':
-                    return ExprMatch(instance, expr.Substring(1), caseSensitive) || (instance.Length > 0 &&
-                        ExprMatch(instance.Substring(1), expr, caseSensitive));
+                    return WildcardMatch(str, pattern.Slice(1), caseSensitive)
+                        || (!str.IsEmpty && WildcardMatch(str.Slice(1), pattern, caseSensitive));
                 case '?':
-                    return instance.Length > 0 && instance[0] != '.' &&
-                           ExprMatch(instance.Substring(1), expr.Substring(1), caseSensitive);
+                    return !str.IsEmpty && str[0] != '.' &&
+                        WildcardMatch(str.Slice(1), pattern.Slice(1), caseSensitive);
                 default:
-                    if (instance.Length == 0)
+                    if (str.IsEmpty)
                         return false;
-                    if (caseSensitive)
-                        return instance[0] == expr[0];
-                    return (char.ToUpperInvariant(instance[0]) == char.ToUpperInvariant(expr[0])) &&
-                           ExprMatch(instance.Substring(1), expr.Substring(1), caseSensitive);
+                    bool charMatches = caseSensitive ?
+                        str[0] == pattern[0] :
+                        char.ToUpperInvariant(str[0]) == char.ToUpperInvariant(pattern[0]);
+                    return charMatches &&
+                        WildcardMatch(str.Slice(1), pattern.Slice(1), caseSensitive);
             }
         }
 
         /// <summary>
-        /// Do a simple case sensitive expression match, using ? and * wildcards
-        /// (see <see cref="ExprMatch(string, string, bool)"/>).
+        /// Do a simple case sensitive expression match, using ? and * wildcards.
         /// </summary>
         /// <seealso cref="MatchN(string, string)"/>
         /// <param name="instance">The string to check.</param>
@@ -1254,12 +1254,11 @@ namespace Godot
             if (instance.Length == 0 || expr.Length == 0)
                 return false;
 
-            return instance.ExprMatch(expr, caseSensitive);
+            return WildcardMatch(instance, expr, caseSensitive);
         }
 
         /// <summary>
-        /// Do a simple case insensitive expression match, using ? and * wildcards
-        /// (see <see cref="ExprMatch(string, string, bool)"/>).
+        /// Do a simple case insensitive expression match, using ? and * wildcards.
         /// </summary>
         /// <seealso cref="Match(string, string, bool)"/>
         /// <param name="instance">The string to check.</param>
@@ -1270,7 +1269,7 @@ namespace Godot
             if (instance.Length == 0 || expr.Length == 0)
                 return false;
 
-            return instance.ExprMatch(expr, caseSensitive: false);
+            return WildcardMatch(instance, expr, caseSensitive: false);
         }
 
         /// <summary>
@@ -1405,22 +1404,9 @@ namespace Godot
         }
 
         /// <summary>
-        /// Replace occurrences of a substring for different ones inside the string.
-        /// </summary>
-        /// <seealso cref="ReplaceN(string, string, string)"/>
-        /// <param name="instance">The string to modify.</param>
-        /// <param name="what">The substring to be replaced in the string.</param>
-        /// <param name="forwhat">The substring that replaces <paramref name="what"/>.</param>
-        /// <returns>The string with the substring occurrences replaced.</returns>
-        public static string Replace(this string instance, string what, string forwhat)
-        {
-            return instance.Replace(what, forwhat);
-        }
-
-        /// <summary>
         /// Replace occurrences of a substring for different ones inside the string, but search case-insensitive.
         /// </summary>
-        /// <seealso cref="Replace(string, string, string)"/>
+        /// <seealso cref="string.Replace(string, string, StringComparison)"/>
         /// <param name="instance">The string to modify.</param>
         /// <param name="what">The substring to be replaced in the string.</param>
         /// <param name="forwhat">The substring that replaces <paramref name="what"/>.</param>
@@ -1634,7 +1620,7 @@ namespace Godot
                 if (end < 0)
                     end = len;
                 if (allowEmpty || end > from)
-                    ret.Add(float.Parse(instance.Substring(from)));
+                    ret.Add(float.Parse(instance.Substring(from), CultureInfo.InvariantCulture));
                 if (end == len)
                     break;
 
@@ -1738,7 +1724,7 @@ namespace Godot
         /// <returns>The number representation of the string.</returns>
         public static float ToFloat(this string instance)
         {
-            return float.Parse(instance);
+            return float.Parse(instance, CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -1749,7 +1735,7 @@ namespace Godot
         /// <returns>The number representation of the string.</returns>
         public static int ToInt(this string instance)
         {
-            return int.Parse(instance);
+            return int.Parse(instance, CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -1802,7 +1788,7 @@ namespace Godot
         /// <returns>A copy of the string with the prefix string removed from the start.</returns>
         public static string TrimPrefix(this string instance, string prefix)
         {
-            if (instance.StartsWith(prefix))
+            if (instance.StartsWith(prefix, StringComparison.Ordinal))
                 return instance.Substring(prefix.Length);
 
             return instance;
@@ -1816,7 +1802,7 @@ namespace Godot
         /// <returns>A copy of the string with the suffix string removed from the end.</returns>
         public static string TrimSuffix(this string instance, string suffix)
         {
-            if (instance.EndsWith(suffix))
+            if (instance.EndsWith(suffix, StringComparison.Ordinal))
                 return instance.Substring(0, instance.Length - suffix.Length);
 
             return instance;
@@ -1833,7 +1819,7 @@ namespace Godot
         /// <returns>The unescaped string.</returns>
         public static string URIDecode(this string instance)
         {
-            return Uri.UnescapeDataString(instance.Replace("+", "%20"));
+            return Uri.UnescapeDataString(instance.Replace("+", "%20", StringComparison.Ordinal));
         }
 
         /// <summary>
@@ -1849,8 +1835,8 @@ namespace Godot
             return Uri.EscapeDataString(instance);
         }
 
-        private const string _uniqueNodePrefix = "%";
-        private static readonly string[] _invalidNodeNameCharacters = { ".", ":", "@", "/", "\"", _uniqueNodePrefix };
+        private const string UniqueNodePrefix = "%";
+        private static readonly string[] _invalidNodeNameCharacters = { ".", ":", "@", "/", "\"", UniqueNodePrefix };
 
         /// <summary>
         /// Removes any characters from the string that are prohibited in
@@ -1860,10 +1846,10 @@ namespace Godot
         /// <returns>The string sanitized as a valid node name.</returns>
         public static string ValidateNodeName(this string instance)
         {
-            string name = instance.Replace(_invalidNodeNameCharacters[0], "");
+            string name = instance.Replace(_invalidNodeNameCharacters[0], "", StringComparison.Ordinal);
             for (int i = 1; i < _invalidNodeNameCharacters.Length; i++)
             {
-                name = name.Replace(_invalidNodeNameCharacters[i], "");
+                name = name.Replace(_invalidNodeNameCharacters[i], "", StringComparison.Ordinal);
             }
             return name;
         }

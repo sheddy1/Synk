@@ -29,10 +29,11 @@
 /**************************************************************************/
 
 #include "audio_stream_player_2d.h"
+#include "audio_stream_player_2d.compat.inc"
 
 #include "core/config/project_settings.h"
-#include "scene/2d/area_2d.h"
 #include "scene/2d/audio_listener_2d.h"
+#include "scene/2d/physics/area_2d.h"
 #include "scene/audio/audio_stream_player_internal.h"
 #include "scene/main/viewport.h"
 #include "scene/resources/world_2d.h"
@@ -195,6 +196,7 @@ Ref<AudioStream> AudioStreamPlayer2D::get_stream() const {
 }
 
 void AudioStreamPlayer2D::set_volume_db(float p_volume) {
+	ERR_FAIL_COND_MSG(Math::is_nan(p_volume), "Volume can't be set to NaN.");
 	internal->volume_db = p_volume;
 }
 
@@ -251,7 +253,7 @@ void AudioStreamPlayer2D::set_autoplay(bool p_enable) {
 	internal->autoplay = p_enable;
 }
 
-bool AudioStreamPlayer2D::is_autoplay_enabled() {
+bool AudioStreamPlayer2D::is_autoplay_enabled() const {
 	return internal->autoplay;
 }
 

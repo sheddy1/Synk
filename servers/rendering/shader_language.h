@@ -391,7 +391,7 @@ public:
 		virtual ~Node() {}
 	};
 
-	template <class T>
+	template <typename T>
 	T *alloc_node() {
 		T *node = memnew(T);
 		node->next = nodes;

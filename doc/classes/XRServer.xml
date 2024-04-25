@@ -19,9 +19,9 @@
 		</method>
 		<method name="add_tracker">
 			<return type="void" />
-			<param index="0" name="tracker" type="XRPositionalTracker" />
+			<param index="0" name="tracker" type="XRTracker" />
 			<description>
-				Registers a new [XRPositionalTracker] that tracks a spatial location in real space.
+				Registers a new [XRTracker] that tracks a physical object.
 			</description>
 		</method>
 		<method name="center_on_hmd">
@@ -82,7 +82,7 @@
 			</description>
 		</method>
 		<method name="get_tracker" qualifiers="const">
-			<return type="XRPositionalTracker" />
+			<return type="XRTracker" />
 			<param index="0" name="tracker_name" type="StringName" />
 			<description>
 				Returns the positional tracker with the given [param tracker_name].
@@ -104,9 +104,9 @@
 		</method>
 		<method name="remove_tracker">
 			<return type="void" />
-			<param index="0" name="tracker" type="XRPositionalTracker" />
+			<param index="0" name="tracker" type="XRTracker" />
 			<description>
-				Removes this positional [param tracker].
+				Removes this [param tracker].
 			</description>
 		</method>
 	</methods>
@@ -169,6 +169,15 @@
 		</constant>
 		<constant name="TRACKER_ANCHOR" value="8" enum="TrackerType">
 			The tracker tracks the location and size of an AR anchor.
+		</constant>
+		<constant name="TRACKER_HAND" value="16" enum="TrackerType">
+			The tracker tracks the location and joints of a hand.
+		</constant>
+		<constant name="TRACKER_BODY" value="32" enum="TrackerType">
+			The tracker tracks the location and joints of a body.
+		</constant>
+		<constant name="TRACKER_FACE" value="64" enum="TrackerType">
+			The tracker tracks the expressions of a face.
 		</constant>
 		<constant name="TRACKER_ANY_KNOWN" value="127" enum="TrackerType">
 			Used internally to filter trackers of any known type.

@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "animation.h"
+#include "animation.compat.inc"
 
 #include "core/io/marshalls.h"
 #include "core/math/geometry_3d.h"
@@ -1102,7 +1103,7 @@ bool Animation::track_get_interpolation_loop_wrap(int p_track) const {
 	return tracks[p_track]->loop_wrap;
 }
 
-template <class T, class V>
+template <typename T, typename V>
 int Animation::_insert(double p_time, T &p_keys, const V &p_value) {
 	int idx = p_keys.size();
 
@@ -1126,7 +1127,7 @@ int Animation::_insert(double p_time, T &p_keys, const V &p_value) {
 	return -1;
 }
 
-template <class T>
+template <typename T>
 void Animation::_clear(T &p_keys) {
 	p_keys.clear();
 }
@@ -1234,7 +1235,7 @@ Error Animation::position_track_get_key(int p_track, int p_key, Vector3 *r_posit
 	return OK;
 }
 
-Error Animation::try_position_track_interpolate(int p_track, double p_time, Vector3 *r_interpolation) const {
+Error Animation::try_position_track_interpolate(int p_track, double p_time, Vector3 *r_interpolation, bool p_backward) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ERR_INVALID_PARAMETER);
 	Track *t = tracks[p_track];
 	ERR_FAIL_COND_V(t->type != TYPE_POSITION_3D, ERR_INVALID_PARAMETER);
@@ -1251,7 +1252,7 @@ Error Animation::try_position_track_interpolate(int p_track, double p_time, Vect
 
 	bool ok = false;
 
-	Vector3 tk = _interpolate(tt->positions, p_time, tt->interpolation, tt->loop_wrap, &ok);
+	Vector3 tk = _interpolate(tt->positions, p_time, tt->interpolation, tt->loop_wrap, &ok, p_backward);
 
 	if (!ok) {
 		return ERR_UNAVAILABLE;
@@ -1260,10 +1261,10 @@ Error Animation::try_position_track_interpolate(int p_track, double p_time, Vect
 	return OK;
 }
 
-Vector3 Animation::position_track_interpolate(int p_track, double p_time) const {
+Vector3 Animation::position_track_interpolate(int p_track, double p_time, bool p_backward) const {
 	Vector3 ret = Vector3(0, 0, 0);
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ret);
-	bool err = try_position_track_interpolate(p_track, p_time, &ret);
+	bool err = try_position_track_interpolate(p_track, p_time, &ret, p_backward);
 	ERR_FAIL_COND_V_MSG(err, ret, "3D Position Track: '" + tracks[p_track]->path + "' is unavailable.");
 	return ret;
 }
@@ -1314,7 +1315,7 @@ Error Animation::rotation_track_get_key(int p_track, int p_key, Quaternion *r_ro
 	return OK;
 }
 
-Error Animation::try_rotation_track_interpolate(int p_track, double p_time, Quaternion *r_interpolation) const {
+Error Animation::try_rotation_track_interpolate(int p_track, double p_time, Quaternion *r_interpolation, bool p_backward) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ERR_INVALID_PARAMETER);
 	Track *t = tracks[p_track];
 	ERR_FAIL_COND_V(t->type != TYPE_ROTATION_3D, ERR_INVALID_PARAMETER);
@@ -1331,7 +1332,7 @@ Error Animation::try_rotation_track_interpolate(int p_track, double p_time, Quat
 
 	bool ok = false;
 
-	Quaternion tk = _interpolate(rt->rotations, p_time, rt->interpolation, rt->loop_wrap, &ok);
+	Quaternion tk = _interpolate(rt->rotations, p_time, rt->interpolation, rt->loop_wrap, &ok, p_backward);
 
 	if (!ok) {
 		return ERR_UNAVAILABLE;
@@ -1340,10 +1341,10 @@ Error Animation::try_rotation_track_interpolate(int p_track, double p_time, Quat
 	return OK;
 }
 
-Quaternion Animation::rotation_track_interpolate(int p_track, double p_time) const {
+Quaternion Animation::rotation_track_interpolate(int p_track, double p_time, bool p_backward) const {
 	Quaternion ret = Quaternion(0, 0, 0, 1);
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ret);
-	bool err = try_rotation_track_interpolate(p_track, p_time, &ret);
+	bool err = try_rotation_track_interpolate(p_track, p_time, &ret, p_backward);
 	ERR_FAIL_COND_V_MSG(err, ret, "3D Rotation Track: '" + tracks[p_track]->path + "' is unavailable.");
 	return ret;
 }
@@ -1394,7 +1395,7 @@ Error Animation::scale_track_get_key(int p_track, int p_key, Vector3 *r_scale) c
 	return OK;
 }
 
-Error Animation::try_scale_track_interpolate(int p_track, double p_time, Vector3 *r_interpolation) const {
+Error Animation::try_scale_track_interpolate(int p_track, double p_time, Vector3 *r_interpolation, bool p_backward) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ERR_INVALID_PARAMETER);
 	Track *t = tracks[p_track];
 	ERR_FAIL_COND_V(t->type != TYPE_SCALE_3D, ERR_INVALID_PARAMETER);
@@ -1411,7 +1412,7 @@ Error Animation::try_scale_track_interpolate(int p_track, double p_time, Vector3
 
 	bool ok = false;
 
-	Vector3 tk = _interpolate(st->scales, p_time, st->interpolation, st->loop_wrap, &ok);
+	Vector3 tk = _interpolate(st->scales, p_time, st->interpolation, st->loop_wrap, &ok, p_backward);
 
 	if (!ok) {
 		return ERR_UNAVAILABLE;
@@ -1420,10 +1421,10 @@ Error Animation::try_scale_track_interpolate(int p_track, double p_time, Vector3
 	return OK;
 }
 
-Vector3 Animation::scale_track_interpolate(int p_track, double p_time) const {
+Vector3 Animation::scale_track_interpolate(int p_track, double p_time, bool p_backward) const {
 	Vector3 ret = Vector3(1, 1, 1);
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ret);
-	bool err = try_scale_track_interpolate(p_track, p_time, &ret);
+	bool err = try_scale_track_interpolate(p_track, p_time, &ret, p_backward);
 	ERR_FAIL_COND_V_MSG(err, ret, "3D Scale Track: '" + tracks[p_track]->path + "' is unavailable.");
 	return ret;
 }
@@ -1474,7 +1475,7 @@ Error Animation::blend_shape_track_get_key(int p_track, int p_key, float *r_blen
 	return OK;
 }
 
-Error Animation::try_blend_shape_track_interpolate(int p_track, double p_time, float *r_interpolation) const {
+Error Animation::try_blend_shape_track_interpolate(int p_track, double p_time, float *r_interpolation, bool p_backward) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ERR_INVALID_PARAMETER);
 	Track *t = tracks[p_track];
 	ERR_FAIL_COND_V(t->type != TYPE_BLEND_SHAPE, ERR_INVALID_PARAMETER);
@@ -1491,7 +1492,7 @@ Error Animation::try_blend_shape_track_interpolate(int p_track, double p_time, f
 
 	bool ok = false;
 
-	float tk = _interpolate(bst->blend_shapes, p_time, bst->interpolation, bst->loop_wrap, &ok);
+	float tk = _interpolate(bst->blend_shapes, p_time, bst->interpolation, bst->loop_wrap, &ok, p_backward);
 
 	if (!ok) {
 		return ERR_UNAVAILABLE;
@@ -1500,10 +1501,10 @@ Error Animation::try_blend_shape_track_interpolate(int p_track, double p_time, f
 	return OK;
 }
 
-float Animation::blend_shape_track_interpolate(int p_track, double p_time) const {
+float Animation::blend_shape_track_interpolate(int p_track, double p_time, bool p_backward) const {
 	float ret = 0;
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), ret);
-	bool err = try_blend_shape_track_interpolate(p_track, p_time, &ret);
+	bool err = try_blend_shape_track_interpolate(p_track, p_time, &ret, p_backward);
 	ERR_FAIL_COND_V_MSG(err, ret, "Blend Shape Track: '" + tracks[p_track]->path + "' is unavailable.");
 	return ret;
 }
@@ -1592,7 +1593,7 @@ void Animation::track_remove_key(int p_track, int p_idx) {
 	emit_changed();
 }
 
-int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) const {
+int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode, bool p_limit) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), -1);
 	Track *t = tracks[p_track];
 
@@ -1614,7 +1615,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 				return key_index;
 			}
 
-			int k = _find(tt->positions, p_time);
+			int k = _find(tt->positions, p_time, false, p_limit);
 			if (k < 0 || k >= tt->positions.size()) {
 				return -1;
 			}
@@ -1641,7 +1642,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 				return key_index;
 			}
 
-			int k = _find(rt->rotations, p_time);
+			int k = _find(rt->rotations, p_time, false, p_limit);
 			if (k < 0 || k >= rt->rotations.size()) {
 				return -1;
 			}
@@ -1668,7 +1669,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 				return key_index;
 			}
 
-			int k = _find(st->scales, p_time);
+			int k = _find(st->scales, p_time, false, p_limit);
 			if (k < 0 || k >= st->scales.size()) {
 				return -1;
 			}
@@ -1695,7 +1696,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 				return key_index;
 			}
 
-			int k = _find(bst->blend_shapes, p_time);
+			int k = _find(bst->blend_shapes, p_time, false, p_limit);
 			if (k < 0 || k >= bst->blend_shapes.size()) {
 				return -1;
 			}
@@ -1707,7 +1708,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 		} break;
 		case TYPE_VALUE: {
 			ValueTrack *vt = static_cast<ValueTrack *>(t);
-			int k = _find(vt->values, p_time);
+			int k = _find(vt->values, p_time, false, p_limit);
 			if (k < 0 || k >= vt->values.size()) {
 				return -1;
 			}
@@ -1719,7 +1720,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 		} break;
 		case TYPE_METHOD: {
 			MethodTrack *mt = static_cast<MethodTrack *>(t);
-			int k = _find(mt->methods, p_time);
+			int k = _find(mt->methods, p_time, false, p_limit);
 			if (k < 0 || k >= mt->methods.size()) {
 				return -1;
 			}
@@ -1731,7 +1732,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 		} break;
 		case TYPE_BEZIER: {
 			BezierTrack *bt = static_cast<BezierTrack *>(t);
-			int k = _find(bt->values, p_time);
+			int k = _find(bt->values, p_time, false, p_limit);
 			if (k < 0 || k >= bt->values.size()) {
 				return -1;
 			}
@@ -1743,7 +1744,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 		} break;
 		case TYPE_AUDIO: {
 			AudioTrack *at = static_cast<AudioTrack *>(t);
-			int k = _find(at->values, p_time);
+			int k = _find(at->values, p_time, false, p_limit);
 			if (k < 0 || k >= at->values.size()) {
 				return -1;
 			}
@@ -1755,7 +1756,7 @@ int Animation::track_find_key(int p_track, double p_time, FindMode p_find_mode) 
 		} break;
 		case TYPE_ANIMATION: {
 			AnimationTrack *at = static_cast<AnimationTrack *>(t);
-			int k = _find(at->values, p_time);
+			int k = _find(at->values, p_time, false, p_limit);
 			if (k < 0 || k >= at->values.size()) {
 				return -1;
 			}
@@ -2449,8 +2450,8 @@ void Animation::track_set_key_transition(int p_track, int p_key_idx, real_t p_tr
 	emit_changed();
 }
 
-template <class K>
-int Animation::_find(const Vector<K> &p_keys, double p_time, bool p_backward) const {
+template <typename K>
+int Animation::_find(const Vector<K> &p_keys, double p_time, bool p_backward, bool p_limit) const {
 	int len = p_keys.size();
 	if (len == 0) {
 		return -2;
@@ -2462,7 +2463,7 @@ int Animation::_find(const Vector<K> &p_keys, double p_time, bool p_backward) co
 
 #ifdef DEBUG_ENABLED
 	if (low > high) {
-		ERR_PRINT("low > high, this may be a bug");
+		ERR_PRINT("low > high, this may be a bug.");
 	}
 #endif
 
@@ -2487,6 +2488,14 @@ int Animation::_find(const Vector<K> &p_keys, double p_time, bool p_backward) co
 	} else {
 		if (keys[middle].time < p_time) {
 			middle++;
+		}
+	}
+
+	if (p_limit) {
+		double diff = length - keys[middle].time;
+		if ((signbit(keys[middle].time) && !Math::is_zero_approx(keys[middle].time)) || (signbit(diff) && !Math::is_zero_approx(diff))) {
+			ERR_PRINT_ONCE_ED("Found the key outside the animation range. Consider using the clean-up option in AnimationTrackEditor to fix it.");
+			return -1;
 		}
 	}
 
@@ -2561,7 +2570,7 @@ Variant Animation::_cubic_interpolate_angle_in_time(const Variant &p_pre_a, cons
 	return _cubic_interpolate_in_time(p_pre_a, p_a, p_b, p_post_b, p_c, p_pre_a_t, p_b_t, p_post_b_t);
 }
 
-template <class T>
+template <typename T>
 T Animation::_interpolate(const Vector<TKey<T>> &p_keys, double p_time, InterpolationType p_interp, bool p_loop_wrap, bool *p_ok, bool p_backward) const {
 	int len = _find(p_keys, length) + 1; // try to find last key (there may be more past the end)
 
@@ -2584,7 +2593,7 @@ T Animation::_interpolate(const Vector<TKey<T>> &p_keys, double p_time, Interpol
 
 	ERR_FAIL_COND_V(idx == -2, T());
 	int maxi = len - 1;
-	bool is_start_edge = idx == -1;
+	bool is_start_edge = p_backward ? idx >= len : idx == -1;
 	bool is_end_edge = p_backward ? idx == 0 : idx >= maxi;
 
 	real_t c = 0.0;
@@ -2766,7 +2775,7 @@ T Animation::_interpolate(const Vector<TKey<T>> &p_keys, double p_time, Interpol
 	// do a barrel roll
 }
 
-Variant Animation::value_track_interpolate(int p_track, double p_time) const {
+Variant Animation::value_track_interpolate(int p_track, double p_time, bool p_backward) const {
 	ERR_FAIL_INDEX_V(p_track, tracks.size(), 0);
 	Track *t = tracks[p_track];
 	ERR_FAIL_COND_V(t->type != TYPE_VALUE, Variant());
@@ -2774,7 +2783,7 @@ Variant Animation::value_track_interpolate(int p_track, double p_time) const {
 
 	bool ok = false;
 
-	Variant res = _interpolate(vt->values, p_time, (vt->update_mode == UPDATE_CONTINUOUS || vt->update_mode == UPDATE_CAPTURE) ? vt->interpolation : INTERPOLATION_NEAREST, vt->loop_wrap, &ok);
+	Variant res = _interpolate(vt->values, p_time, vt->update_mode == UPDATE_DISCRETE ? INTERPOLATION_NEAREST : vt->interpolation, vt->loop_wrap, &ok, p_backward);
 
 	if (ok) {
 		return res;
@@ -2803,7 +2812,7 @@ Animation::UpdateMode Animation::value_track_get_update_mode(int p_track) const 
 	return vt->update_mode;
 }
 
-template <class T>
+template <typename T>
 void Animation::_track_get_key_indices_in_range(const Vector<T> &p_array, double from_time, double to_time, List<int> *p_indices, bool p_is_backward) const {
 	int len = p_array.size();
 	if (len == 0) {
@@ -3906,10 +3915,10 @@ void Animation::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("scale_track_insert_key", "track_idx", "time", "scale"), &Animation::scale_track_insert_key);
 	ClassDB::bind_method(D_METHOD("blend_shape_track_insert_key", "track_idx", "time", "amount"), &Animation::blend_shape_track_insert_key);
 
-	ClassDB::bind_method(D_METHOD("position_track_interpolate", "track_idx", "time_sec"), &Animation::position_track_interpolate);
-	ClassDB::bind_method(D_METHOD("rotation_track_interpolate", "track_idx", "time_sec"), &Animation::rotation_track_interpolate);
-	ClassDB::bind_method(D_METHOD("scale_track_interpolate", "track_idx", "time_sec"), &Animation::scale_track_interpolate);
-	ClassDB::bind_method(D_METHOD("blend_shape_track_interpolate", "track_idx", "time_sec"), &Animation::blend_shape_track_interpolate);
+	ClassDB::bind_method(D_METHOD("position_track_interpolate", "track_idx", "time_sec", "backward"), &Animation::position_track_interpolate, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("rotation_track_interpolate", "track_idx", "time_sec", "backward"), &Animation::rotation_track_interpolate, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("scale_track_interpolate", "track_idx", "time_sec", "backward"), &Animation::scale_track_interpolate, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("blend_shape_track_interpolate", "track_idx", "time_sec", "backward"), &Animation::blend_shape_track_interpolate, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("track_insert_key", "track_idx", "time", "key", "transition"), &Animation::track_insert_key, DEFVAL(1));
 	ClassDB::bind_method(D_METHOD("track_remove_key", "track_idx", "key_idx"), &Animation::track_remove_key);
@@ -3922,7 +3931,7 @@ void Animation::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("track_get_key_count", "track_idx"), &Animation::track_get_key_count);
 	ClassDB::bind_method(D_METHOD("track_get_key_value", "track_idx", "key_idx"), &Animation::track_get_key_value);
 	ClassDB::bind_method(D_METHOD("track_get_key_time", "track_idx", "key_idx"), &Animation::track_get_key_time);
-	ClassDB::bind_method(D_METHOD("track_find_key", "track_idx", "time", "find_mode"), &Animation::track_find_key, DEFVAL(FIND_MODE_NEAREST));
+	ClassDB::bind_method(D_METHOD("track_find_key", "track_idx", "time", "find_mode", "limit"), &Animation::track_find_key, DEFVAL(FIND_MODE_NEAREST), DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("track_set_interpolation_type", "track_idx", "interpolation"), &Animation::track_set_interpolation_type);
 	ClassDB::bind_method(D_METHOD("track_get_interpolation_type", "track_idx"), &Animation::track_get_interpolation_type);
@@ -3935,7 +3944,7 @@ void Animation::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("value_track_set_update_mode", "track_idx", "mode"), &Animation::value_track_set_update_mode);
 	ClassDB::bind_method(D_METHOD("value_track_get_update_mode", "track_idx"), &Animation::value_track_get_update_mode);
 
-	ClassDB::bind_method(D_METHOD("value_track_interpolate", "track_idx", "time_sec"), &Animation::value_track_interpolate);
+	ClassDB::bind_method(D_METHOD("value_track_interpolate", "track_idx", "time_sec", "backward"), &Animation::value_track_interpolate, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("method_track_get_name", "track_idx", "key_idx"), &Animation::method_track_get_name);
 	ClassDB::bind_method(D_METHOD("method_track_get_params", "track_idx", "key_idx"), &Animation::method_track_get_params);
@@ -4135,7 +4144,7 @@ bool Animation::_quaternion_track_optimize_key(const TKey<Quaternion> t0, const 
 	if (q0.get_axis().dot(q1.get_axis()) >= 1.0 - p_allowed_angular_error * 2.0) {
 		double a0 = Math::acos(t0.value.dot(t1.value));
 		double a1 = Math::acos(t1.value.dot(t2.value));
-		if (a0 + a1 >= Math_PI) {
+		if (a0 + a1 >= Math_PI / 2) {
 			return false; // Rotation is more than 180 deg, keep key.
 		}
 		// Calc velocities.
@@ -4985,7 +4994,7 @@ void Animation::compress(uint32_t p_page_size, uint32_t p_fps, float p_split_tol
 							p.offset = data_tracks[i].data.size();
 							time_tracks[i].packets.push_back(p);
 						} else {
-							ERR_FAIL_COND(time_tracks[i].packets.size() == 0);
+							ERR_FAIL_COND(time_tracks[i].packets.is_empty());
 							time_tracks[i].packets[time_tracks[i].packets.size() - 1].count++;
 						}
 					}
@@ -5072,7 +5081,7 @@ void Animation::compress(uint32_t p_page_size, uint32_t p_fps, float p_split_tol
 			p.offset = data_tracks[comp_track].data.size();
 			time_tracks[comp_track].packets.push_back(p);
 		} else {
-			ERR_CONTINUE(time_tracks[comp_track].packets.size() == 0);
+			ERR_CONTINUE(time_tracks[comp_track].packets.is_empty());
 			time_tracks[comp_track].packets[time_tracks[comp_track].packets.size() - 1].count++;
 		}
 	}

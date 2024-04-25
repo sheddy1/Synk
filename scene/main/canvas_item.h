@@ -140,6 +140,8 @@ private:
 
 	void _notify_transform(CanvasItem *p_node);
 
+	virtual void _physics_interpolated_changed() override;
+
 	static CanvasItem *current_item_drawn;
 	friend class Viewport;
 	void _refresh_texture_repeat_cache() const;
@@ -150,6 +152,9 @@ private:
 	void _notify_transform_deferred();
 
 protected:
+	virtual void _update_self_texture_repeat(RS::CanvasItemTextureRepeat p_texture_repeat);
+	virtual void _update_self_texture_filter(RS::CanvasItemTextureFilter p_texture_filter);
+
 	_FORCE_INLINE_ void _notify_transform() {
 		_notify_transform(this);
 		if (is_inside_tree() && !block_transform_notify && notify_local_transform) {
@@ -363,6 +368,7 @@ public:
 	virtual Rect2 get_anchorable_rect() const { return Rect2(0, 0, 0, 0); };
 
 	int get_canvas_layer() const;
+	CanvasLayer *get_canvas_layer_node() const;
 
 	CanvasItem();
 	~CanvasItem();

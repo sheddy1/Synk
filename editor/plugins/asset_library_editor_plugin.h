@@ -60,9 +60,9 @@ class EditorAssetLibraryItem : public PanelContainer {
 	LinkButton *title = nullptr;
 	LinkButton *category = nullptr;
 	LinkButton *author = nullptr;
-	TextureRect *stars[5];
 	Label *price = nullptr;
 
+	String title_text;
 	int asset_id = 0;
 	int category_id = 0;
 	int author_id = 0;
@@ -82,7 +82,7 @@ public:
 
 	void clamp_width(int p_max_width);
 
-	EditorAssetLibraryItem();
+	EditorAssetLibraryItem(bool p_clickable = false);
 };
 
 class EditorAssetLibraryItemDescription : public ConfirmationDialog {
@@ -90,6 +90,7 @@ class EditorAssetLibraryItemDescription : public ConfirmationDialog {
 
 	EditorAssetLibraryItem *item = nullptr;
 	RichTextLabel *description = nullptr;
+	VBoxContainer *previews_vbox = nullptr;
 	ScrollContainer *previews = nullptr;
 	HBoxContainer *preview_hb = nullptr;
 	PanelContainer *previews_bg = nullptr;
@@ -224,7 +225,7 @@ class EditorAssetLibrary : public PanelContainer {
 	void _force_online_mode();
 
 	enum Support {
-		SUPPORT_OFFICIAL,
+		SUPPORT_FEATURED,
 		SUPPORT_COMMUNITY,
 		SUPPORT_TESTING,
 		SUPPORT_MAX
@@ -262,14 +263,15 @@ class EditorAssetLibrary : public PanelContainer {
 		String image_url;
 		HTTPRequest *request = nullptr;
 		ObjectID target;
+		int asset_id = -1;
 	};
 
 	int last_queue_id;
 	HashMap<int, ImageQueue> image_queue;
 
-	void _image_update(bool use_cache, bool final, const PackedByteArray &p_data, int p_queue_id);
+	void _image_update(bool p_use_cache, bool p_final, const PackedByteArray &p_data, int p_queue_id);
 	void _image_request_completed(int p_status, int p_code, const PackedStringArray &headers, const PackedByteArray &p_data, int p_queue_id);
-	void _request_image(ObjectID p_for, String p_image_url, ImageType p_type, int p_image_index);
+	void _request_image(ObjectID p_for, int p_asset_id, String p_image_url, ImageType p_type, int p_image_index);
 	void _update_image_queue();
 
 	HBoxContainer *_make_pages(int p_page, int p_page_count, int p_page_len, int p_total_items, int p_current_items);
@@ -293,7 +295,7 @@ class EditorAssetLibrary : public PanelContainer {
 
 	void _install_asset();
 
-	void _select_author(int p_id);
+	void _select_author(const String &p_author);
 	void _select_category(int p_id);
 	void _select_asset(int p_id);
 

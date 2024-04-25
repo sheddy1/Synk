@@ -30,8 +30,12 @@
 
 #include "xr_server.h"
 #include "core/config/project_settings.h"
+#include "xr/xr_body_tracker.h"
+#include "xr/xr_face_tracker.h"
+#include "xr/xr_hand_tracker.h"
 #include "xr/xr_interface.h"
 #include "xr/xr_positional_tracker.h"
+#include "xr_server.compat.inc"
 
 XRServer::XRMode XRServer::xr_mode = XRMODE_DEFAULT;
 
@@ -83,6 +87,9 @@ void XRServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(TRACKER_CONTROLLER);
 	BIND_ENUM_CONSTANT(TRACKER_BASESTATION);
 	BIND_ENUM_CONSTANT(TRACKER_ANCHOR);
+	BIND_ENUM_CONSTANT(TRACKER_HAND);
+	BIND_ENUM_CONSTANT(TRACKER_BODY);
+	BIND_ENUM_CONSTANT(TRACKER_FACE);
 	BIND_ENUM_CONSTANT(TRACKER_ANY_KNOWN);
 	BIND_ENUM_CONSTANT(TRACKER_UNKNOWN);
 	BIND_ENUM_CONSTANT(TRACKER_ANY);
@@ -251,7 +258,7 @@ void XRServer::set_primary_interface(const Ref<XRInterface> &p_primary_interface
 	}
 };
 
-void XRServer::add_tracker(Ref<XRPositionalTracker> p_tracker) {
+void XRServer::add_tracker(const Ref<XRTracker> &p_tracker) {
 	ERR_FAIL_COND(p_tracker.is_null());
 
 	StringName tracker_name = p_tracker->get_tracker_name();
@@ -267,7 +274,7 @@ void XRServer::add_tracker(Ref<XRPositionalTracker> p_tracker) {
 	}
 };
 
-void XRServer::remove_tracker(Ref<XRPositionalTracker> p_tracker) {
+void XRServer::remove_tracker(const Ref<XRTracker> &p_tracker) {
 	ERR_FAIL_COND(p_tracker.is_null());
 
 	StringName tracker_name = p_tracker->get_tracker_name();
@@ -293,12 +300,12 @@ Dictionary XRServer::get_trackers(int p_tracker_types) {
 	return res;
 }
 
-Ref<XRPositionalTracker> XRServer::get_tracker(const StringName &p_name) const {
+Ref<XRTracker> XRServer::get_tracker(const StringName &p_name) const {
 	if (trackers.has(p_name)) {
 		return trackers[p_name];
 	} else {
 		// tracker hasn't been registered yet, which is fine, no need to spam the error log...
-		return Ref<XRPositionalTracker>();
+		return Ref<XRTracker>();
 	}
 };
 
@@ -401,14 +408,8 @@ XRServer::XRServer() {
 XRServer::~XRServer() {
 	primary_interface.unref();
 
-	while (interfaces.size() > 0) {
-		interfaces.remove_at(0);
-	}
-
-	// TODO pretty sure there is a clear function or something...
-	while (trackers.size() > 0) {
-		trackers.erase(trackers.get_key_at_index(0));
-	}
+	interfaces.clear();
+	trackers.clear();
 
 	singleton = nullptr;
 };
