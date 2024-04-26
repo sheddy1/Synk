@@ -148,6 +148,9 @@ public:
 	String get_id_for_path(const String &p_path) const;
 #endif
 
+	virtual void _start_load(const StringName &p_res_format_type, int p_res_format_version);
+	virtual void _finish_load(const StringName &p_res_format_type, int p_res_format_version);
+
 	Resource();
 	~Resource();
 };

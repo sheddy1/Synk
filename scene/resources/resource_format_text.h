@@ -57,6 +57,8 @@ class ResourceLoaderText {
 	int format_version;
 	String res_type;
 
+	int format_version = 0;
+
 	bool ignore_resource_parsing = false;
 
 	HashMap<String, ExtResource> ext_resources;
