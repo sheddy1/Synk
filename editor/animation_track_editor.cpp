@@ -174,6 +174,10 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 				}
 
 				setting = true;
+
+				AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
+				player->seek(player->get_current_animation_position(), true, true);
+
 				undo_redo->create_action(TTR("Animation Change Keyframe Value"), UndoRedo::MERGE_ENDS);
 				Variant prev = animation->track_get_key_value(track, key);
 				undo_redo->add_do_method(animation.ptr(), "track_set_key_value", track, key, value);
@@ -3106,6 +3110,7 @@ bool AnimationTrackEdit::_try_select_at_ui_pos(const Point2 &p_pos, bool p_aggre
 							emit_signal(SNAME("deselect_key"), key_idx);
 							moving_selection_pivot = 0.0f;
 							moving_selection_mouse_begin_x = 0.0f;
+
 						}
 					} else {
 						emit_signal(SNAME("select_key"), key_idx, false);
@@ -3127,6 +3132,10 @@ bool AnimationTrackEdit::_try_select_at_ui_pos(const Point2 &p_pos, bool p_aggre
 					moving_selection_effective = false;
 					moving_selection_pivot = animation->track_get_key_time(track, key_idx);
 					moving_selection_mouse_begin_x = p_pos.x;
+
+					AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
+					player->seek(moving_selection_pivot, true, true);
+					emit_signal(SNAME("timeline_changed"), moving_selection_pivot, false);
 				}
 
 				if (read_only) {
