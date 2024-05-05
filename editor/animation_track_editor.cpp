@@ -3110,7 +3110,6 @@ bool AnimationTrackEdit::_try_select_at_ui_pos(const Point2 &p_pos, bool p_aggre
 							emit_signal(SNAME("deselect_key"), key_idx);
 							moving_selection_pivot = 0.0f;
 							moving_selection_mouse_begin_x = 0.0f;
-
 						}
 					} else {
 						emit_signal(SNAME("select_key"), key_idx, false);
