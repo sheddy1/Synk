@@ -1115,11 +1115,10 @@ MaterialStorage::MaterialStorage() {
 		global_shader_uniforms.buffer_size = uint32_t(Config::get_singleton()->max_uniform_buffer_size) / sizeof(GlobalShaderUniforms::Value);
 	}
 
-	global_shader_uniforms.buffer_values = memnew_arr(GlobalShaderUniforms::Value, global_shader_uniforms.buffer_size);
-	memset(global_shader_uniforms.buffer_values, 0, sizeof(GlobalShaderUniforms::Value) * global_shader_uniforms.buffer_size);
+	global_shader_uniforms.buffer_values = memnew_arr_template<GlobalShaderUniforms::Value>(global_shader_uniforms.buffer_size, true);
 	global_shader_uniforms.buffer_usage = memnew_arr(GlobalShaderUniforms::ValueUsage, global_shader_uniforms.buffer_size);
-	global_shader_uniforms.buffer_dirty_regions = memnew_arr(bool, 1 + (global_shader_uniforms.buffer_size / GlobalShaderUniforms::BUFFER_DIRTY_REGION_SIZE));
-	memset(global_shader_uniforms.buffer_dirty_regions, 0, sizeof(bool) * (1 + (global_shader_uniforms.buffer_size / GlobalShaderUniforms::BUFFER_DIRTY_REGION_SIZE)));
+	global_shader_uniforms.buffer_dirty_regions = memnew_arr_template<bool>(1 + (global_shader_uniforms.buffer_size / GlobalShaderUniforms::BUFFER_DIRTY_REGION_SIZE), true);
+
 	glGenBuffers(1, &global_shader_uniforms.buffer);
 	glBindBuffer(GL_UNIFORM_BUFFER, global_shader_uniforms.buffer);
 	glBufferData(GL_UNIFORM_BUFFER, sizeof(GlobalShaderUniforms::Value) * global_shader_uniforms.buffer_size, nullptr, GL_DYNAMIC_DRAW);
