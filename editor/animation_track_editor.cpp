@@ -124,10 +124,9 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 		undo_redo->add_undo_method(animation.ptr(), "track_set_key_transition", track, key, prev_val);
 		undo_redo->add_do_method(this, "_update_obj", animation);
 		undo_redo->add_undo_method(this, "_update_obj", animation);
-		AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
-		double current_animation_position = player->get_current_animation_position();
-		undo_redo->add_do_method(player, "seek", current_animation_position, true, true);
-		undo_redo->add_undo_method(player, "seek", current_animation_position, true, true);
+		AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+		undo_redo->add_do_method(ape, "_animation_update_key_frame");
+		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
 		undo_redo->commit_action();
 
 		setting = false;
@@ -186,10 +185,9 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 				undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, prev);
 				undo_redo->add_do_method(this, "_update_obj", animation);
 				undo_redo->add_undo_method(this, "_update_obj", animation);
-				AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
-				double current_animation_position = player->get_current_animation_position();
-				undo_redo->add_do_method(player, "seek", current_animation_position, true, true);
-				undo_redo->add_undo_method(player, "seek", current_animation_position, true, true);
+				AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+				undo_redo->add_do_method(ape, "_animation_update_key_frame");
+				undo_redo->add_undo_method(ape, "_animation_update_key_frame");
 				undo_redo->commit_action();
 
 				setting = false;
