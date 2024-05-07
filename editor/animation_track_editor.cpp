@@ -125,8 +125,10 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 		undo_redo->add_do_method(this, "_update_obj", animation);
 		undo_redo->add_undo_method(this, "_update_obj", animation);
 		AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
-		undo_redo->add_do_method(ape, "_animation_update_key_frame");
-		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+		if (ape) {
+			undo_redo->add_do_method(ape, "_animation_update_key_frame");
+			undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+		}
 		undo_redo->commit_action();
 
 		setting = false;
