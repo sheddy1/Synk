@@ -117,12 +117,17 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 		float val = p_value;
 		float prev_val = animation->track_get_key_transition(track, key);
 		setting = true;
+
 		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 		undo_redo->create_action(TTR("Animation Change Transition"), UndoRedo::MERGE_ENDS);
 		undo_redo->add_do_method(animation.ptr(), "track_set_key_transition", track, key, val);
 		undo_redo->add_undo_method(animation.ptr(), "track_set_key_transition", track, key, prev_val);
 		undo_redo->add_do_method(this, "_update_obj", animation);
 		undo_redo->add_undo_method(this, "_update_obj", animation);
+		AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
+		double current_animation_position = player->get_current_animation_position();
+		undo_redo->add_do_method(player, "seek", current_animation_position, true, true);
+		undo_redo->add_undo_method(player, "seek", current_animation_position, true, true);
 		undo_redo->commit_action();
 
 		setting = false;
@@ -175,15 +180,16 @@ bool AnimationTrackKeyEdit::_set(const StringName &p_name, const Variant &p_valu
 
 				setting = true;
 
-				AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
-				player->seek(player->get_current_animation_position(), true, true);
-
 				undo_redo->create_action(TTR("Animation Change Keyframe Value"), UndoRedo::MERGE_ENDS);
 				Variant prev = animation->track_get_key_value(track, key);
 				undo_redo->add_do_method(animation.ptr(), "track_set_key_value", track, key, value);
 				undo_redo->add_undo_method(animation.ptr(), "track_set_key_value", track, key, prev);
 				undo_redo->add_do_method(this, "_update_obj", animation);
 				undo_redo->add_undo_method(this, "_update_obj", animation);
+				AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
+				double current_animation_position = player->get_current_animation_position();
+				undo_redo->add_do_method(player, "seek", current_animation_position, true, true);
+				undo_redo->add_undo_method(player, "seek", current_animation_position, true, true);
 				undo_redo->commit_action();
 
 				setting = false;
