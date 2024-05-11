@@ -7661,6 +7661,8 @@ void AnimationTrackKeyEditEditor::_time_edit_exited() {
 			undo_redo->add_do_method(ate, "_select_at_anim", animation, track, new_time);
 			undo_redo->add_undo_method(ate, "_select_at_anim", animation, track, key_data_cache.time);
 		}
+		undo_redo->add_do_method(ape, "_animation_update_key_frame");
+		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
 	}
 
 	undo_redo->commit_action();
