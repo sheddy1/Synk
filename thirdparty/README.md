@@ -882,7 +882,7 @@ instead of `miniz.h` as an external dependency.
 ## thorvg
 
 - Upstream: https://github.com/thorvg/thorvg
-- Version: 0.12.9 (afa6d8499bd49141d99d5e40a4620bd9f6bc0467, 2024)
+- Version: 0.13.3 (6235068cad8cad176ccd0cbcf82f25e985fbc258, 2024)
 - License: MIT
 
 Files extracted from upstream source:
@@ -894,7 +894,7 @@ number and run the script.
 ## ufbx
 
 - Upstream: https://github.com/ufbx/ufbx
-- Version: git (v0.11.1, 2024)
+- Version: 0.14.0 (80ff790ab36507b99ec7e4ef55b9cfb076ce821b, 2024)
 - License: MIT
 
 Files extracted from upstream source:

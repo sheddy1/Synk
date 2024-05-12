@@ -1302,9 +1302,8 @@ TypedArray<Dictionary> Object::_get_signal_connection_list(const StringName &p_s
 
 TypedArray<Dictionary> Object::_get_incoming_connections() const {
 	TypedArray<Dictionary> ret;
-	int connections_amount = connections.size();
-	for (int idx_conn = 0; idx_conn < connections_amount; idx_conn++) {
-		ret.push_back(connections[idx_conn]);
+	for (const Object::Connection &connection : connections) {
+		ret.push_back(connection);
 	}
 
 	return ret;
@@ -2096,9 +2095,13 @@ Object::~Object() {
 		_extension_instance = nullptr;
 	}
 #ifdef TOOLS_ENABLED
-	else if (_instance_bindings != nullptr && Engine::get_singleton()->is_extension_reloading_enabled()) {
-		for (uint32_t i = 0; i < _instance_binding_count; i++) {
-			GDExtensionManager::get_singleton()->untrack_instance_binding(_instance_bindings[i].token, this);
+	else if (_instance_bindings != nullptr) {
+		Engine *engine = Engine::get_singleton();
+		GDExtensionManager *gdextension_manager = GDExtensionManager::get_singleton();
+		if (engine && gdextension_manager && engine->is_extension_reloading_enabled()) {
+			for (uint32_t i = 0; i < _instance_binding_count; i++) {
+				gdextension_manager->untrack_instance_binding(_instance_bindings[i].token, this);
+			}
 		}
 	}
 #endif
@@ -2308,9 +2311,9 @@ void ObjectDB::setup() {
 }
 
 void ObjectDB::cleanup() {
-	if (slot_count > 0) {
-		spin_lock.lock();
+	spin_lock.lock();
 
+	if (slot_count > 0) {
 		WARN_PRINT("ObjectDB instances leaked at exit (run with --verbose for details).");
 		if (OS::get_singleton()->is_stdout_verbose()) {
 			// Ensure calling the native classes because if a leaked instance has a script
@@ -2341,10 +2344,11 @@ void ObjectDB::cleanup() {
 			}
 			print_line("Hint: Leaked instances typically happen when nodes are removed from the scene tree (with `remove_child()`) but not freed (with `free()` or `queue_free()`).");
 		}
-		spin_lock.unlock();
 	}
 
 	if (object_slots) {
 		memfree(object_slots);
 	}
+
+	spin_lock.unlock();
 }
