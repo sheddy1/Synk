@@ -402,6 +402,7 @@ public:
 	void focus_on_filter();
 
 	ScriptCreateDialog *get_script_create_dialog() const;
+	SceneCreateDialog *get_scene_create_dialog() const;
 
 	void fix_dependencies(const String &p_for_file);
 
