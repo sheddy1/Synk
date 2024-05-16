@@ -138,6 +138,7 @@ void ParallaxLayer::set_base_offset_and_scale(const Point2 &p_offset, real_t p_s
 	_update_mirroring();
 }
 
+#ifdef TOOLS_ENABLED
 Array ParallaxLayer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -147,6 +148,7 @@ Array ParallaxLayer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void ParallaxLayer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_motion_scale", "scale"), &ParallaxLayer::set_motion_scale);

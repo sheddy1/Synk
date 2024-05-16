@@ -241,15 +241,19 @@ int GPUParticles3D::get_draw_passes() const {
 void GPUParticles3D::set_draw_pass_mesh(int p_pass, const Ref<Mesh> &p_mesh) {
 	ERR_FAIL_INDEX(p_pass, draw_passes.size());
 
+#ifdef TOOLS_ENABLED
 	if (Engine::get_singleton()->is_editor_hint() && draw_passes.write[p_pass].is_valid()) {
 		draw_passes.write[p_pass]->disconnect_changed(callable_mp((Node *)this, &Node::update_configuration_info));
 	}
+#endif
 
 	draw_passes.write[p_pass] = p_mesh;
 
+#ifdef TOOLS_ENABLED
 	if (Engine::get_singleton()->is_editor_hint() && draw_passes.write[p_pass].is_valid()) {
 		draw_passes.write[p_pass]->connect_changed(callable_mp((Node *)this, &Node::update_configuration_info), CONNECT_DEFERRED);
 	}
+#endif
 
 	RID mesh_rid;
 	if (p_mesh.is_valid()) {
@@ -295,6 +299,7 @@ bool GPUParticles3D::get_interpolate() const {
 	return interpolate;
 }
 
+#ifdef TOOLS_ENABLED
 Array GPUParticles3D::get_configuration_info() const {
 	Array warnings = GeometryInstance3D::get_configuration_info();
 
@@ -395,6 +400,7 @@ Array GPUParticles3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void GPUParticles3D::restart() {
 	RenderingServer::get_singleton()->particles_restart(particles);

@@ -232,7 +232,9 @@ public:
 
 	TypedArray<Node2D> get_colliding_bodies() const; //function for script
 
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const override;
+#endif
 
 	RigidBody2D();
 	~RigidBody2D();

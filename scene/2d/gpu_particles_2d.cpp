@@ -326,6 +326,7 @@ float GPUParticles2D::get_interp_to_end() const {
 	return interp_to_end_factor;
 }
 
+#ifdef TOOLS_ENABLED
 Array GPUParticles2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
@@ -354,6 +355,7 @@ Array GPUParticles2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 Rect2 GPUParticles2D::capture_rect() const {
 	AABB aabb = RS::get_singleton()->particles_get_current_aabb(particles);

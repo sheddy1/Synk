@@ -195,6 +195,7 @@ void Container::_notification(int p_what) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array Container::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
@@ -204,6 +205,7 @@ Array Container::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Container::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("queue_sort"), &Container::queue_sort);

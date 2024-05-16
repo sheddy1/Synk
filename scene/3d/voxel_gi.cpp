@@ -517,6 +517,7 @@ AABB VoxelGI::get_aabb() const {
 	return AABB(-size / 2, size);
 }
 
+#ifdef TOOLS_ENABLED
 Array VoxelGI::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -527,6 +528,7 @@ Array VoxelGI::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void VoxelGI::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_probe_data", "data"), &VoxelGI::set_probe_data);

@@ -231,6 +231,7 @@ bool CollisionPolygon2D::_edit_is_selected_on_click(const Point2 &p_point, doubl
 }
 #endif
 
+#ifdef TOOLS_ENABLED
 Array CollisionPolygon2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -259,6 +260,7 @@ Array CollisionPolygon2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CollisionPolygon2D::set_disabled(bool p_disabled) {
 	disabled = p_disabled;

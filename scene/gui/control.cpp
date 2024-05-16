@@ -246,6 +246,7 @@ void Control::get_argument_options(const StringName &p_function, int p_idx, List
 }
 #endif
 
+#ifdef TOOLS_ENABLED
 Array Control::get_configuration_info() const {
 	ERR_READ_THREAD_GUARD_V(Array());
 	Array warnings = Node::get_configuration_info();
@@ -258,6 +259,7 @@ Array Control::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 bool Control::is_text_field() const {
 	ERR_READ_THREAD_GUARD_V(false);

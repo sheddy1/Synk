@@ -215,6 +215,7 @@ bool Joint2D::get_exclude_nodes_from_collision() const {
 	return exclude_from_collision;
 }
 
+#ifdef TOOLS_ENABLED
 Array Joint2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
@@ -224,6 +225,7 @@ Array Joint2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Joint2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_node_a", "node"), &Joint2D::set_node_a);

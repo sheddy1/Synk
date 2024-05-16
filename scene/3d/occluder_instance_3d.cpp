@@ -693,6 +693,7 @@ OccluderInstance3D::BakeError OccluderInstance3D::bake_scene(Node *p_from_node, 
 	return BAKE_ERROR_OK;
 }
 
+#ifdef TOOLS_ENABLED
 Array OccluderInstance3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -725,6 +726,7 @@ Array OccluderInstance3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 bool OccluderInstance3D::_is_editable_3d_polygon() const {
 	return Ref<PolygonOccluder3D>(occluder).is_valid();

@@ -568,6 +568,7 @@ StringName AnimatedSprite2D::get_animation() const {
 	return animation;
 }
 
+#ifdef TOOLS_ENABLED
 Array AnimatedSprite2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 	if (frames.is_null()) {
@@ -577,6 +578,7 @@ Array AnimatedSprite2D::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 #ifdef TOOLS_ENABLED
 void AnimatedSprite2D::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {

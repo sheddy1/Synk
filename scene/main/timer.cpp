@@ -180,6 +180,7 @@ void Timer::_set_process(bool p_process, bool p_force) {
 	processing = p_process;
 }
 
+#ifdef TOOLS_ENABLED
 Array Timer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -189,6 +190,7 @@ Array Timer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Timer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_wait_time", "time_sec"), &Timer::set_wait_time);

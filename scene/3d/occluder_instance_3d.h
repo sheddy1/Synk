@@ -181,7 +181,9 @@ protected:
 	static void _bind_methods();
 
 public:
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const override;
+#endif
 
 	enum BakeError {
 		BAKE_ERROR_OK,

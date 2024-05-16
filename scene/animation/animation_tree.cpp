@@ -679,6 +679,7 @@ uint64_t AnimationTree::get_last_process_pass() const {
 	return process_pass;
 }
 
+#ifdef TOOLS_ENABLED
 Array AnimationTree::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 	if (!root_animation_node.is_valid()) {
@@ -686,6 +687,7 @@ Array AnimationTree::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void AnimationTree::_tree_changed() {
 	if (properties_dirty) {

@@ -173,6 +173,7 @@ bool CollisionShape2D::_edit_is_selected_on_click(const Point2 &p_point, double 
 	return shape->_edit_is_selected_on_click(p_point, p_tolerance);
 }
 
+#ifdef TOOLS_ENABLED
 Array CollisionShape2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -197,6 +198,7 @@ Array CollisionShape2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CollisionShape2D::set_disabled(bool p_disabled) {
 	disabled = p_disabled;

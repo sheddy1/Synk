@@ -245,6 +245,7 @@ bool CPUParticles2D::get_fractional_delta() const {
 	return fractional_delta;
 }
 
+#ifdef TOOLS_ENABLED
 Array CPUParticles2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
@@ -259,6 +260,7 @@ Array CPUParticles2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CPUParticles2D::restart() {
 	time = 0;

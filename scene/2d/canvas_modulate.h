@@ -54,7 +54,9 @@ public:
 	void set_color(const Color &p_color);
 	Color get_color() const;
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	CanvasModulate();
 	~CanvasModulate();

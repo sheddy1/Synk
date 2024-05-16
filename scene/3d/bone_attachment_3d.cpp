@@ -88,6 +88,7 @@ void BoneAttachment3D::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array BoneAttachment3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 
@@ -108,6 +109,7 @@ Array BoneAttachment3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void BoneAttachment3D::_update_external_skeleton_cache() {
 	external_skeleton_node_cache = ObjectID();

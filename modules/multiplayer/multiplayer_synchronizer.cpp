@@ -143,6 +143,7 @@ bool MultiplayerSynchronizer::update_inbound_sync_time(uint16_t p_network_time) 
 	return true;
 }
 
+#ifdef TOOLS_ENABLED
 Array MultiplayerSynchronizer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -154,6 +155,7 @@ Array MultiplayerSynchronizer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 Error MultiplayerSynchronizer::get_state(const List<NodePath> &p_properties, Object *p_obj, Vector<Variant> &r_variant, Vector<const Variant *> &r_variant_ptrs) {
 	ERR_FAIL_NULL_V(p_obj, ERR_INVALID_PARAMETER);

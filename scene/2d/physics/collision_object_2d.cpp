@@ -581,6 +581,7 @@ void CollisionObject2D::_update_pickable() {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array CollisionObject2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -590,6 +591,7 @@ Array CollisionObject2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CollisionObject2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rid"), &CollisionObject2D::get_rid);

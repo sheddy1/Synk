@@ -429,6 +429,7 @@ bool BaseButton::_was_pressed_by_mouse() const {
 	return was_mouse_pressed;
 }
 
+#ifdef TOOLS_ENABLED
 Array BaseButton::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
@@ -438,6 +439,7 @@ Array BaseButton::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void BaseButton::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_pressed", "pressed"), &BaseButton::set_pressed);

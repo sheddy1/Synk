@@ -202,6 +202,7 @@ bool CPUParticles3D::get_fractional_delta() const {
 	return fractional_delta;
 }
 
+#ifdef TOOLS_ENABLED
 Array CPUParticles3D::get_configuration_info() const {
 	Array warnings = GeometryInstance3D::get_configuration_info();
 
@@ -231,6 +232,7 @@ Array CPUParticles3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CPUParticles3D::restart() {
 	time = 0;

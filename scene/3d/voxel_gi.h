@@ -163,7 +163,9 @@ public:
 
 	virtual AABB get_aabb() const override;
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	VoxelGI();
 	~VoxelGI();

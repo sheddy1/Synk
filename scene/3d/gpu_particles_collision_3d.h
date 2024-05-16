@@ -170,7 +170,9 @@ protected:
 #endif // DISABLE_DEPRECATED
 
 public:
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const override;
+#endif
 
 	void set_thickness(float p_thickness);
 	float get_thickness() const;

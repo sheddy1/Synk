@@ -200,6 +200,7 @@ void RemoteTransform3D::force_update_cache() {
 	_update_cache();
 }
 
+#ifdef TOOLS_ENABLED
 Array RemoteTransform3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -211,6 +212,7 @@ Array RemoteTransform3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void RemoteTransform3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_remote_node", "path"), &RemoteTransform3D::set_remote_node);

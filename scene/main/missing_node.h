@@ -59,7 +59,9 @@ public:
 	void set_recording_properties(bool p_enable);
 	bool is_recording_properties() const;
 
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const override;
+#endif
 
 	MissingNode();
 };

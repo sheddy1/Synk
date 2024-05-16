@@ -106,6 +106,7 @@ void PhysicalBone2D::_find_joint_child() {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array PhysicalBone2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -124,6 +125,7 @@ Array PhysicalBone2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void PhysicalBone2D::_auto_configure_joint() {
 	if (!auto_configure_joint) {

@@ -396,6 +396,7 @@ bool OpenXRCompositionLayer::_set(const StringName &p_property, const Variant &p
 	return true;
 }
 
+#ifdef TOOLS_ENABLED
 Array OpenXRCompositionLayer::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 
@@ -416,3 +417,4 @@ Array OpenXRCompositionLayer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif

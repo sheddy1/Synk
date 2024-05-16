@@ -105,6 +105,7 @@ void VehicleWheel3D::_notification(int p_what) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array VehicleWheel3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -114,6 +115,7 @@ Array VehicleWheel3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void VehicleWheel3D::_update(PhysicsDirectBodyState3D *s) {
 	if (m_raycastInfo.m_isInContact) {

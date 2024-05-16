@@ -145,9 +145,10 @@ public:
 	//helps keep IDs same number when loading/saving scenes. -1 clears ID and it Returns -1 when no id stored
 	void set_id_for_path(const String &p_path, const String &p_id);
 	String get_id_for_path(const String &p_path) const;
+
+	virtual Array get_configuration_info() const;
 #endif
 
-	Array get_configuration_info() const;
 	void update_configuration_info();
 
 	Resource();

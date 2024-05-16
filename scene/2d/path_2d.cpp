@@ -287,6 +287,7 @@ void PathFollow2D::_validate_property(PropertyInfo &p_property) const {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array PathFollow2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -298,6 +299,7 @@ Array PathFollow2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void PathFollow2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_progress", "progress"), &PathFollow2D::set_progress);

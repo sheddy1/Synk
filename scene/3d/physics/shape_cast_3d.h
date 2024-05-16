@@ -142,7 +142,9 @@ public:
 	void remove_exception(const CollisionObject3D *p_node);
 	void clear_exceptions();
 
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const override;
+#endif
 };
 
 #endif // SHAPE_CAST_3D_H

@@ -93,7 +93,9 @@ public:
 	void set_travel_cost(real_t p_travel_cost);
 	real_t get_travel_cost() const { return travel_cost; }
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	NavigationLink2D();
 	~NavigationLink2D();

@@ -376,6 +376,7 @@ void SoftBody3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(DISABLE_MODE_KEEP_ACTIVE);
 }
 
+#ifdef TOOLS_ENABLED
 Array SoftBody3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -385,6 +386,7 @@ Array SoftBody3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void SoftBody3D::_update_physics_server() {
 	if (!simulation_started) {

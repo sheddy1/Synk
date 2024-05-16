@@ -2305,6 +2305,7 @@ void LineEdit::_emit_text_change() {
 	emit_signal(SNAME("text_changed"), text);
 	text_changed_dirty = false;
 }
+#ifdef TOOLS_ENABLED
 Array LineEdit::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 	if (secret_character.length() > 1) {
@@ -2314,6 +2315,7 @@ Array LineEdit::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void LineEdit::_shape() {
 	const Ref<Font> &font = theme_cache.font;

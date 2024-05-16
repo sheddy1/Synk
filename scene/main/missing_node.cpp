@@ -82,6 +82,7 @@ bool MissingNode::is_recording_properties() const {
 	return recording_properties;
 }
 
+#ifdef TOOLS_ENABLED
 Array MissingNode::get_configuration_info() const {
 	// The mere existence of this node is warning.
 	Array ret;
@@ -96,6 +97,7 @@ Array MissingNode::get_configuration_info() const {
 	}
 	return ret;
 }
+#endif
 
 void MissingNode::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_original_class", "name"), &MissingNode::set_original_class);

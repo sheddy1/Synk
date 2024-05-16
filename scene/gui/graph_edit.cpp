@@ -251,6 +251,7 @@ Control::CursorShape GraphEdit::get_cursor_shape(const Point2 &p_pos) const {
 	return Control::get_cursor_shape(p_pos);
 }
 
+#ifdef TOOLS_ENABLED
 Array GraphEdit::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
@@ -258,6 +259,7 @@ Array GraphEdit::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 Error GraphEdit::connect_node(const StringName &p_from, int p_from_port, const StringName &p_to, int p_to_port) {
 	if (is_node_connected(p_from, p_from_port, p_to, p_to_port)) {

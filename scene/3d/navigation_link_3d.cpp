@@ -458,6 +458,7 @@ void NavigationLink3D::set_travel_cost(real_t p_travel_cost) {
 	NavigationServer3D::get_singleton()->link_set_travel_cost(link, travel_cost);
 }
 
+#ifdef TOOLS_ENABLED
 Array NavigationLink3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -467,3 +468,4 @@ Array NavigationLink3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif

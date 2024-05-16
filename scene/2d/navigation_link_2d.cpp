@@ -337,6 +337,7 @@ void NavigationLink2D::set_travel_cost(real_t p_travel_cost) {
 	NavigationServer2D::get_singleton()->link_set_travel_cost(link, travel_cost);
 }
 
+#ifdef TOOLS_ENABLED
 Array NavigationLink2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -346,6 +347,7 @@ Array NavigationLink2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 NavigationLink2D::NavigationLink2D() {
 	link = NavigationServer2D::get_singleton()->link_create();

@@ -335,6 +335,7 @@ inline void draw_glyph_outline(const Glyph &p_gl, const RID &p_canvas, const Col
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array Label::get_configuration_info() const {
 	Array warnings = Control::get_configuration_info();
 
@@ -381,6 +382,7 @@ Array Label::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Label::_notification(int p_what) {
 	switch (p_what) {

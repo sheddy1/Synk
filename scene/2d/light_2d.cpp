@@ -416,6 +416,7 @@ Vector2 PointLight2D::get_texture_offset() const {
 	return texture_offset;
 }
 
+#ifdef TOOLS_ENABLED
 Array PointLight2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -427,6 +428,7 @@ Array PointLight2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void PointLight2D::set_texture_scale(real_t p_scale) {
 	_scale = p_scale;

@@ -638,6 +638,7 @@ void RigidBody2D::_notification(int p_what) {
 #endif
 }
 
+#ifdef TOOLS_ENABLED
 Array RigidBody2D::get_configuration_info() const {
 	Transform2D t = get_transform();
 
@@ -649,6 +650,7 @@ Array RigidBody2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void RigidBody2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mass", "mass"), &RigidBody2D::set_mass);

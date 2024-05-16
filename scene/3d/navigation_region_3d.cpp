@@ -270,6 +270,7 @@ bool NavigationRegion3D::is_baking() const {
 	return NavigationServer3D::get_singleton()->is_baking_navigation_mesh(navigation_mesh);
 }
 
+#ifdef TOOLS_ENABLED
 Array NavigationRegion3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -281,6 +282,7 @@ Array NavigationRegion3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void NavigationRegion3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rid"), &NavigationRegion3D::get_rid);

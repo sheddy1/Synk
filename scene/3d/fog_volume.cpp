@@ -115,6 +115,7 @@ AABB FogVolume::get_aabb() const {
 	return AABB();
 }
 
+#ifdef TOOLS_ENABLED
 Array FogVolume::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -131,6 +132,7 @@ Array FogVolume::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 FogVolume::FogVolume() {
 	volume = RS::get_singleton()->fog_volume_create();

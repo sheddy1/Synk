@@ -236,7 +236,9 @@ public:
 	GDVIRTUAL3(_tile_data_runtime_update, int, Vector2i, TileData *);
 
 	// Configuration warnings.
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	TileMap();
 };

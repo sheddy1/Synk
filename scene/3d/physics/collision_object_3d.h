@@ -173,7 +173,9 @@ public:
 
 	_FORCE_INLINE_ RID get_rid() const { return rid; }
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	CollisionObject3D();
 	~CollisionObject3D();

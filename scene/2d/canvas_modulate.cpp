@@ -113,6 +113,7 @@ Color CanvasModulate::get_color() const {
 	return color;
 }
 
+#ifdef TOOLS_ENABLED
 Array CanvasModulate::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -127,6 +128,7 @@ Array CanvasModulate::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 CanvasModulate::CanvasModulate() {
 }

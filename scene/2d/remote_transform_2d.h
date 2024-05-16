@@ -70,7 +70,9 @@ public:
 
 	void force_update_cache();
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	RemoteTransform2D();
 };

@@ -727,6 +727,7 @@ bool CollisionObject3D::get_capture_input_on_drag() const {
 	return capture_input_on_drag;
 }
 
+#ifdef TOOLS_ENABLED
 Array CollisionObject3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -741,6 +742,7 @@ Array CollisionObject3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 CollisionObject3D::CollisionObject3D() {
 	set_notify_transform(true);

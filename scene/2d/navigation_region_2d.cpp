@@ -277,6 +277,7 @@ void NavigationRegion2D::_navigation_debug_changed() {
 }
 #endif // DEBUG_ENABLED
 
+#ifdef TOOLS_ENABLED
 Array NavigationRegion2D::get_configuration_info() const {
 	Array warnings = Node2D::get_configuration_info();
 
@@ -290,6 +291,7 @@ Array NavigationRegion2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void NavigationRegion2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_rid"), &NavigationRegion2D::get_rid);

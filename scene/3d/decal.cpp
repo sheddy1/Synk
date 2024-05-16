@@ -162,6 +162,7 @@ void Decal::_validate_property(PropertyInfo &p_property) const {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array Decal::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -186,6 +187,7 @@ Array Decal::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Decal::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_size", "size"), &Decal::set_size);

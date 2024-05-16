@@ -3318,6 +3318,7 @@ void Node::update_configuration_warnings() {
 }
 #endif // DISABLE_DEPRECATED
 
+#ifdef TOOLS_ENABLED
 Array Node::get_configuration_info() const {
 	ERR_THREAD_GUARD_V(Array());
 	Array ret;
@@ -3329,6 +3330,7 @@ Array Node::get_configuration_info() const {
 
 	return ret;
 }
+#endif
 
 void Node::update_configuration_info() {
 	ERR_THREAD_GUARD
@@ -3669,7 +3671,9 @@ void Node::_bind_methods() {
 #ifndef DISABLE_DEPRECATED
 	ClassDB::bind_method(D_METHOD("update_configuration_warnings"), &Node::update_configuration_warnings);
 #endif
+#ifdef TOOLS_ENABLED
 	ClassDB::bind_method(D_METHOD("update_configuration_info"), &Node::update_configuration_info);
+#endif
 
 	{
 		MethodInfo mi;
@@ -3813,7 +3817,9 @@ void Node::_bind_methods() {
 #ifndef DISABLE_DEPRECATED
 	GDVIRTUAL_BIND(_get_configuration_warnings);
 #endif
+#ifdef TOOLS_ENABLED
 	GDVIRTUAL_BIND(_get_configuration_info);
+#endif
 	GDVIRTUAL_BIND(_input, "event");
 	GDVIRTUAL_BIND(_shortcut_input, "event");
 	GDVIRTUAL_BIND(_unhandled_input, "event");

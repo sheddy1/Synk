@@ -179,6 +179,7 @@ void ShapeCast3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "debug_shape_custom_color"), "set_debug_shape_custom_color", "get_debug_shape_custom_color");
 }
 
+#ifdef TOOLS_ENABLED
 Array ShapeCast3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 
@@ -190,6 +191,7 @@ Array ShapeCast3D::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void ShapeCast3D::set_enabled(bool p_enabled) {
 	enabled = p_enabled;

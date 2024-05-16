@@ -194,7 +194,9 @@ public:
 	void set_ignore_occlusion_culling(bool p_enabled);
 	bool is_ignoring_occlusion_culling();
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 	GeometryInstance3D();
 	virtual ~GeometryInstance3D();
 };

@@ -658,6 +658,7 @@ void RigidBody3D::_reload_physics_characteristics() {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array RigidBody3D::get_configuration_info() const {
 	Array warnings = CollisionObject3D::get_configuration_info();
 
@@ -668,6 +669,7 @@ Array RigidBody3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void RigidBody3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_mass", "mass"), &RigidBody3D::set_mass);

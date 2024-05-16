@@ -1577,6 +1577,7 @@ Ref<CameraAttributes> LightmapGI::get_camera_attributes() const {
 	return camera_attributes;
 }
 
+#ifdef TOOLS_ENABLED
 Array LightmapGI::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -1587,6 +1588,7 @@ Array LightmapGI::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void LightmapGI::_validate_property(PropertyInfo &p_property) const {
 	if (p_property.name == "environment_custom_sky" && environment_mode != ENVIRONMENT_MODE_CUSTOM_SKY) {

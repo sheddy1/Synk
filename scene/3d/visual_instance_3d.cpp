@@ -424,6 +424,7 @@ bool GeometryInstance3D::is_ignoring_occlusion_culling() {
 	return ignore_occlusion_culling;
 }
 
+#ifdef TOOLS_ENABLED
 Array GeometryInstance3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -449,6 +450,7 @@ Array GeometryInstance3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void GeometryInstance3D::_validate_property(PropertyInfo &p_property) const {
 	if (p_property.name == "sorting_offset" || p_property.name == "sorting_use_aabb_center") {

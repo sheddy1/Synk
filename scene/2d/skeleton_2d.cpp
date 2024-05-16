@@ -415,6 +415,7 @@ int Bone2D::get_index_in_skeleton() const {
 	return skeleton_index;
 }
 
+#ifdef TOOLS_ENABLED
 Array Bone2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 	if (!skeleton) {
@@ -431,6 +432,7 @@ Array Bone2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Bone2D::calculate_length_and_rotation() {
 	// If there is at least a single child Bone2D node, we can calculate

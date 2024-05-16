@@ -181,6 +181,7 @@ Ref<Compositor> WorldEnvironment::get_compositor() const {
 	return compositor;
 }
 
+#ifdef TOOLS_ENABLED
 Array WorldEnvironment::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -206,6 +207,7 @@ Array WorldEnvironment::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void WorldEnvironment::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_environment", "env"), &WorldEnvironment::set_environment);

@@ -179,7 +179,9 @@ void Path3D::_curve_changed() {
 		for (int i = 0; i < get_child_count(); i++) {
 			PathFollow3D *child = Object::cast_to<PathFollow3D>(get_child(i));
 			if (child) {
+#ifdef TOOLS_ENABLED
 				child->update_configuration_info();
+#endif
 				child->update_transform();
 			}
 		}
@@ -317,6 +319,7 @@ void PathFollow3D::_validate_property(PropertyInfo &p_property) const {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array PathFollow3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -333,6 +336,7 @@ Array PathFollow3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 Transform3D PathFollow3D::correct_posture(Transform3D p_transform, PathFollow3D::RotationMode p_rotation_mode) {
 	Transform3D t = p_transform;

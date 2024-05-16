@@ -86,6 +86,7 @@ void MultiplayerSpawner::_get_property_list(List<PropertyInfo> *p_list) const {
 }
 #endif
 
+#ifdef TOOLS_ENABLED
 Array MultiplayerSpawner::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -96,6 +97,7 @@ Array MultiplayerSpawner::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void MultiplayerSpawner::add_spawnable_scene(const String &p_path) {
 	SpawnableScene sc;

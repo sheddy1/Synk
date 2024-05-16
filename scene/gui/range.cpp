@@ -30,6 +30,7 @@
 
 #include "range.h"
 
+#ifdef TOOLS_ENABLED
 Array Range::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -39,6 +40,7 @@ Array Range::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Range::_value_changed(double p_value) {
 	GDVIRTUAL_CALL(_value_changed, p_value);

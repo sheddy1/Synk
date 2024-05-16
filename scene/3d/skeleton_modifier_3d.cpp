@@ -34,6 +34,7 @@ void SkeletonModifier3D::_validate_property(PropertyInfo &p_property) const {
 	//
 }
 
+#ifdef TOOLS_ENABLED
 Array SkeletonModifier3D::get_configuration_info() const {
 	Array warnings = Node3D::get_configuration_info();
 	if (skeleton_id.is_null()) {
@@ -41,6 +42,7 @@ Array SkeletonModifier3D::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 /* Skeleton3D */
 

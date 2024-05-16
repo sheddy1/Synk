@@ -76,6 +76,7 @@ void XRCamera3D::_pose_changed(const Ref<XRPose> &p_pose) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array XRCamera3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -89,7 +90,8 @@ Array XRCamera3D::get_configuration_info() const {
 	}
 
 	return warnings;
-};
+}
+#endif
 
 Vector3 XRCamera3D::project_local_ray_normal(const Point2 &p_pos) const {
 	// get our XRServer
@@ -442,6 +444,7 @@ XRNode3D::~XRNode3D() {
 	xr_server->disconnect("tracker_removed", callable_mp(this, &XRNode3D::_removed_tracker));
 }
 
+#ifdef TOOLS_ENABLED
 Array XRNode3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -464,6 +467,7 @@ Array XRNode3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -625,6 +629,7 @@ Plane XRAnchor3D::get_plane() const {
 
 Vector<XROrigin3D *> XROrigin3D::origin_nodes;
 
+#ifdef TOOLS_ENABLED
 Array XROrigin3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -650,6 +655,7 @@ Array XROrigin3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void XROrigin3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_world_scale", "world_scale"), &XROrigin3D::set_world_scale);

@@ -599,7 +599,9 @@ public:
 	Control *gui_get_focus_owner() const;
 	Control *gui_get_hovered_control() const;
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	void set_debug_draw(DebugDraw p_debug_draw);
 	DebugDraw get_debug_draw() const;

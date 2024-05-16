@@ -528,6 +528,7 @@ String Resource::get_id_for_path(const String &p_path) const {
 }
 #endif
 
+#ifdef TOOLS_ENABLED
 Array Resource::get_configuration_info() const {
 	Array ret;
 
@@ -538,6 +539,7 @@ Array Resource::get_configuration_info() const {
 
 	return ret;
 }
+#endif
 
 void Resource::update_configuration_info() {
 #ifdef TOOLS_ENABLED

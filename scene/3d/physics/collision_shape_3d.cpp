@@ -119,6 +119,7 @@ void CollisionShape3D::resource_changed(Ref<Resource> res) {
 }
 #endif
 
+#ifdef TOOLS_ENABLED
 Array CollisionShape3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -157,6 +158,7 @@ Array CollisionShape3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void CollisionShape3D::_bind_methods() {
 #ifndef DISABLE_DEPRECATED

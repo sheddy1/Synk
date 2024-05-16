@@ -523,6 +523,7 @@ Ref<Image> GPUParticlesCollisionSDF3D::bake() {
 	return ret;
 }
 
+#ifdef TOOLS_ENABLED
 Array GPUParticlesCollisionSDF3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -534,6 +535,7 @@ Array GPUParticlesCollisionSDF3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void GPUParticlesCollisionSDF3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_size", "size"), &GPUParticlesCollisionSDF3D::set_size);

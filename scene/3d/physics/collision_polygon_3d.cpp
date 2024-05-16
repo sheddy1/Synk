@@ -168,6 +168,7 @@ void CollisionPolygon3D::set_margin(real_t p_margin) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array CollisionPolygon3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -186,6 +187,7 @@ Array CollisionPolygon3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 bool CollisionPolygon3D::_is_editable_3d_polygon() const {
 	return true;

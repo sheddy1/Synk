@@ -58,7 +58,9 @@ protected:
 	static void _bind_methods();
 
 public:
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	ShaderGlobalsOverride();
 };

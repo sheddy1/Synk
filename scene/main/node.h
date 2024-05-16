@@ -356,7 +356,9 @@ protected:
 #ifndef DISABLE_DEPRECATED
 	GDVIRTUAL0RC(Vector<String>, _get_configuration_warnings)
 #endif
+#ifdef TOOLS_ENABLED
 	GDVIRTUAL0RC(Array, _get_configuration_info)
+#endif
 
 	GDVIRTUAL1(_input, Ref<InputEvent>)
 	GDVIRTUAL1(_shortcut_input, Ref<InputEvent>)
@@ -687,7 +689,9 @@ public:
 	void update_configuration_warnings();
 #endif
 
+#ifdef TOOLS_ENABLED
 	virtual Array get_configuration_info() const;
+#endif
 
 	void update_configuration_info();
 

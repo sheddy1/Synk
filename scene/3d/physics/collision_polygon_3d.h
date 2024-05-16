@@ -74,7 +74,9 @@ public:
 	real_t get_margin() const;
 	void set_margin(real_t p_margin);
 
+#ifdef TOOLS_ENABLED
 	Array get_configuration_info() const override;
+#endif
 
 	CollisionPolygon3D();
 };

@@ -716,6 +716,7 @@ void NavigationAgent3D::_avoidance_done(Vector3 p_new_velocity) {
 	emit_signal(SNAME("velocity_computed"), safe_velocity);
 }
 
+#ifdef TOOLS_ENABLED
 Array NavigationAgent3D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -725,6 +726,7 @@ Array NavigationAgent3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void NavigationAgent3D::_update_navigation() {
 	if (agent_parent == nullptr) {

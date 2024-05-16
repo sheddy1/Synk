@@ -530,6 +530,7 @@ void ScrollContainer::set_follow_focus(bool p_follow) {
 	follow_focus = p_follow;
 }
 
+#ifdef TOOLS_ENABLED
 Array ScrollContainer::get_configuration_info() const {
 	Array warnings = Container::get_configuration_info();
 
@@ -553,6 +554,7 @@ Array ScrollContainer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 HScrollBar *ScrollContainer::get_h_scroll_bar() {
 	return h_scroll;

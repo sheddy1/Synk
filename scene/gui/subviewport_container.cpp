@@ -258,6 +258,7 @@ void SubViewportContainer::remove_child_notify(Node *p_child) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array SubViewportContainer::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -278,6 +279,7 @@ Array SubViewportContainer::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void SubViewportContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_stretch", "enable"), &SubViewportContainer::set_stretch);

@@ -169,6 +169,7 @@ AABB Light3D::get_aabb() const {
 	return AABB();
 }
 
+#ifdef TOOLS_ENABLED
 Array Light3D::get_configuration_info() const {
 	Array warnings = VisualInstance3D::get_configuration_info();
 
@@ -178,6 +179,7 @@ Array Light3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void Light3D::set_bake_mode(BakeMode p_mode) {
 	bake_mode = p_mode;
@@ -596,6 +598,7 @@ OmniLight3D::ShadowMode OmniLight3D::get_shadow_mode() const {
 	return shadow_mode;
 }
 
+#ifdef TOOLS_ENABLED
 Array OmniLight3D::get_configuration_info() const {
 	Array warnings = Light3D::get_configuration_info();
 
@@ -609,6 +612,7 @@ Array OmniLight3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void OmniLight3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_shadow_mode", "mode"), &OmniLight3D::set_shadow_mode);
@@ -628,6 +632,7 @@ OmniLight3D::OmniLight3D() :
 	set_shadow_mode(SHADOW_CUBE);
 }
 
+#ifdef TOOLS_ENABLED
 Array SpotLight3D::get_configuration_info() const {
 	Array warnings = Light3D::get_configuration_info();
 
@@ -645,6 +650,7 @@ Array SpotLight3D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void SpotLight3D::_bind_methods() {
 	ADD_GROUP("Spot", "spot_");

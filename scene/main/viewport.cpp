@@ -3388,6 +3388,7 @@ Variant Viewport::gui_get_drag_data() const {
 	return gui.drag_data;
 }
 
+#ifdef TOOLS_ENABLED
 Array Viewport::get_configuration_info() const {
 	ERR_MAIN_THREAD_GUARD_V(Array());
 	Array warnings = Node::get_configuration_info();
@@ -3397,6 +3398,7 @@ Array Viewport::get_configuration_info() const {
 	}
 	return warnings;
 }
+#endif
 
 void Viewport::gui_reset_canvas_sort_index() {
 	ERR_MAIN_THREAD_GUARD;

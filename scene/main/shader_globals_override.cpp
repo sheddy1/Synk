@@ -239,7 +239,7 @@ void ShaderGlobalsOverride::_activate() {
 				}
 			}
 
-			update_configuration_info(); //may have activated
+			update_configuration_info();
 		}
 	}
 }
@@ -270,6 +270,7 @@ void ShaderGlobalsOverride::_notification(int p_what) {
 	}
 }
 
+#ifdef TOOLS_ENABLED
 Array ShaderGlobalsOverride::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -279,6 +280,7 @@ Array ShaderGlobalsOverride::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void ShaderGlobalsOverride::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_activate"), &ShaderGlobalsOverride::_activate);

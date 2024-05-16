@@ -899,6 +899,7 @@ TypedArray<Vector2i> TileMap::get_surrounding_cells(const Vector2i &p_coords) {
 	return tile_set->get_surrounding_cells(p_coords);
 }
 
+#ifdef TOOLS_ENABLED
 Array TileMap::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -959,6 +960,7 @@ Array TileMap::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void TileMap::_bind_methods() {
 #ifndef DISABLE_DEPRECATED

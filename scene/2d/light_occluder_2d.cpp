@@ -262,6 +262,7 @@ int LightOccluder2D::get_occluder_light_mask() const {
 	return mask;
 }
 
+#ifdef TOOLS_ENABLED
 Array LightOccluder2D::get_configuration_info() const {
 	Array warnings = Node::get_configuration_info();
 
@@ -275,6 +276,7 @@ Array LightOccluder2D::get_configuration_info() const {
 
 	return warnings;
 }
+#endif
 
 void LightOccluder2D::set_as_sdf_collision(bool p_enable) {
 	sdf_collision = p_enable;
