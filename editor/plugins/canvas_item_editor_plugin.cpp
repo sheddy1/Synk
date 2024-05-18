@@ -5706,7 +5706,7 @@ void CanvasItemEditorViewport::_on_select_type(Object *selected) {
 	CheckBox *check = Object::cast_to<CheckBox>(selected);
 	String type = check->get_text();
 	selector->set_title(vformat(TTR("Add %s"), type));
-	label->set_text(vformat(TTR("Adding %s..."), type));
+	dropping_tooltip_label->set_text(vformat(TTR("Adding %s..."), type));
 }
 
 void CanvasItemEditorViewport::_on_change_type_confirmed() {
@@ -5741,17 +5741,20 @@ void CanvasItemEditorViewport::_create_preview(const Vector<String> &files) cons
 				sprite->set_texture(texture);
 				sprite->set_modulate(Color(1, 1, 1, 0.7f));
 				preview_node->add_child(sprite);
-				label->show();
-				label_desc->show();
+				dropping_tooltip_label->show();
+				dropping_tooltip_label_desc->show();
+				dropping_tooltip_label->set_text(vformat(TTR("Adding %s..."), default_texture_node_type));
 				desc += "\n" + TTR("Hold Alt + Shift when dropping to add as a different node type.");
-				label_desc->set_text(desc);
+				dropping_tooltip_label_desc->set_text(desc);
 			} else {
 				if (scene.is_valid()) {
 					Node *instance = scene->instantiate();
 					if (instance) {
 						preview_node->add_child(instance);
-						label_desc->show();
-						label_desc->set_text(desc);
+						dropping_tooltip_label->show();
+						dropping_tooltip_label_desc->show();
+						dropping_tooltip_label->set_text(TTR("Adding Scene..."));
+						dropping_tooltip_label_desc->set_text(desc);
 					}
 				}
 			}
@@ -5777,8 +5780,8 @@ void CanvasItemEditorViewport::_remove_preview() {
 		}
 		EditorNode::get_singleton()->get_scene_root()->remove_child(preview_node);
 
-		label->hide();
-		label_desc->hide();
+		dropping_tooltip_label->hide();
+		dropping_tooltip_label_desc->hide();
 	}
 }
 
@@ -5989,7 +5992,7 @@ void CanvasItemEditorViewport::_perform_drop_data() {
 bool CanvasItemEditorViewport::can_drop_data(const Point2 &p_point, const Variant &p_data) const {
 	Dictionary d = p_data;
 	if (!d.has("type") || (String(d["type"]) != "files")) {
-		label->hide();
+		dropping_tooltip_label->hide();
 		return false;
 	}
 
@@ -6048,7 +6051,6 @@ bool CanvasItemEditorViewport::can_drop_data(const Point2 &p_point, const Varian
 #define FORMAT(value) (TS->format_number(String::num(value, snap_step_decimals)))
 			Vector2 preview_node_pos = preview_node->get_global_position();
 			canvas_item_editor->message = TTR("Instantiating:") + " (" + FORMAT(preview_node_pos.x) + ", " + FORMAT(preview_node_pos.y) + ") px";
-			label->set_text(vformat(TTR("Adding %s..."), default_texture_node_type));
 		} else {
 			canvas_item_editor->message = TTR("Creating inherited scene from: ") + scene_file_path;
 		}
@@ -6131,7 +6133,7 @@ void CanvasItemEditorViewport::_update_theme() {
 		check->set_icon(get_editor_theme_icon(check->get_text()));
 	}
 
-	label->add_theme_color_override("font_color", get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
+	dropping_tooltip_label->add_theme_color_override("font_color", get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
 }
 
 void CanvasItemEditorViewport::_notification(int p_what) {
@@ -6201,19 +6203,19 @@ CanvasItemEditorViewport::CanvasItemEditorViewport(CanvasItemEditor *p_canvas_it
 		check->set_button_group(button_group);
 	}
 
-	label = memnew(Label);
-	label->add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1));
-	label->add_theme_constant_override("shadow_outline_size", 1 * EDSCALE);
-	label->hide();
-	canvas_item_editor->get_controls_container()->add_child(label);
+	dropping_tooltip_label = memnew(Label);
+	dropping_tooltip_label->add_theme_color_override("font_shadow_color", Color(0, 0, 0, 1));
+	dropping_tooltip_label->add_theme_constant_override("shadow_outline_size", 1 * EDSCALE);
+	dropping_tooltip_label->hide();
+	canvas_item_editor->get_controls_container()->add_child(dropping_tooltip_label);
 
-	label_desc = memnew(Label);
-	label_desc->add_theme_color_override("font_color", Color(0.6f, 0.6f, 0.6f, 1));
-	label_desc->add_theme_color_override("font_shadow_color", Color(0.2f, 0.2f, 0.2f, 1));
-	label_desc->add_theme_constant_override("shadow_outline_size", 1 * EDSCALE);
-	label_desc->add_theme_constant_override("line_spacing", 0);
-	label_desc->hide();
-	canvas_item_editor->get_controls_container()->add_child(label_desc);
+	dropping_tooltip_label_desc = memnew(Label);
+	dropping_tooltip_label_desc->add_theme_color_override("font_color", Color(0.6f, 0.6f, 0.6f, 1));
+	dropping_tooltip_label_desc->add_theme_color_override("font_shadow_color", Color(0.2f, 0.2f, 0.2f, 1));
+	dropping_tooltip_label_desc->add_theme_constant_override("shadow_outline_size", 1 * EDSCALE);
+	dropping_tooltip_label_desc->add_theme_constant_override("line_spacing", 0);
+	dropping_tooltip_label_desc->hide();
+	canvas_item_editor->get_controls_container()->add_child(dropping_tooltip_label_desc);
 
 	RS::get_singleton()->canvas_set_disable_scale(true);
 }
