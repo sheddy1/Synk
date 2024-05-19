@@ -24,7 +24,7 @@ float V_GGX(float NdotL, float NdotV, float alpha) {
 	// V_ SmithGGXCorrelated = G_SmithGGXCorrelated / (4.0 f * NdotL * NdotV ) ;
 
 	// This is the optimized version
-	// Caution : the " NdotL *" and " NdotV *" are explicitely inversed , this is not a mistake.
+	// Caution: the " NdotL *" and " NdotV *" are explicitly inversed, this is not a mistake.
 	float Lambda_GGXV = NdotL * sqrt_IEEE_int_approximation((-NdotV * alpha + NdotV) * NdotV + alpha);
 	float Lambda_GGXL = NdotV * sqrt_IEEE_int_approximation((-NdotL * alpha + NdotL) * NdotL + alpha);
 
