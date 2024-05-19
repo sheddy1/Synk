@@ -1,5 +1,14 @@
 // Functions related to lighting
 
+/* [Drobot2014a] Low Level Optimizations for GCN. */
+float sqrt_IEEE_int_approximation(float v) {
+    return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
+}
+
+vec2 sqrt_IEEE_int_approximation(vec2 v) {
+    return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
+}
+
 float D_GGX(float cos_theta_m, float alpha) {
 	float a = cos_theta_m * alpha;
 	float k = alpha / (1.0 - cos_theta_m * cos_theta_m + a * a);
@@ -205,7 +214,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 		float alpha_ggx = roughness * roughness;
 #if defined(LIGHT_ANISOTROPY_USED)
 
-		float aspect = sqrt(1.0 - anisotropy * 0.9);
+		float aspect = sqrt_IEEE_int_approximation(1.0 - anisotropy * 0.9);
 		float ax = alpha_ggx / aspect;
 		float ay = alpha_ggx * aspect;
 		float XdotH = dot(T, H);
@@ -343,7 +352,7 @@ float sample_omni_pcf_shadow(texture2D shadow, float blur_scale, vec2 coord, vec
 		bool do_flip = sample_coord_length_sqaured > 1.0;
 
 		if (do_flip) {
-			float len = sqrt(sample_coord_length_sqaured);
+			float len = sqrt_IEEE_int_approximation(sample_coord_length_sqaured);
 			sample_coord = sample_coord * (2.0 / len - 1.0);
 		}
 
@@ -575,7 +584,7 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 
 	if (sc_use_light_soft_shadows && omni_lights.data[idx].size > 0.0) {
 		float t = omni_lights.data[idx].size / max(0.001, light_length);
-		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
+		size_A = max(0.0, 1.0 - 1 / sqrt_IEEE_int_approximation(1 + t * t));
 	}
 
 #ifdef LIGHT_TRANSMITTANCE_USED
@@ -827,7 +836,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 v
 
 	if (sc_use_light_soft_shadows && spot_lights.data[idx].size > 0.0) {
 		float t = spot_lights.data[idx].size / max(0.001, light_length);
-		size_A = max(0.0, 1.0 - 1 / sqrt(1 + t * t));
+		size_A = max(0.0, 1.0 - 1 / sqrt_IEEE_int_approximation(1 + t * t));
 	}
 
 #ifdef LIGHT_TRANSMITTANCE_USED
