@@ -636,8 +636,8 @@ class CanvasItemEditorViewport : public Control {
 	AcceptDialog *accept = nullptr;
 	AcceptDialog *selector = nullptr;
 	Label *selector_label = nullptr;
-	Label *label = nullptr;
-	Label *label_desc = nullptr;
+	Label *dropping_tooltip_label = nullptr;
+	Label *dropping_tooltip_label_desc = nullptr;
 	VBoxContainer *btn_group = nullptr;
 	Ref<ButtonGroup> button_group;
 
