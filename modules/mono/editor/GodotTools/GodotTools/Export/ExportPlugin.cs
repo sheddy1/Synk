@@ -210,6 +210,7 @@ namespace GodotTools.Export
             List<string> outputPaths = new();
 
             bool embedBuildResults = ((bool)GetOption("dotnet/embed_build_outputs") || platform == OS.Platforms.Android) && platform != OS.Platforms.MacOS;
+            bool isGradleBuild = (bool)GetOption("gradle_build/use_gradle_build");
 
             foreach (PublishConfig config in targets)
             {
@@ -240,7 +241,6 @@ namespace GodotTools.Export
                     {
                         publishOutputDir = Path.Combine(GodotSharpDirs.ProjectBaseOutputPath, "godot-publish-dotnet",
                             $"{buildConfig}-{runtimeIdentifier}");
-
                     }
 
                     outputPaths.Add(publishOutputDir);
@@ -317,6 +317,45 @@ namespace GodotTools.Export
                             {
                                 if (embedBuildResults)
                                 {
+                                    if (platform == OS.Platforms.Android)
+                                    {
+                                        if (IsSharedObject(Path.GetFileName(path)))
+                                        {
+                                            AddSharedObject(path, tags: new string[] { arch },
+                                                Path.Join(projectDataDirName,
+                                                    Path.GetRelativePath(publishOutputDir,
+                                                        Path.GetDirectoryName(path)!)));
+
+                                            return;
+                                        }
+
+                                        bool IsSharedObject(string fileName)
+                                        {
+                                            if (fileName.StartsWith("libmono-component"))
+                                            {
+                                                // The mono components are automatically loaded by monosgen,
+                                                // but they need to be added as shared objects so they can be found.
+                                                return true;
+                                            }
+
+                                            if (fileName.EndsWith("System.Security.Cryptography.Native.Android.so"))
+                                            {
+                                                // This library is loaded from Java using `System.loadLibrary`,
+                                                // so it needs to be added as a shared object.
+                                                return true;
+                                            }
+
+                                            if (isGradleBuild && fileName.EndsWith(".jar"))
+                                            {
+                                                // In gradle builds, also copy the `.jar` files to the libs directory
+                                                // so it's included in the build.
+                                                return true;
+                                            }
+
+                                            return false;
+                                        }
+                                    }
+
                                     string filePath = SanitizeSlashes(Path.GetRelativePath(publishOutputDir, path));
                                     byte[] fileData = File.ReadAllBytes(path);
                                     string hash = Convert.ToBase64String(SHA512.HashData(fileData));
