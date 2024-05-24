@@ -165,7 +165,6 @@ vec3 multiview_uv(vec2 uv) {
 ivec3 multiview_uv(ivec2 uv) {
 	return ivec3(uv, int(ViewIndex));
 }
-layout(location = 11) out vec4 combined_projected;
 #else // USE_MULTIVIEW
 // Set to zero, not supported in non stereo
 #define ViewIndex 0
@@ -176,6 +175,7 @@ ivec2 multiview_uv(ivec2 uv) {
 	return uv;
 }
 #endif //USE_MULTIVIEW
+layout(location = 11) out vec4 combined_projected;
 #if !defined(MODE_RENDER_DEPTH) && !defined(MODE_UNSHADED) && defined(USE_VERTEX_LIGHTING)
 layout(location = 12) highp out vec4 diffuse_light_interp;
 layout(location = 13) highp out vec4 specular_light_interp;
@@ -641,26 +641,7 @@ void vertex_shader(vec3 vertex_input,
 #else
 					directional_lights.data[i].color * directional_lights.data[i].energy * tint,
 #endif
-					true, 1.0, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-					0.0,
-#endif
-#ifdef LIGHT_TRANSMITTANCE_USED
-					0.0,
-					0.0,
-					0.0,
-					0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-					0.0, 0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-					0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-					binormal,
-					tangent, anisotropy,
-#endif
+					true, 1.0, orms,
 					diffuse_light_interp.rgb,
 					specular_light_interp.rgb);
 		}

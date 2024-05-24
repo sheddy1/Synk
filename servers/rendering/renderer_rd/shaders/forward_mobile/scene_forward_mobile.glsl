@@ -534,27 +534,7 @@ void main() {
 #else
 					directional_lights.data[i].color * directional_lights.data[i].energy * tint,
 #endif
-					true, 1.0, vec3(0.0, 0.0, 1.0), orms, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-					0.0,
-#endif
-/* not supported here
-#ifdef LIGHT_TRANSMITTANCE_USED
-					transmittance_color,
-					transmittance_depth,
-					transmittance_boost,
-					transmittance_z,
-#endif
-*/
-#ifdef LIGHT_RIM_USED
-					0.0, 0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-					0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-					binormal, tangent, anisotropy,
-#endif
+					true, 1.0, orms,
 #ifdef USE_SOFT_SHADOW
 					directional_lights.data[i].size,
 #endif

@@ -255,10 +255,6 @@ uniform lowp uint directional_shadow_index;
 out vec4 diffuse_light_interp;
 out vec4 specular_light_interp;
 
-#ifndef MODE_RENDER_DEPTH
-#include "tonemap_inc.glsl"
-#endif
-
 #include "scene_lights_inc.glsl"
 
 #endif // USE_VERTEX_LIGHTING
@@ -581,20 +577,7 @@ void main() {
 	vec3 directional_diffuse = vec3(0.0);
 	vec3 directional_specular = vec3(0.0);
 	for (uint i = uint(0); i < scene_data.directional_light_count; i++) {
-		light_compute(normal_interp, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-				0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-				0.0, 0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-				0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-				binormal,
-				tangent, anisotropy,
-#endif
+		light_compute(normal_interp, normalize(directional_lights[i].direction), normalize(view), directional_lights[i].size, directional_lights[i].color * directional_lights[i].energy, true, 1.0, roughness,
 				directional_diffuse,
 				directional_specular);
 	}
@@ -671,29 +654,128 @@ void main() {
 #ifdef USE_ADDITIVE_LIGHTING
 
 #if !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
+#ifndef SHADOWS_DISABLED
 
-	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, 1.0, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-			0.0,
+// Orthogonal shadows
+#if !defined(LIGHT_USE_PSSM2) && !defined(LIGHT_USE_PSSM4)
+	float directional_shadow = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
+#endif // !defined(LIGHT_USE_PSSM2) && !defined(LIGHT_USE_PSSM4)
+
+// PSSM2 shadows
+#ifdef LIGHT_USE_PSSM2
+	float depth_z = -vertex.z;
+	vec4 light_split_offsets = directional_shadows[directional_shadow_index].shadow_split_offsets;
+	//take advantage of prefetch
+	float shadow1 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
+	float shadow2 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord2);
+	float directional_shadow = 1.0;
+
+	if (depth_z < light_split_offsets.y) {
+#ifdef LIGHT_USE_PSSM_BLEND
+		float directional_shadow2 = 1.0;
+		float pssm_blend = 0.0;
+		bool use_blend = true;
 #endif
-#ifdef LIGHT_RIM_USED
-			0.0, 0.0,
+		if (depth_z < light_split_offsets.x) {
+			directional_shadow = shadow1;
+
+#ifdef LIGHT_USE_PSSM_BLEND
+			directional_shadow2 = shadow2;
+			pssm_blend = smoothstep(0.0, light_split_offsets.x, depth_z);
 #endif
-#ifdef LIGHT_CLEARCOAT_USED
-			0.0, 0.0, normalize(normal_interp),
+		} else {
+			directional_shadow = shadow2;
+#ifdef LIGHT_USE_PSSM_BLEND
+			use_blend = false;
 #endif
-#ifdef LIGHT_ANISOTROPY_USED
-			binormal,
-			tangent, anisotropy,
+		}
+#ifdef LIGHT_USE_PSSM_BLEND
+		if (use_blend) {
+			directional_shadow = mix(directional_shadow, directional_shadow2, pssm_blend);
+		}
 #endif
+	}
+
+#endif //LIGHT_USE_PSSM2
+// PSSM4 shadows
+#ifdef LIGHT_USE_PSSM4
+	float depth_z = -vertex.z;
+	vec4 light_split_offsets = directional_shadows[directional_shadow_index].shadow_split_offsets;
+
+	float shadow1 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
+	float shadow2 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord2);
+	float shadow3 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord3);
+	float shadow4 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord4);
+	float directional_shadow = 1.0;
+
+	if (depth_z < light_split_offsets.w) {
+#ifdef LIGHT_USE_PSSM_BLEND
+		float directional_shadow2 = 1.0;
+		float pssm_blend = 0.0;
+		bool use_blend = true;
+#endif
+		if (depth_z < light_split_offsets.y) {
+			if (depth_z < light_split_offsets.x) {
+				directional_shadow = shadow1;
+
+#ifdef LIGHT_USE_PSSM_BLEND
+				directional_shadow2 = shadow2;
+
+				pssm_blend = smoothstep(0.0, light_split_offsets.x, depth_z);
+#endif
+			} else {
+				directional_shadow = shadow2;
+
+#ifdef LIGHT_USE_PSSM_BLEND
+				directional_shadow2 = shadow3;
+
+				pssm_blend = smoothstep(light_split_offsets.x, light_split_offsets.y, depth_z);
+#endif
+			}
+		} else {
+			if (depth_z < light_split_offsets.z) {
+				directional_shadow = shadow3;
+
+#if defined(LIGHT_USE_PSSM_BLEND)
+				directional_shadow2 = shadow4;
+				pssm_blend = smoothstep(light_split_offsets.y, light_split_offsets.z, depth_z);
+#endif
+
+			} else {
+				directional_shadow = shadow4;
+
+#if defined(LIGHT_USE_PSSM_BLEND)
+				use_blend = false;
+#endif
+			}
+		}
+#if defined(LIGHT_USE_PSSM_BLEND)
+		if (use_blend) {
+			directional_shadow = mix(directional_shadow, directional_shadow2, pssm_blend);
+		}
+#endif
+	}
+
+#endif //LIGHT_USE_PSSM4
+	directional_shadow = mix(directional_shadow, 1.0, smoothstep(directional_shadows[directional_shadow_index].fade_from, directional_shadows[directional_shadow_index].fade_to, vertex.z));
+	directional_shadow = mix(1.0, directional_shadow, directional_lights[directional_shadow_index].shadow_opacity);
+
+#else
+	float directional_shadow = 1.0f;
+#endif // SHADOWS_DISABLED
+	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, directional_shadow, roughness,
 			diffuse_light_interp.rgb,
 			specular_light_interp.rgb);
 #endif // !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 
 #ifdef ADDITIVE_OMNI
+	float omni_shadow = 1.0f;
+#ifndef SHADOWS_DISABLED
 	vec3 light_ray = ((positional_shadows[positional_shadow_index].shadow_matrix * vec4(shadow_coord.xyz, 1.0))).xyz;
-
-	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), 1.0,
+	omni_shadow = texture(omni_shadow_texture, vec4(light_ray, 1.0 - length(light_ray) * omni_lights[omni_light_index].inv_radius));
+	omni_shadow = mix(1.0, omni_shadow, omni_lights[omni_light_index].shadow_opacity);
+#endif // SHADOWS_DISABLED
+	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, omni_shadow, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			0.0,
 #endif
@@ -711,8 +793,12 @@ void main() {
 #endif // ADDITIVE_OMNI
 
 #ifdef ADDITIVE_SPOT
-
-	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), 1.0,
+	float spot_shadow = 1.0f;
+#ifndef SHADOWS_DISABLED
+	spot_shadow = sample_shadow(spot_shadow_texture, positional_shadows[positional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
+	spot_shadow = mix(1.0, spot_shadow, spot_lights[spot_light_index].shadow_opacity);
+#endif // SHADOWS_DISABLED
+	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, spot_shadow, vec3(1.0), alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			0.0,
 #endif
@@ -1871,7 +1957,7 @@ void main() {
 #else // Pass Vertex Lighting data to fragment colors
 	diffuse_light *= mix(vec3(1.0), vec3(1.0), diffuse_light_interp.a);
 	specular_light *= mix(vec3(1.0), vec3(1.0), specular_light_interp.a);
-#endif //!defined(USE_VERTEX_LIGHTING)
+#endif // !defined(USE_VERTEX_LIGHTING)
 
 	diffuse_light *= albedo;
 	diffuse_light *= 1.0 - metallic;
@@ -1898,8 +1984,7 @@ void main() {
 	frag_color.rgb += additive_light_color;
 #endif // USE_ADDITIVE_LIGHTING
 	frag_color.rgb *= scene_data.luminance_multiplier;
-	
-#endif // !defined(USE_VERTEX_LIGHTING)
+
 #endif // !RENDER_MATERIAL
 #endif // !MODE_RENDER_DEPTH
 

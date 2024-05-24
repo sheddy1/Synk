@@ -1,3 +1,4 @@
+#ifndef MODE_RENDER_DEPTH
 // Directional light data.
 #if !defined(DISABLE_LIGHT_DIRECTIONAL) || (!defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT))
 
@@ -67,7 +68,6 @@ uniform uint spot_light_count;
 #endif // DISABLE_LIGHT_SPOT
 #endif // !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT)
 
-#ifndef MODE_RENDER_DEPTH
 #ifdef USE_ADDITIVE_LIGHTING
 #ifdef ADDITIVE_OMNI
 uniform highp samplerCubeShadow omni_shadow_texture; // texunit:-3
@@ -159,17 +159,57 @@ float sample_shadow(highp sampler2DShadow shadow, float shadow_pixel_size, vec4 
 #endif //!defined(ADDITIVE_OMNI)
 #endif // USE_ADDITIVE_LIGHTING
 #endif // !MODE_RENDER_DEPTH
+#ifndef MODE_RENDER_DEPTH
 // Functions related to lighting
-
 vec3 F0(float metallic, float specular, vec3 albedo) {
 	float dielectric = 0.16 * specular * specular;
 	// use albedo * metallic as colored specular reflectance at 0 angle for metallic materials;
 	// see https://google.github.io/filament/Filament.md.html
 	return mix(vec3(dielectric), albedo, vec3(metallic));
 }
-#ifndef MODE_RENDER_DEPTH
 #if !defined(DISABLE_LIGHT_DIRECTIONAL) || !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT) || defined(USE_ADDITIVE_LIGHTING)
 
+#ifdef USE_VERTEX_LIGHTING
+// Vertex Lighting
+void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, float roughness,
+		inout vec3 diffuse_light, inout vec3 specular_light) {
+	float NdotL = min(A + dot(N, L), 1.0);
+	float cNdotL = max(NdotL, 0.0); // clamped NdotL
+
+	float diffuse_brdf_NL; // BRDF times N.L for calculating diffuse radiance
+
+#if defined(DIFFUSE_LAMBERT_WRAP)
+	// Energy conserving lambert wrap shader.
+	// https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
+	diffuse_brdf_NL = max(0.0, (NdotL + roughness) / ((1.0 + roughness) * (1.0 + roughness))) * (1.0 / M_PI);
+#else
+	// Lambert
+	diffuse_brdf_NL = cNdotL * (1.0 / M_PI);
+#endif
+
+	diffuse_light += light_color * diffuse_brdf_NL * attenuation;
+	if (roughness > 0.0) { // FIXME: roughness == 0 should not disable specular light entirely
+
+		// D
+		float specular_brdf_NL = 0.0;
+
+#if !defined(SPECULAR_DISABLED)
+		//normalized blinn always unless disabled
+		vec3 H = normalize(V + L);
+		float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
+		float shininess = exp2(15.0 * (1.0 - roughness) + 1.0) * 0.25;
+		float blinn = pow(cNdotH, shininess);
+		blinn *= (shininess + 2.0) * (1.0 / (8.0 * M_PI));
+		specular_brdf_NL = blinn;
+#endif
+		specular_light += specular_brdf_NL * light_color * attenuation;
+	}
+}
+
+#else // USE_VERTEX_LIGHTING
+// Fragment Lighting
+
+// Functions related to lighting
 float D_GGX(float cos_theta_m, float alpha) {
 	float a = cos_theta_m * alpha;
 	float k = alpha / (1.0 - cos_theta_m * cos_theta_m + a * a);
@@ -201,7 +241,6 @@ float SchlickFresnel(float u) {
 	float m2 = m * m;
 	return m2 * m2 * m; // pow(m,5)
 }
-
 void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, vec3 f0, float roughness, float metallic, float specular_amount, vec3 albedo, inout float alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 		vec3 backlight,
@@ -355,6 +394,7 @@ void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_di
 
 #endif // LIGHT_CODE_USED
 }
+#endif // USE_VERTEX_LIGHTING
 
 float get_omni_spot_attenuation(float distance, float inv_range, float decay) {
 	float nd = distance * inv_range;
@@ -392,7 +432,11 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 	}
 
 	omni_attenuation *= shadow;
-
+#ifdef USE_VERTEX_LIGHTING
+	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, omni_attenuation, roughness,
+			diffuse_light,
+			specular_light);
+#else // USE_VERTEX_LIGHTING
 	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, omni_attenuation, f0, roughness, metallic, omni_lights[idx].specular_amount, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
@@ -408,8 +452,9 @@ void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 #endif
 			diffuse_light,
 			specular_light);
+#endif // USE_VERTEX_LIGHTING
 }
-#endif // !DISABLE_LIGHT_OMNI
+#endif // !defined(DISABLE_LIGHT_OMNI) || defined(ADDITIVE_OMNI)
 
 #if !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_SPOT)
 void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f0, float roughness, float metallic, float shadow, vec3 albedo, inout float alpha,
@@ -448,7 +493,10 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 	}
 
 	spot_attenuation *= shadow;
-
+#ifdef USE_VERTEX_LIGHTING
+	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, spot_attenuation, roughness,
+			diffuse_light, specular_light);
+#else // USE_VERTEX_LIGHTING
 	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, spot_attenuation, f0, roughness, metallic, spot_lights[idx].specular_amount, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
@@ -463,6 +511,7 @@ void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, vec3 f
 			binormal, tangent, anisotropy,
 #endif
 			diffuse_light, specular_light);
+#endif // USE_VERTEX_LIGHTING
 }
 #endif // !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_SPOT)
 
