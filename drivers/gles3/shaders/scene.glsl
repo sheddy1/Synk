@@ -204,9 +204,6 @@ layout(std140) uniform SceneData { // ubo:2
 }
 scene_data;
 
-// No need to define shadow data when using vertex lighting
-// as it will be included in the scene_lights_inc.glsl
-#ifndef USE_VERTEX_LIGHTING
 #ifdef USE_ADDITIVE_LIGHTING
 
 #if defined(ADDITIVE_OMNI) || defined(ADDITIVE_SPOT)
@@ -248,14 +245,192 @@ uniform lowp uint directional_shadow_index;
 
 #endif // !(defined(ADDITIVE_OMNI) || defined(ADDITIVE_SPOT))
 #endif // USE_ADDITIVE_LIGHTING
-#endif // !USE_VERTEX_LIGHTING
 
 #ifdef USE_VERTEX_LIGHTING
 
 out vec4 diffuse_light_interp;
 out vec4 specular_light_interp;
 
-#include "scene_lights_inc.glsl"
+// Directional light data.
+#if !defined(DISABLE_LIGHT_DIRECTIONAL) || (!defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT))
+
+struct DirectionalLightData {
+	mediump vec3 direction;
+	mediump float energy;
+	mediump vec3 color;
+	mediump float size;
+	lowp uint unused;
+	lowp uint bake_mode;
+	mediump vec2 pad;
+	mediump float shadow_opacity;
+	mediump float specular;
+};
+
+layout(std140) uniform DirectionalLights { // ubo:7
+	DirectionalLightData directional_lights[MAX_DIRECTIONAL_LIGHT_DATA_STRUCTS];
+};
+
+#if defined(USE_ADDITIVE_LIGHTING) && !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
+// Directional shadows can be in the base pass or in the additive passes
+uniform highp sampler2DShadow directional_shadow_atlas; // texunit:-3
+#endif // defined(USE_ADDITIVE_LIGHTING) && !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
+
+#endif // !DISABLE_LIGHT_DIRECTIONAL
+
+// Omni and spot light data.
+#if !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_OMNI) || defined(ADDITIVE_SPOT)
+
+struct LightData { // This structure needs to be as packed as possible.
+	highp vec3 position;
+	highp float inv_radius;
+
+	mediump vec3 direction;
+	highp float size;
+
+	mediump vec3 color;
+	mediump float attenuation;
+
+	mediump float cone_attenuation;
+	mediump float cone_angle;
+	mediump float specular_amount;
+	mediump float shadow_opacity;
+
+	lowp vec3 pad;
+	lowp uint bake_mode;
+};
+
+#if !defined(DISABLE_LIGHT_OMNI) || defined(ADDITIVE_OMNI)
+layout(std140) uniform OmniLightData { // ubo:5
+	LightData omni_lights[MAX_LIGHT_DATA_STRUCTS];
+};
+#ifdef BASE_PASS
+uniform uint omni_light_indices[MAX_FORWARD_LIGHTS];
+uniform uint omni_light_count;
+#endif // BASE_PASS
+#endif // DISABLE_LIGHT_OMNI
+
+#if !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_SPOT)
+layout(std140) uniform SpotLightData { // ubo:6
+	LightData spot_lights[MAX_LIGHT_DATA_STRUCTS];
+};
+#ifdef BASE_PASS
+uniform uint spot_light_indices[MAX_FORWARD_LIGHTS];
+uniform uint spot_light_count;
+#endif // BASE_PASS
+#endif // DISABLE_LIGHT_SPOT
+#endif // !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT)
+
+#ifdef USE_ADDITIVE_LIGHTING
+#ifdef ADDITIVE_OMNI
+uniform highp samplerCubeShadow omni_shadow_texture; // texunit:-3
+uniform lowp uint omni_light_index;
+#endif
+#ifdef ADDITIVE_SPOT
+uniform highp sampler2DShadow spot_shadow_texture; // texunit:-3
+uniform lowp uint spot_light_index;
+#endif
+
+#endif // USE_ADDITIVE_LIGHTING
+
+#if !defined(DISABLE_LIGHT_DIRECTIONAL) || !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT) || defined(USE_ADDITIVE_LIGHTING)
+
+void light_compute(vec3 N, vec3 L, vec3 V, float A, vec3 light_color, bool is_directional, float attenuation, float roughness,
+		inout vec3 diffuse_light, inout vec3 specular_light) {
+	float NdotL = min(A + dot(N, L), 1.0);
+	float cNdotL = max(NdotL, 0.0); // clamped NdotL
+
+	float diffuse_brdf_NL; // BRDF times N.L for calculating diffuse radiance
+
+#if defined(DIFFUSE_LAMBERT_WRAP)
+	// Energy conserving lambert wrap shader.
+	// https://web.archive.org/web/20210228210901/http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
+	diffuse_brdf_NL = max(0.0, (NdotL + roughness) / ((1.0 + roughness) * (1.0 + roughness))) * (1.0 / M_PI);
+#else
+	// Lambert
+	diffuse_brdf_NL = cNdotL * (1.0 / M_PI);
+#endif
+
+	diffuse_light += light_color * diffuse_brdf_NL * attenuation;
+	if (roughness > 0.0) { // FIXME: roughness == 0 should not disable specular light entirely
+
+		// D
+		float specular_brdf_NL = 0.0;
+
+#if !defined(SPECULAR_DISABLED)
+		//normalized blinn always unless disabled
+		vec3 H = normalize(V + L);
+		float cNdotH = clamp(A + dot(N, H), 0.0, 1.0);
+		float shininess = exp2(15.0 * (1.0 - roughness) + 1.0) * 0.25;
+		float blinn = pow(cNdotH, shininess);
+		blinn *= (shininess + 2.0) * (1.0 / (8.0 * M_PI));
+		specular_brdf_NL = blinn;
+#endif
+		specular_light += specular_brdf_NL * light_color * attenuation;
+	}
+}
+
+float get_omni_spot_attenuation(float distance, float inv_range, float decay) {
+	float nd = distance * inv_range;
+	nd *= nd;
+	nd *= nd; // nd^4
+	nd = max(1.0 - nd, 0.0);
+	nd *= nd; // nd^2
+	return nd * pow(max(distance, 0.0001), -decay);
+}
+
+#if !defined(DISABLE_LIGHT_OMNI) || defined(ADDITIVE_OMNI)
+void light_process_omni(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, float roughness, float shadow,
+		inout vec3 diffuse_light, inout vec3 specular_light) {
+	vec3 light_rel_vec = omni_lights[idx].position - vertex;
+	float light_length = length(light_rel_vec);
+	float omni_attenuation = get_omni_spot_attenuation(light_length, omni_lights[idx].inv_radius, omni_lights[idx].attenuation);
+	vec3 color = omni_lights[idx].color;
+	float size_A = 0.0;
+
+	if (omni_lights[idx].size > 0.0) {
+		float t = omni_lights[idx].size / max(0.001, light_length);
+		size_A = max(0.0, 1.0 - 1.0 / sqrt(1.0 + t * t));
+	}
+
+	omni_attenuation *= shadow;
+
+	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, omni_attenuation, roughness,
+			diffuse_light,
+			specular_light);
+}
+#endif // !defined(DISABLE_LIGHT_OMNI) || defined(ADDITIVE_OMNI)
+
+#if !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_SPOT)
+void light_process_spot(uint idx, vec3 vertex, vec3 eye_vec, vec3 normal, float roughness, float shadow,
+		inout vec3 diffuse_light,
+		inout vec3 specular_light) {
+	vec3 light_rel_vec = spot_lights[idx].position - vertex;
+	float light_length = length(light_rel_vec);
+	float spot_attenuation = get_omni_spot_attenuation(light_length, spot_lights[idx].inv_radius, spot_lights[idx].attenuation);
+	vec3 spot_dir = spot_lights[idx].direction;
+	float scos = max(dot(-normalize(light_rel_vec), spot_dir), spot_lights[idx].cone_angle);
+	float spot_rim = max(0.0001, (1.0 - scos) / (1.0 - spot_lights[idx].cone_angle));
+
+	mediump float cone_attenuation = spot_lights[idx].cone_attenuation;
+	spot_attenuation *= 1.0 - pow(spot_rim, cone_attenuation);
+
+	vec3 color = spot_lights[idx].color;
+
+	float size_A = 0.0;
+
+	if (spot_lights[idx].size > 0.0) {
+		float t = spot_lights[idx].size / max(0.001, light_length);
+		size_A = max(0.0, 1.0 - 1.0 / sqrt(1.0 + t * t));
+	}
+
+	spot_attenuation *= shadow;
+
+	light_compute(normal, normalize(light_rel_vec), eye_vec, size_A, color, false, spot_attenuation, roughness,
+			diffuse_light, specular_light);
+}
+#endif // !defined(DISABLE_LIGHT_SPOT) || defined(ADDITIVE_SPOT)
+
+#endif // !defined(DISABLE_LIGHT_DIRECTIONAL) || !defined(DISABLE_LIGHT_OMNI) || !defined(DISABLE_LIGHT_SPOT)
 
 #endif // USE_VERTEX_LIGHTING
 
@@ -339,10 +514,6 @@ void main() {
 	highp vec3 vertex = vertex_angle_attrib.xyz * compressed_aabb_size + compressed_aabb_position;
 
 	highp mat4 model_matrix = world_transform;
-
-#ifdef USE_VERTEX_LIGHTING
-	float alpha = 1.0;
-#endif // USE_VERTEX_LIGHTING
 
 #ifdef USE_INSTANCING
 	highp mat4 m = mat4(instance_xform0, instance_xform1, instance_xform2, vec4(0.0, 0.0, 0.0, 1.0));
@@ -607,20 +778,7 @@ void main() {
 		if (i >= omni_light_count) {
 			break;
 		}
-		light_process_omni(omni_light_indices[i], vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-				0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-				0.0,
-				0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-				0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-				binormal, tangent, anisotropy,
-#endif
+		light_process_omni(omni_light_indices[i], vertex_interp, view, normal_interp, roughness, 1.0,
 				diffuse_light_interp.rgb, specular_light_interp.rgb);
 	}
 #endif // !DISABLE_LIGHT_OMNI
@@ -630,21 +788,7 @@ void main() {
 		if (i >= spot_light_count) {
 			break;
 		}
-		light_process_spot(spot_light_indices[i], vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, 1.0, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-				0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-				0.0,
-				0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-				0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-				tangent,
-				binormal, anisotropy,
-#endif
+		light_process_spot(spot_light_indices[i], vertex_interp, view, normal_interp, roughness, 1.0,
 				diffuse_light_interp.rgb, specular_light_interp.rgb);
 	}
 #endif // !DISABLE_LIGHT_SPOT
@@ -654,165 +798,19 @@ void main() {
 #ifdef USE_ADDITIVE_LIGHTING
 
 #if !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
-#ifndef SHADOWS_DISABLED
 
-// Orthogonal shadows
-#if !defined(LIGHT_USE_PSSM2) && !defined(LIGHT_USE_PSSM4)
-	float directional_shadow = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
-#endif // !defined(LIGHT_USE_PSSM2) && !defined(LIGHT_USE_PSSM4)
-
-// PSSM2 shadows
-#ifdef LIGHT_USE_PSSM2
-	float depth_z = -vertex.z;
-	vec4 light_split_offsets = directional_shadows[directional_shadow_index].shadow_split_offsets;
-	//take advantage of prefetch
-	float shadow1 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
-	float shadow2 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord2);
-	float directional_shadow = 1.0;
-
-	if (depth_z < light_split_offsets.y) {
-#ifdef LIGHT_USE_PSSM_BLEND
-		float directional_shadow2 = 1.0;
-		float pssm_blend = 0.0;
-		bool use_blend = true;
-#endif
-		if (depth_z < light_split_offsets.x) {
-			directional_shadow = shadow1;
-
-#ifdef LIGHT_USE_PSSM_BLEND
-			directional_shadow2 = shadow2;
-			pssm_blend = smoothstep(0.0, light_split_offsets.x, depth_z);
-#endif
-		} else {
-			directional_shadow = shadow2;
-#ifdef LIGHT_USE_PSSM_BLEND
-			use_blend = false;
-#endif
-		}
-#ifdef LIGHT_USE_PSSM_BLEND
-		if (use_blend) {
-			directional_shadow = mix(directional_shadow, directional_shadow2, pssm_blend);
-		}
-#endif
-	}
-
-#endif //LIGHT_USE_PSSM2
-// PSSM4 shadows
-#ifdef LIGHT_USE_PSSM4
-	float depth_z = -vertex.z;
-	vec4 light_split_offsets = directional_shadows[directional_shadow_index].shadow_split_offsets;
-
-	float shadow1 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
-	float shadow2 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord2);
-	float shadow3 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord3);
-	float shadow4 = sample_shadow(directional_shadow_atlas, directional_shadows[directional_shadow_index].shadow_atlas_pixel_size, shadow_coord4);
-	float directional_shadow = 1.0;
-
-	if (depth_z < light_split_offsets.w) {
-#ifdef LIGHT_USE_PSSM_BLEND
-		float directional_shadow2 = 1.0;
-		float pssm_blend = 0.0;
-		bool use_blend = true;
-#endif
-		if (depth_z < light_split_offsets.y) {
-			if (depth_z < light_split_offsets.x) {
-				directional_shadow = shadow1;
-
-#ifdef LIGHT_USE_PSSM_BLEND
-				directional_shadow2 = shadow2;
-
-				pssm_blend = smoothstep(0.0, light_split_offsets.x, depth_z);
-#endif
-			} else {
-				directional_shadow = shadow2;
-
-#ifdef LIGHT_USE_PSSM_BLEND
-				directional_shadow2 = shadow3;
-
-				pssm_blend = smoothstep(light_split_offsets.x, light_split_offsets.y, depth_z);
-#endif
-			}
-		} else {
-			if (depth_z < light_split_offsets.z) {
-				directional_shadow = shadow3;
-
-#if defined(LIGHT_USE_PSSM_BLEND)
-				directional_shadow2 = shadow4;
-				pssm_blend = smoothstep(light_split_offsets.y, light_split_offsets.z, depth_z);
-#endif
-
-			} else {
-				directional_shadow = shadow4;
-
-#if defined(LIGHT_USE_PSSM_BLEND)
-				use_blend = false;
-#endif
-			}
-		}
-#if defined(LIGHT_USE_PSSM_BLEND)
-		if (use_blend) {
-			directional_shadow = mix(directional_shadow, directional_shadow2, pssm_blend);
-		}
-#endif
-	}
-
-#endif //LIGHT_USE_PSSM4
-	directional_shadow = mix(directional_shadow, 1.0, smoothstep(directional_shadows[directional_shadow_index].fade_from, directional_shadows[directional_shadow_index].fade_to, vertex.z));
-	directional_shadow = mix(1.0, directional_shadow, directional_lights[directional_shadow_index].shadow_opacity);
-
-#else
-	float directional_shadow = 1.0f;
-#endif // SHADOWS_DISABLED
-	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, directional_shadow, roughness,
+	light_compute(normal_interp, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, 1.0, roughness,
 			diffuse_light_interp.rgb,
 			specular_light_interp.rgb);
 #endif // !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 
 #ifdef ADDITIVE_OMNI
-	float omni_shadow = 1.0f;
-#ifndef SHADOWS_DISABLED
-	vec3 light_ray = ((positional_shadows[positional_shadow_index].shadow_matrix * vec4(shadow_coord.xyz, 1.0))).xyz;
-	omni_shadow = texture(omni_shadow_texture, vec4(light_ray, 1.0 - length(light_ray) * omni_lights[omni_light_index].inv_radius));
-	omni_shadow = mix(1.0, omni_shadow, omni_lights[omni_light_index].shadow_opacity);
-#endif // SHADOWS_DISABLED
-	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, omni_shadow, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-			0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-			0.0,
-			0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-			0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-			binormal, tangent, anisotropy,
-#endif
+	light_process_omni(omni_light_index, vertex_interp, view, normal_interp, roughness, 1.0,
 			diffuse_light_interp.rgb, specular_light_interp.rgb);
 #endif // ADDITIVE_OMNI
 
 #ifdef ADDITIVE_SPOT
-	float spot_shadow = 1.0f;
-#ifndef SHADOWS_DISABLED
-	spot_shadow = sample_shadow(spot_shadow_texture, positional_shadows[positional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
-	spot_shadow = mix(1.0, spot_shadow, spot_lights[spot_light_index].shadow_opacity);
-#endif // SHADOWS_DISABLED
-	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, vec3(0.0, 0.0, 1.0), roughness, 0.0, spot_shadow, vec3(1.0), alpha,
-#ifdef LIGHT_BACKLIGHT_USED
-			0.0,
-#endif
-#ifdef LIGHT_RIM_USED
-			0.0,
-			0.0,
-#endif
-#ifdef LIGHT_CLEARCOAT_USED
-			0.0, 0.0, normalize(normal_interp),
-#endif
-#ifdef LIGHT_ANISOTROPY_USED
-			tangent,
-			binormal, anisotropy,
-#endif
+	light_process_spot(spot_light_index, vertex_interp, view, normal_interp, roughness, 1.0,
 			diffuse_light_interp.rgb, specular_light_interp.rgb);
 
 #endif // ADDITIVE_SPOT
@@ -1094,13 +1092,7 @@ layout(location = 0) out vec4 frag_color;
 
 #endif // !RENDER_MATERIAL
 
-//TODO: probably need to not include lights in the fragment shader if vertex_lighting is used
-
-//#if !defined(USE_VERTEX_LIGHTING)
-
 #include "scene_lights_inc.glsl"
-
-//#endif //!defined(USE_VERTEX_LIGHTING)
 
 #ifndef MODE_RENDER_DEPTH
 vec4 fog_process(vec3 vertex) {
@@ -1770,7 +1762,6 @@ void main() {
 #endif // !BASE_PASS
 /* ADDITIVE LIGHTING PASS */
 #ifdef USE_ADDITIVE_LIGHTING
-#if !defined(USE_VERTEX_LIGHTING)
 	diffuse_light = vec3(0.0);
 	specular_light = vec3(0.0);
 
@@ -1887,6 +1878,7 @@ void main() {
 #else
 	float directional_shadow = 1.0f;
 #endif // SHADOWS_DISABLED
+#if !defined(USE_VERTEX_LIGHTING)
 	light_compute(normal, normalize(directional_lights[directional_shadow_index].direction), normalize(view), directional_lights[directional_shadow_index].size, directional_lights[directional_shadow_index].color * directional_lights[directional_shadow_index].energy, true, directional_shadow, f0, roughness, metallic, 1.0, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
@@ -1903,6 +1895,10 @@ void main() {
 #endif
 			diffuse_light,
 			specular_light);
+#else // Pass Vertex Lighting data to fragment colors with fragment shadows
+	specular_light += specular_light_interp.rgb * directional_shadow;
+	diffuse_light += diffuse_light_interp.rgb * directional_shadow;
+#endif // !defined(USE_VERTEX_LIGHTING)
 #endif // !defined(ADDITIVE_OMNI) && !defined(ADDITIVE_SPOT)
 
 #ifdef ADDITIVE_OMNI
@@ -1912,6 +1908,7 @@ void main() {
 	omni_shadow = texture(omni_shadow_texture, vec4(light_ray, 1.0 - length(light_ray) * omni_lights[omni_light_index].inv_radius));
 	omni_shadow = mix(1.0, omni_shadow, omni_lights[omni_light_index].shadow_opacity);
 #endif // SHADOWS_DISABLED
+#if !defined(USE_VERTEX_LIGHTING)
 	light_process_omni(omni_light_index, vertex, view, normal, f0, roughness, metallic, omni_shadow, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
@@ -1927,6 +1924,10 @@ void main() {
 			binormal, tangent, anisotropy,
 #endif
 			diffuse_light, specular_light);
+#else // Pass Vertex Lighting data to fragment colors with fragment shadows
+	specular_light += specular_light_interp.rgb * omni_shadow;
+	diffuse_light += diffuse_light_interp.rgb * omni_shadow;
+#endif // !defined(USE_VERTEX_LIGHTING)
 #endif // ADDITIVE_OMNI
 
 #ifdef ADDITIVE_SPOT
@@ -1935,6 +1936,7 @@ void main() {
 	spot_shadow = sample_shadow(spot_shadow_texture, positional_shadows[positional_shadow_index].shadow_atlas_pixel_size, shadow_coord);
 	spot_shadow = mix(1.0, spot_shadow, spot_lights[spot_light_index].shadow_opacity);
 #endif // SHADOWS_DISABLED
+#if !defined(USE_VERTEX_LIGHTING)
 	light_process_spot(spot_light_index, vertex, view, normal, f0, roughness, metallic, spot_shadow, albedo, alpha,
 #ifdef LIGHT_BACKLIGHT_USED
 			backlight,
@@ -1951,13 +1953,12 @@ void main() {
 			binormal, anisotropy,
 #endif
 			diffuse_light, specular_light);
+#else // Pass Vertex Lighting data to fragment colors with fragment shadows
+	specular_light += specular_light_interp.rgb * spot_shadow;
+	diffuse_light += diffuse_light_interp.rgb * spot_shadow;
+#endif // !defined(USE_VERTEX_LIGHTING)
 
 #endif // ADDITIVE_SPOT
-
-#else // Pass Vertex Lighting data to fragment colors
-	diffuse_light *= mix(vec3(1.0), vec3(1.0), diffuse_light_interp.a);
-	specular_light *= mix(vec3(1.0), vec3(1.0), specular_light_interp.a);
-#endif // !defined(USE_VERTEX_LIGHTING)
 
 	diffuse_light *= albedo;
 	diffuse_light *= 1.0 - metallic;
