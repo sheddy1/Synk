@@ -33,6 +33,7 @@
 
 #include "core/io/resource.h"
 #include "core/object/object.h"
+#include "core/templates/a_hash_map.h"
 #include "core/templates/local_vector.h"
 #include "core/templates/rb_set.h"
 #include "scene/2d/light_occluder_2d.h"
@@ -173,11 +174,11 @@ private:
 		Size2i autotile_tile_size = Size2i(16, 16);
 
 		int autotile_spacing = 0;
-		HashMap<Vector2i, int> autotile_bitmask_flags;
-		HashMap<Vector2i, Ref<OccluderPolygon2D>> autotile_occluder_map;
-		HashMap<Vector2i, Ref<NavigationPolygon>> autotile_navpoly_map;
-		HashMap<Vector2i, int> autotile_priority_map;
-		HashMap<Vector2i, int> autotile_z_index_map;
+		AHashMap<Vector2i, int> autotile_bitmask_flags;
+		AHashMap<Vector2i, Ref<OccluderPolygon2D>> autotile_occluder_map;
+		AHashMap<Vector2i, Ref<NavigationPolygon>> autotile_navpoly_map;
+		AHashMap<Vector2i, int> autotile_priority_map;
+		AHashMap<Vector2i, int> autotile_z_index_map;
 
 		Vector<CompatibilityShapeData> shapes;
 		Ref<OccluderPolygon2D> occluder;
@@ -193,10 +194,10 @@ private:
 		COMPATIBILITY_TILE_MODE_ATLAS_TILE,
 	};
 
-	HashMap<int, CompatibilityTileData *> compatibility_data;
+	AHashMap<int, CompatibilityTileData *> compatibility_data;
 	HashMap<int, int> compatibility_tilemap_mapping_tile_modes;
 	HashMap<int, RBMap<Array, Array>> compatibility_tilemap_mapping;
-	HashMap<Vector2i, int> compatibility_size_count;
+	AHashMap<Vector2i, int> compatibility_size_count;
 
 	void _compatibility_conversion();
 
@@ -634,7 +635,7 @@ private:
 		LocalVector<real_t> animation_frames_durations;
 
 		// Alternatives
-		HashMap<int, TileData *> alternatives;
+		AHashMap<int, TileData *> alternatives;
 		Vector<int> alternatives_ids;
 		int next_alternative_id = 1;
 	};
