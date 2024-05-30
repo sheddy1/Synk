@@ -415,6 +415,9 @@ public:
 
 		_FORCE_INLINE_ ConstIterator &operator--() {
 			pair--;
+			if (pair < begin) {
+				pair = end;
+			}
 			return *this;
 		}
 
@@ -422,7 +425,7 @@ public:
 		_FORCE_INLINE_ bool operator!=(const ConstIterator &b) const { return pair != b.pair; }
 
 		_FORCE_INLINE_ explicit operator bool() const {
-			return pair != end && pair != begin;
+			return pair != end;
 		}
 
 		_FORCE_INLINE_ ConstIterator(MapKeyValue *p_key, MapKeyValue *p_begin, MapKeyValue *p_end) {
@@ -461,6 +464,9 @@ public:
 		}
 		_FORCE_INLINE_ Iterator &operator--() {
 			pair--;
+			if (pair < begin) {
+				pair = end;
+			}
 			return *this;
 		}
 
@@ -468,7 +474,7 @@ public:
 		_FORCE_INLINE_ bool operator!=(const Iterator &b) const { return pair != b.pair; }
 
 		_FORCE_INLINE_ explicit operator bool() const {
-			return pair != end && pair != begin;
+			return pair != end;
 		}
 
 		_FORCE_INLINE_ Iterator(MapKeyValue *p_key, MapKeyValue *p_begin, MapKeyValue *p_end) {
@@ -499,22 +505,16 @@ public:
 	};
 
 	_FORCE_INLINE_ Iterator begin() {
-		if (unlikely(elements == nullptr)) {
-			return Iterator(nullptr, nullptr, nullptr);
-		}
-		return Iterator(elements, elements - 1, elements + num_elements);
+		return Iterator(elements, elements, elements + num_elements);
 	}
 	_FORCE_INLINE_ Iterator end() {
-		if (unlikely(elements == nullptr)) {
-			return Iterator(nullptr, nullptr, nullptr);
-		}
-		return Iterator(elements + num_elements, elements - 1, elements + num_elements);
+		return Iterator(elements + num_elements, elements, elements + num_elements);
 	}
 	_FORCE_INLINE_ Iterator last() {
-		if (unlikely(elements == nullptr)) {
+		if (unlikely(num_elements == 0)) {
 			return Iterator(nullptr, nullptr, nullptr);
 		}
-		return Iterator(elements + num_elements - 1, elements - 1, elements + num_elements);
+		return Iterator(elements + num_elements - 1, elements, elements + num_elements);
 	}
 
 	Iterator find(const TKey &p_key) {
@@ -524,7 +524,7 @@ public:
 		if (!exists) {
 			return end();
 		}
-		return Iterator(elements + pos, elements - 1, elements + num_elements);
+		return Iterator(elements + pos, elements, elements + num_elements);
 	}
 
 	void remove(const Iterator &p_iter) {
@@ -534,22 +534,16 @@ public:
 	}
 
 	_FORCE_INLINE_ ConstIterator begin() const {
-		if (unlikely(elements == nullptr)) {
-			return ConstIterator(nullptr, nullptr, nullptr);
-		}
-		return ConstIterator(elements, elements - 1, elements + num_elements);
+		return ConstIterator(elements, elements, elements + num_elements);
 	}
 	_FORCE_INLINE_ ConstIterator end() const {
-		if (unlikely(elements == nullptr)) {
-			return ConstIterator(nullptr, nullptr, nullptr);
-		}
-		return ConstIterator(elements + num_elements, elements - 1, elements + num_elements);
+		return ConstIterator(elements + num_elements, elements, elements + num_elements);
 	}
 	_FORCE_INLINE_ ConstIterator last() const {
-		if (unlikely(elements == nullptr)) {
-			return ConstIterator(nullptr, nullptr, nullptr);
+		if (unlikely(num_elements == 0)) {
+			return Iterator(nullptr, nullptr, nullptr);
 		}
-		return ConstIterator(elements + num_elements - 1, elements - 1, elements + num_elements);
+		return ConstIterator(elements + num_elements - 1, elements, elements + num_elements);
 	}
 
 	ConstIterator find(const TKey &p_key) const {
@@ -559,7 +553,7 @@ public:
 		if (!exists) {
 			return end();
 		}
-		return ConstIterator(elements + pos, elements - 1, elements + num_elements);
+		return ConstIterator(elements + pos, elements, elements + num_elements);
 	}
 
 	/* Indexing */
@@ -599,7 +593,7 @@ public:
 		} else {
 			elements[pos].value = p_value;
 		}
-		return Iterator(elements + pos, elements - 1, elements + num_elements);
+		return Iterator(elements + pos, elements, elements + num_elements);
 	}
 
 	/* Constructors */
