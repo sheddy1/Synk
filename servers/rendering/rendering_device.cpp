@@ -5244,7 +5244,7 @@ void RenderingDevice::_end_frame() {
 
 	// The command buffer must be copied into a stack variable as the driver workarounds can change the command buffer in use.
 	RDD::CommandBufferID command_buffer = frames[frame].draw_command_buffer;
-	draw_graph.end(RENDER_GRAPH_REORDER, RENDER_GRAPH_FULL_BARRIERS, command_buffer, frames[frame].command_buffer_pool);
+	draw_graph.end(render_graph_reorder, RENDER_GRAPH_FULL_BARRIERS, command_buffer, frames[frame].command_buffer_pool);
 	driver->command_buffer_end(command_buffer);
 	driver->end_segment();
 }
@@ -6559,6 +6559,11 @@ RenderingDevice::~RenderingDevice() {
 RenderingDevice::RenderingDevice() {
 	if (singleton == nullptr) {
 		singleton = this;
+	}
+
+	render_graph_reorder = RENDER_GRAPH_REORDER;
+	if (get_device_workarounds().avoid_render_graph_reorder) {
+		render_graph_reorder = false;
 	}
 }
 
