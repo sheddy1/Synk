@@ -622,7 +622,9 @@ public:
 
 	void operator=(const HashMap<TKey, TValue> &p_other) {
 		reset();
-		reserve(p_other.size());
+		if (p_other.size() > get_capacity()) {
+			reserve(p_other.size());
+		}
 		for (const KeyValue<TKey, TValue> &E : p_other) {
 			uint32_t hash = _hash(E.key);
 			_insert_element(E.key, E.value, hash);
