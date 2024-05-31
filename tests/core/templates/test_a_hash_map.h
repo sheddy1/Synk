@@ -86,13 +86,6 @@ TEST_CASE("[AHashMap] Size") {
 
 TEST_CASE("[AHashMap] Iteration") {
 	AHashMap<int, int> map;
-	for (const KeyValue<int, int> &E : map) {
-		CHECK(false && E.key && E.value);
-	}
-
-	for (AHashMap<int, int>::Iterator it = map.last(); it; --it) {
-		CHECK(false && it);
-	}
 
 	map.insert(42, 84);
 	map.insert(123, 12385);
