@@ -86,6 +86,14 @@ TEST_CASE("[AHashMap] Size") {
 
 TEST_CASE("[AHashMap] Iteration") {
 	AHashMap<int, int> map;
+	for (const KeyValue<int, int> &E : map) {
+		CHECK(false && E.key && E.value);
+	}
+
+	for (AHashMap<int, int>::Iterator it = map.last(); it; --it) {
+		CHECK(false && it);
+	}
+
 	map.insert(42, 84);
 	map.insert(123, 12385);
 	map.insert(0, 12934);
@@ -101,7 +109,13 @@ TEST_CASE("[AHashMap] Iteration") {
 	int idx = 0;
 	for (const KeyValue<int, int> &E : map) {
 		CHECK(expected[idx] == Pair<int, int>(E.key, E.value));
-		++idx;
+		idx++;
+	}
+
+	idx--;
+	for (AHashMap<int, int>::Iterator it = map.last(); it; --it) {
+		CHECK(expected[idx] == Pair<int, int>(it->key, it->value));
+		idx--;
 	}
 }
 
@@ -125,7 +139,13 @@ TEST_CASE("[AHashMap] Const iteration") {
 	int idx = 0;
 	for (const KeyValue<int, int> &E : const_map) {
 		CHECK(expected[idx] == Pair<int, int>(E.key, E.value));
-		++idx;
+		idx++;
+	}
+
+	idx--;
+	for (AHashMap<int, int>::ConstIterator it = const_map.last(); it; --it) {
+		CHECK(expected[idx] == Pair<int, int>(it->key, it->value));
+		idx--;
 	}
 }
 

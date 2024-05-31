@@ -541,7 +541,7 @@ public:
 	}
 	_FORCE_INLINE_ ConstIterator last() const {
 		if (unlikely(num_elements == 0)) {
-			return Iterator(nullptr, nullptr, nullptr);
+			return ConstIterator(nullptr, nullptr, nullptr);
 		}
 		return ConstIterator(elements + num_elements - 1, elements, elements + num_elements);
 	}
