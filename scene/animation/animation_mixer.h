@@ -100,7 +100,7 @@ public:
 protected:
 	/* ---- Data lists ---- */
 	LocalVector<AnimationLibraryData> animation_libraries;
-	HashMap<StringName, AnimationData> animation_set; // HashMap<Library name + Animation name, AnimationData>
+	AHashMap<StringName, AnimationData> animation_set; // HashMap<Library name + Animation name, AnimationData>
 
 	TypedArray<StringName> _get_animation_library_list() const;
 	Vector<String> _get_animation_list() const {
