@@ -195,8 +195,8 @@ private:
 	};
 
 	AHashMap<int, CompatibilityTileData *> compatibility_data;
-	HashMap<int, int> compatibility_tilemap_mapping_tile_modes;
-	HashMap<int, RBMap<Array, Array>> compatibility_tilemap_mapping;
+	AHashMap<int, int> compatibility_tilemap_mapping_tile_modes;
+	AHashMap<int, RBMap<Array, Array>> compatibility_tilemap_mapping;
 	AHashMap<Vector2i, int> compatibility_size_count;
 
 	void _compatibility_conversion();
@@ -343,8 +343,8 @@ private:
 	};
 	Vector<TerrainSet> terrain_sets;
 
-	HashMap<TerrainMode, Ref<ArrayMesh>> terrain_meshes;
-	HashMap<TerrainMode, HashMap<CellNeighbor, Ref<ArrayMesh>>> terrain_peering_bits_meshes;
+	AHashMap<TerrainMode, Ref<ArrayMesh>> terrain_meshes;
+	HashMap<TerrainMode, AHashMap<CellNeighbor, Ref<ArrayMesh>>> terrain_peering_bits_meshes;
 	bool terrain_bits_meshes_dirty = true;
 
 	LocalVector<RBMap<TileSet::TerrainsPattern, RBSet<TileMapCell>>> per_terrain_pattern_tiles; // Cached data.
@@ -363,10 +363,10 @@ private:
 		Variant::Type type = Variant::NIL;
 	};
 	Vector<CustomDataLayer> custom_data_layers;
-	HashMap<String, int> custom_data_layers_by_name;
+	AHashMap<String, int> custom_data_layers_by_name;
 
 	// Per Atlas source data.
-	HashMap<int, Ref<TileSetSource>> sources;
+	AHashMap<int, Ref<TileSetSource>> sources;
 	Vector<int> source_ids;
 	int next_source_id = 0;
 	// ---------------------
@@ -647,9 +647,9 @@ private:
 	Vector2i separation;
 	Size2i texture_region_size = Size2i(16, 16);
 
-	HashMap<Vector2i, TileAlternativesData> tiles;
+	AHashMap<Vector2i, TileAlternativesData> tiles;
 	Vector<Vector2i> tiles_ids;
-	HashMap<Vector2i, Vector2i> _coords_mapping_cache; // Maps any coordinate to the including tile
+	AHashMap<Vector2i, Vector2i> _coords_mapping_cache; // Maps any coordinate to the including tile
 
 	TileData *_get_atlas_tile_data(Vector2i p_atlas_coords, int p_alternative_tile);
 	const TileData *_get_atlas_tile_data(Vector2i p_atlas_coords, int p_alternative_tile) const;
