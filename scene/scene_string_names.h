@@ -140,6 +140,8 @@ public:
 	StringName shader_overrides_group;
 	StringName shader_overrides_group_active;
 
+	StringName __custom_type_script;
+
 	StringName pressed;
 	StringName id_pressed;
 
