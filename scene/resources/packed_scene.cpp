@@ -32,7 +32,6 @@
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
-#include "core/core_string_names.h"
 #include "core/io/missing_resource.h"
 #include "core/io/resource_loader.h"
 #include "core/templates/local_vector.h"
@@ -315,6 +314,16 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 					ERR_FAIL_INDEX_V(nprops[j].value, prop_count, nullptr);
 
 					if (nprops[j].name & FLAG_PATH_PROPERTY_IS_NODE) {
+						if (!Engine::get_singleton()->is_editor_hint() && node->get_scene_instance_load_placeholder()) {
+							// We cannot know if the referenced nodes exist yet, so instead of deferring, we write the NodePaths directly.
+
+							uint32_t name_idx = nprops[j].name & (FLAG_PATH_PROPERTY_IS_NODE - 1);
+							ERR_FAIL_UNSIGNED_INDEX_V(name_idx, (uint32_t)sname_count, nullptr);
+
+							node->set(snames[name_idx], props[nprops[j].value], &valid);
+							continue;
+						}
+
 						uint32_t name_idx = nprops[j].name & (FLAG_PATH_PROPERTY_IS_NODE - 1);
 						ERR_FAIL_UNSIGNED_INDEX_V(name_idx, (uint32_t)sname_count, nullptr);
 
@@ -328,7 +337,7 @@ Node *SceneState::instantiate(GenEditState p_edit_state) const {
 
 					ERR_FAIL_INDEX_V(nprops[j].name, sname_count, nullptr);
 
-					if (snames[nprops[j].name] == CoreStringNames::get_singleton()->_script) {
+					if (snames[nprops[j].name] == CoreStringName(script)) {
 						//work around to avoid old script variables from disappearing, should be the proper fix to:
 						//https://github.com/godotengine/godot/issues/2958
 
@@ -807,7 +816,7 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Has
 			bool is_valid_default = false;
 			Variant default_value = PropertyUtils::get_property_default_value(p_node, name, &is_valid_default, &states_stack, true);
 
-			if (is_valid_default && !PropertyUtils::is_property_value_different(value, default_value)) {
+			if (is_valid_default && !PropertyUtils::is_property_value_different(p_node, value, default_value)) {
 				if (value.get_type() == Variant::ARRAY && has_local_resource(value)) {
 					// Save anyway
 				} else if (value.get_type() == Variant::DICTIONARY) {

@@ -638,6 +638,16 @@ Size2 ItemList::Item::get_icon_size() const {
 	return size_result;
 }
 
+void ItemList::set_fixed_tag_icon_size(const Size2i &p_size) {
+	if (fixed_tag_icon_size == p_size) {
+		return;
+	}
+
+	fixed_tag_icon_size = p_size;
+	queue_redraw();
+	shape_changed = true;
+}
+
 void ItemList::gui_input(const Ref<InputEvent> &p_event) {
 	ERR_FAIL_COND(p_event.is_null());
 
@@ -1225,13 +1235,21 @@ void ItemList::_notification(int p_what) {
 				}
 
 				if (items[i].tag_icon.is_valid()) {
+					Size2 tag_icon_size;
+					if (fixed_tag_icon_size.x > 0 && fixed_tag_icon_size.y > 0) {
+						tag_icon_size = fixed_tag_icon_size;
+					} else {
+						tag_icon_size = items[i].tag_icon->get_size();
+					}
+
 					Point2 draw_pos = items[i].rect_cache.position;
 					draw_pos.x += theme_cache.h_separation / 2;
 					draw_pos.y += theme_cache.v_separation / 2;
 					if (rtl) {
-						draw_pos.x = size.width - draw_pos.x - items[i].tag_icon->get_width();
+						draw_pos.x = size.width - draw_pos.x - tag_icon_size.x;
 					}
-					draw_texture(items[i].tag_icon, draw_pos + base_ofs);
+
+					draw_texture_rect(items[i].tag_icon, Rect2(draw_pos + base_ofs, tag_icon_size));
 				}
 
 				if (!items[i].text.is_empty()) {
@@ -1894,7 +1912,7 @@ ItemList::ItemList() {
 	add_child(scroll_bar, false, INTERNAL_MODE_FRONT);
 	scroll_bar->connect("value_changed", callable_mp(this, &ItemList::_scroll_changed));
 
-	connect("mouse_exited", callable_mp(this, &ItemList::_mouse_exited));
+	connect(SceneStringName(mouse_exited), callable_mp(this, &ItemList::_mouse_exited));
 
 	set_focus_mode(FOCUS_ALL);
 	set_clip_contents(true);

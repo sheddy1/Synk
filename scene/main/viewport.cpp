@@ -54,7 +54,6 @@
 #include "scene/resources/mesh.h"
 #include "scene/resources/text_line.h"
 #include "scene/resources/world_2d.h"
-#include "scene/scene_string_names.h"
 #include "servers/audio_server.h"
 #include "servers/rendering/rendering_server_globals.h"
 
@@ -81,7 +80,7 @@ void ViewportTexture::setup_local_to_scene() {
 	if (loc_scene->is_ready()) {
 		_setup_local_to_scene(loc_scene);
 	} else {
-		loc_scene->connect(SNAME("ready"), callable_mp(this, &ViewportTexture::_setup_local_to_scene).bind(loc_scene), CONNECT_ONE_SHOT);
+		loc_scene->connect(SceneStringName(ready), callable_mp(this, &ViewportTexture::_setup_local_to_scene).bind(loc_scene), CONNECT_ONE_SHOT);
 		vp_pending = true;
 	}
 }
@@ -976,7 +975,7 @@ void Viewport::update_canvas_items() {
 	_update_canvas_items(this);
 }
 
-void Viewport::_set_size(const Size2i &p_size, const Size2i &p_size_2d_override, bool p_allocated) {
+bool Viewport::_set_size(const Size2i &p_size, const Size2i &p_size_2d_override, bool p_allocated) {
 	Transform2D stretch_transform_new = Transform2D();
 	if (is_size_2d_override_stretch_enabled() && p_size_2d_override.width > 0 && p_size_2d_override.height > 0) {
 		Size2 scale = Size2(p_size) / Size2(p_size_2d_override);
@@ -985,7 +984,7 @@ void Viewport::_set_size(const Size2i &p_size, const Size2i &p_size_2d_override,
 
 	Size2i new_size = p_size.maxi(2);
 	if (size == new_size && size_allocated == p_allocated && stretch_transform == stretch_transform_new && p_size_2d_override == size_2d_override) {
-		return;
+		return false;
 	}
 
 	size = new_size;
@@ -1028,6 +1027,7 @@ void Viewport::_set_size(const Size2i &p_size, const Size2i &p_size_2d_override,
 			sw->set_size(new_rect.size);
 		}
 	}
+	return true;
 }
 
 Size2i Viewport::_get_size() const {
@@ -1465,7 +1465,7 @@ void Viewport::_gui_show_tooltip() {
 		gui.tooltip_label->set_theme_type_variation(SNAME("TooltipLabel"));
 		gui.tooltip_label->set_text(gui.tooltip_text);
 		base_tooltip = gui.tooltip_label;
-		panel->connect("mouse_entered", callable_mp(this, &Viewport::_gui_cancel_tooltip));
+		panel->connect(SceneStringName(mouse_entered), callable_mp(this, &Viewport::_gui_cancel_tooltip));
 	}
 
 	base_tooltip->set_anchors_and_offsets_preset(Control::PRESET_FULL_RECT);

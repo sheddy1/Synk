@@ -65,7 +65,7 @@ void ControlPositioningWarning::_update_warning() {
 		hint_label->set_text(TTR("Use anchors and the rectangle for positioning."));
 	}
 
-	bg_panel->add_theme_style_override("panel", get_theme_stylebox(SNAME("bg_group_note"), SNAME("EditorProperty")));
+	bg_panel->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SNAME("bg_group_note"), SNAME("EditorProperty")));
 }
 
 void ControlPositioningWarning::_update_toggler() {
@@ -352,7 +352,7 @@ void EditorPropertySizeFlags::setup(const Vector<String> &p_options, bool p_vert
 		cb->set_text(text_split[0]);
 		cb->set_clip_text(true);
 		cb->set_meta("_value", current_val);
-		cb->connect("pressed", callable_mp(this, &EditorPropertySizeFlags::_flag_toggled));
+		cb->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertySizeFlags::_flag_toggled));
 		add_focusable(cb);
 
 		flag_options->add_child(cb);
@@ -360,9 +360,9 @@ void EditorPropertySizeFlags::setup(const Vector<String> &p_options, bool p_vert
 	}
 
 	Control *gui_base = EditorNode::get_singleton()->get_gui_base();
-	String wide_preset_icon = SNAME("ControlAlignHCenterWide");
-	String begin_preset_icon = SNAME("ControlAlignCenterLeft");
-	String end_preset_icon = SNAME("ControlAlignCenterRight");
+	StringName wide_preset_icon = SNAME("ControlAlignHCenterWide");
+	StringName begin_preset_icon = SNAME("ControlAlignCenterLeft");
+	StringName end_preset_icon = SNAME("ControlAlignCenterRight");
 	if (vertical) {
 		wide_preset_icon = SNAME("ControlAlignVCenterWide");
 		begin_preset_icon = SNAME("ControlAlignCenterTop");
@@ -407,7 +407,7 @@ EditorPropertySizeFlags::EditorPropertySizeFlags() {
 	flag_expand->set_text(TTR("Expand"));
 	vb->add_child(flag_expand);
 	add_focusable(flag_expand);
-	flag_expand->connect("pressed", callable_mp(this, &EditorPropertySizeFlags::_expand_toggled));
+	flag_expand->connect(SceneStringName(pressed), callable_mp(this, &EditorPropertySizeFlags::_expand_toggled));
 }
 
 bool EditorInspectorPluginControl::can_handle(Object *p_object) {
@@ -552,7 +552,7 @@ void ControlEditorPresetPicker::_add_row_button(HBoxContainer *p_row, const int 
 	b->set_tooltip_text(p_name);
 	b->set_flat(true);
 	p_row->add_child(b);
-	b->connect("pressed", callable_mp(this, &ControlEditorPresetPicker::_preset_button_pressed).bind(p_preset));
+	b->connect(SceneStringName(pressed), callable_mp(this, &ControlEditorPresetPicker::_preset_button_pressed).bind(p_preset));
 
 	preset_buttons[p_preset] = b;
 }
@@ -731,7 +731,7 @@ SizeFlagPresetPicker::SizeFlagPresetPicker(bool p_vertical) {
 	expand_button->set_flat(true);
 	expand_button->set_text(TTR("Expand"));
 	expand_button->set_tooltip_text(TTR("Enable to also set the Expand flag.\nDisable to only set Shrink/Fill flags."));
-	expand_button->connect("pressed", callable_mp(this, &SizeFlagPresetPicker::_expand_button_pressed));
+	expand_button->connect(SceneStringName(pressed), callable_mp(this, &SizeFlagPresetPicker::_expand_button_pressed));
 	main_vb->add_child(expand_button);
 }
 
@@ -1077,7 +1077,7 @@ ControlEditorToolbar::ControlEditorToolbar() {
 	keep_ratio_button->set_text(TTR("Set to Current Ratio"));
 	keep_ratio_button->set_tooltip_text(TTR("Adjust anchors and offsets to match the current rect size."));
 	anchors_button->get_popup_hbox()->add_child(keep_ratio_button);
-	keep_ratio_button->connect("pressed", callable_mp(this, &ControlEditorToolbar::_anchors_to_current_ratio));
+	keep_ratio_button->connect(SceneStringName(pressed), callable_mp(this, &ControlEditorToolbar::_anchors_to_current_ratio));
 
 	anchor_mode_button = memnew(Button);
 	anchor_mode_button->set_theme_type_variation("FlatButton");

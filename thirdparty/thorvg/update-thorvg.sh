@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-VERSION=0.13.3
+VERSION=0.13.5
 
 cd thirdparty/thorvg/ || true
 rm -rf AUTHORS LICENSE inc/ src/ *.zip *.tar.gz tmp/
@@ -38,8 +38,10 @@ cat << EOF > ../inc/config.h
 #define THORVG_SVG_LOADER_SUPPORT
 #define THORVG_PNG_LOADER_SUPPORT
 #define THORVG_JPG_LOADER_SUPPORT
-#define THORVG_WEBP_LOADER_SUPPORT
 #define THORVG_THREAD_SUPPORT
+
+// Added conditionally if webp module is enabled.
+//#define THORVG_WEBP_LOADER_SUPPORT
 
 // For internal debugging:
 //#define THORVG_LOG_ENABLED
