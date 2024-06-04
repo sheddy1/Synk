@@ -3138,10 +3138,6 @@ bool AnimationTrackEdit::_try_select_at_ui_pos(const Point2 &p_pos, bool p_aggre
 					moving_selection_effective = false;
 					moving_selection_pivot = animation->track_get_key_time(track, key_idx);
 					moving_selection_mouse_begin_x = p_pos.x;
-
-					AnimationPlayer *player = AnimationPlayerEditor::get_singleton()->get_player();
-					player->seek(moving_selection_pivot, true, true);
-					emit_signal(SNAME("timeline_changed"), moving_selection_pivot, false);
 				}
 
 				if (read_only) {
@@ -5608,6 +5604,14 @@ void AnimationTrackEditor::_move_selection_commit() {
 	moving_selection = false;
 	undo_redo->add_do_method(this, "_redraw_tracks");
 	undo_redo->add_undo_method(this, "_redraw_tracks");
+
+	// Update key frame.
+	AnimationPlayerEditor *ape = AnimationPlayerEditor::get_singleton();
+	if (ape) {
+		undo_redo->add_do_method(ape, "_animation_update_key_frame");
+		undo_redo->add_undo_method(ape, "_animation_update_key_frame");
+	}
+
 	undo_redo->commit_action();
 }
 
