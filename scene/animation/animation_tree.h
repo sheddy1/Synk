@@ -60,7 +60,7 @@ public:
 
 	bool closable = false;
 	Vector<Input> inputs;
-	HashMap<NodePath, bool> filter;
+	AHashMap<NodePath, bool> filter;
 	bool filter_enabled = false;
 
 	// To propagate information from upstream for use in estimation of playback progress.
@@ -248,7 +248,7 @@ private:
 	List<PropertyInfo> properties;
 	HashMap<StringName, AHashMap<StringName, StringName>> property_parent_map;
 	AHashMap<ObjectID, StringName> property_reference_map;
-	HashMap<StringName, Pair<Variant, bool>> property_map; // Property value and read-only flag.
+	AHashMap<StringName, Pair<Variant, bool>> property_map; // Property value and read-only flag.
 
 	bool properties_dirty = true;
 
