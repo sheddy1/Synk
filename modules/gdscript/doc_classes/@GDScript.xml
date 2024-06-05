@@ -577,6 +577,19 @@
 				[/codeblock]
 			</description>
 		</annotation>
+		<annotation name="@export_input_action">
+			<return type="void" />
+			<param index="0" name="hint" type="String" default="&quot;&quot;" />
+			<description>
+				Exports a [StringName], [String], [Array][lb][StringName][rb], [Array][lb][String][rb], or [PackedStringArray] property as an enum of the current project's [InputMap] actions.
+				If has the hint [code]"allow_builtin"[/code], then it also shows the built-in actions.
+				[codeBlock]
+				@export_input var input_action: StringName
+				@export_input var input_actions: Array[StringName]
+				@export_input(true) var builtin_action: String
+				[/codeBlock]
+			</description>
+		</annotation>
 		<annotation name="@export_multiline">
 			<return type="void" />
 			<description>
@@ -667,15 +680,6 @@
 				@export var car_number = 3
 				[/codeblock]
 				[b]Note:[/b] Subgroups cannot be nested, they only provide one extra level of depth. Just like the next group ends the previous group, so do the subsequent subgroups.
-			</description>
-		</annotation>
-		<annotation name="@export_input">
-			<description>
-				Exports a String or StringName as an enum of the current project's InputMap.
-				[codeblock]
-				@export_input var input_action : StringName
-				@export_input(true) var builtin_action: String
-				[/codeblock]
 			</description>
 		</annotation>
 		<annotation name="@icon">
