@@ -583,11 +583,11 @@
 			<description>
 				Exports a [StringName], [String], [Array][lb][StringName][rb], [Array][lb][String][rb], or [PackedStringArray] property as an enum of the current project's [InputMap] actions.
 				If has the hint [code]"allow_builtin"[/code], then it also shows the built-in actions.
-				[codeBlock]
+				[codeblock]
 				@export_input var input_action: StringName
 				@export_input var input_actions: Array[StringName]
-				@export_input(true) var builtin_action: String
-				[/codeBlock]
+				@export_input("allow_builtin") var builtin_action: String
+				[/codeblock]
 			</description>
 		</annotation>
 		<annotation name="@export_multiline">
