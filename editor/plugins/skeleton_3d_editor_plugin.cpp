@@ -904,8 +904,8 @@ Skeleton3DEditor::Skeleton3DEditor(EditorInspectorPluginSkeleton *e_plugin, Skel
 	singleton = this;
 
 	// Handle.
-	handle_material = Ref<ShaderMaterial>(memnew(ShaderMaterial));
-	handle_shader = Ref<Shader>(memnew(Shader));
+	handle_material.instantiate();
+	handle_shader.instantiate();
 	handle_shader->set_code(R"(
 // Skeleton 3D gizmo handle shader.
 
@@ -1181,15 +1181,15 @@ int Skeleton3DEditor::get_selected_bone() const {
 }
 
 Skeleton3DGizmoPlugin::Skeleton3DGizmoPlugin() {
-	unselected_mat = Ref<StandardMaterial3D>(memnew(StandardMaterial3D));
+	unselected_mat.instantiate();
 	unselected_mat->set_shading_mode(StandardMaterial3D::SHADING_MODE_UNSHADED);
 	unselected_mat->set_transparency(StandardMaterial3D::TRANSPARENCY_ALPHA);
 	unselected_mat->set_flag(StandardMaterial3D::FLAG_ALBEDO_FROM_VERTEX_COLOR, true);
 	unselected_mat->set_flag(StandardMaterial3D::FLAG_SRGB_VERTEX_COLOR, true);
 	unselected_mat->set_flag(StandardMaterial3D::FLAG_DISABLE_FOG, true);
 
-	selected_mat = Ref<ShaderMaterial>(memnew(ShaderMaterial));
-	selected_sh = Ref<Shader>(memnew(Shader));
+	selected_mat.instantiate();
+	selected_sh.instantiate();
 	selected_sh->set_code(R"(
 // Skeleton 3D gizmo bones shader.
 
