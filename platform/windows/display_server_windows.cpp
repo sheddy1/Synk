@@ -662,19 +662,19 @@ Point2i DisplayServerWindows::mouse_get_position() const {
 BitField<MouseButtonMask> DisplayServerWindows::mouse_get_button_state() const {
 	BitField<MouseButtonMask> last_button_state = 0;
 
-	if (GetAsyncKeyState(VK_LBUTTON) & (1 << 15)) {
+	if (GetKeyState(VK_LBUTTON) & (1 << 15)) {
 		last_button_state.set_flag(MouseButtonMask::LEFT);
 	}
-	if (GetAsyncKeyState(VK_RBUTTON) & (1 << 15)) {
+	if (GetKeyState(VK_RBUTTON) & (1 << 15)) {
 		last_button_state.set_flag(MouseButtonMask::RIGHT);
 	}
-	if (GetAsyncKeyState(VK_MBUTTON) & (1 << 15)) {
+	if (GetKeyState(VK_MBUTTON) & (1 << 15)) {
 		last_button_state.set_flag(MouseButtonMask::MIDDLE);
 	}
-	if (GetAsyncKeyState(VK_XBUTTON1) & (1 << 15)) {
+	if (GetKeyState(VK_XBUTTON1) & (1 << 15)) {
 		last_button_state.set_flag(MouseButtonMask::MB_XBUTTON1);
 	}
-	if (GetAsyncKeyState(VK_XBUTTON2) & (1 << 15)) {
+	if (GetKeyState(VK_XBUTTON2) & (1 << 15)) {
 		last_button_state.set_flag(MouseButtonMask::MB_XBUTTON2);
 	}
 
@@ -3575,8 +3575,11 @@ void DisplayServerWindows::popup_open(WindowID p_window) {
 		}
 	}
 
+	// Detect tooltips and other similar popups that shouldn't block input to their parent.
+	bool ignores_input = window_get_flag(WINDOW_FLAG_NO_FOCUS, p_window) && window_get_flag(WINDOW_FLAG_MOUSE_PASSTHROUGH, p_window);
+
 	WindowData &wd = windows[p_window];
-	if (wd.is_popup || has_popup_ancestor) {
+	if (wd.is_popup || (has_popup_ancestor && !ignores_input)) {
 		// Find current popup parent, or root popup if new window is not transient.
 		List<WindowID>::Element *C = nullptr;
 		List<WindowID>::Element *E = popup_list.back();
