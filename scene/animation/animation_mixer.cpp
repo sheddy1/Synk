@@ -1074,15 +1074,15 @@ void AnimationMixer::_blend_calc_total_weight() {
 	for (const AnimationInstance &ai : animation_instances) {
 		Ref<Animation> a = ai.animation_data.animation;
 		real_t weight = ai.playback_info.weight;
-		Vector<real_t> track_weights = ai.playback_info.track_weights;
+		const real_t *track_weights_ptr = ai.playback_info.track_weights.ptr();
+		int track_weights_count = ai.playback_info.track_weights.size();
 		Vector<int> processed_indices;
 		const Vector<Animation::Track *> tracks = a->get_tracks();
-		int count = a->get_track_count();
-		for (int i = 0; i < count; i++) {
-			if (!tracks[i]->enabled) {
+		for (const Animation::Track *animation_track : tracks) {
+			if (!animation_track->enabled) {
 				continue;
 			}
-			Animation::TypeHash thash = tracks[i]->thash;
+			Animation::TypeHash thash = animation_track->thash;
 			TrackCache **track_ptr = track_cache.getptr(thash);
 			if (track_ptr == nullptr) {
 				continue; // No path, but avoid error spamming.
@@ -1093,7 +1093,7 @@ void AnimationMixer::_blend_calc_total_weight() {
 				continue; // There is the case different track type with same path... Is there more faster iterating way than has()?
 			}
 			ERR_CONTINUE(blend_idx < 0 || blend_idx >= track_count);
-			real_t blend = blend_idx < track_weights.size() ? track_weights[blend_idx] * weight : weight;
+			real_t blend = blend_idx < track_weights_count ? track_weights_ptr[blend_idx] * weight : weight;
 			track->total_weight += blend;
 			processed_indices.push_back(blend_idx);
 		}
@@ -1113,18 +1113,22 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 		Animation::LoopedFlag looped_flag = ai.playback_info.looped_flag;
 		bool is_external_seeking = ai.playback_info.is_external_seeking;
 		real_t weight = ai.playback_info.weight;
-		Vector<real_t> track_weights = ai.playback_info.track_weights;
+		const real_t *track_weights_ptr = ai.playback_info.track_weights.ptr();
+		int track_weights_count = ai.playback_info.track_weights.size();
 		bool backward = signbit(delta); // This flag is used by the root motion calculates or detecting the end of audio stream.
 #ifndef _3D_DISABLED
 		bool calc_root = !seeked || is_external_seeking;
 #endif // _3D_DISABLED
-		int count = a->get_track_count();
 		const Vector<Animation::Track *> tracks = a->get_tracks();
+		Animation::Track *const *tracks_ptr = tracks.ptr();
+		real_t a_length = a->get_length();
+		int count = tracks.size();
 		for (int i = 0; i < count; i++) {
-			if (!tracks[i]->enabled) {
+			const Animation::Track *animation_track = tracks_ptr[i];
+			if (!animation_track->enabled) {
 				continue;
 			}
-			Animation::TypeHash thash = tracks[i]->thash;
+			Animation::TypeHash thash = animation_track->thash;
 			TrackCache **track_ptr = track_cache.getptr(thash);
 			if (track_ptr == nullptr) {
 				continue; // No path, but avoid error spamming.
@@ -1134,7 +1138,7 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 			ERR_CONTINUE(blend_idx_ptr == nullptr);
 			int blend_idx = *blend_idx_ptr;
 			ERR_CONTINUE(blend_idx < 0 || blend_idx >= track_count);
-			real_t blend = blend_idx < track_weights.size() ? track_weights[blend_idx] * weight : weight;
+			real_t blend = blend_idx < track_weights_count ? track_weights_ptr[blend_idx] * weight : weight;
 			if (!deterministic) {
 				// If non-deterministic, do normalization.
 				// It would be better to make this if statement outside the for loop, but come here since too much code...
@@ -1143,9 +1147,8 @@ void AnimationMixer::_blend_process(double p_delta, bool p_update_only) {
 				}
 				blend = blend / track->total_weight;
 			}
-			Animation::TrackType ttype = tracks[i]->type;
-			track->root_motion = root_motion_track == tracks[i]->path;
-			real_t a_length = a->get_length();
+			Animation::TrackType ttype = animation_track->type;
+			track->root_motion = root_motion_track == animation_track->path;
 			switch (ttype) {
 				case Animation::TYPE_POSITION_3D: {
 #ifndef _3D_DISABLED
