@@ -1067,10 +1067,7 @@ void NavMeshGenerator2D::generator_bake_from_source_geometry_data(Ref<Navigation
 	}
 
 	p_navigation_mesh->set_vertices(new_vertices);
-	p_navigation_mesh->clear_polygons();
-	for (int i = 0; i < new_polygons.size(); i++) {
-		p_navigation_mesh->add_polygon(new_polygons[i]);
-	}
+	p_navigation_mesh->set_polygons(new_polygons);
 }
 
 #endif // CLIPPER2_ENABLED

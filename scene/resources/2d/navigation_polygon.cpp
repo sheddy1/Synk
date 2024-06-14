@@ -99,7 +99,7 @@ void NavigationPolygon::_set_polygons(const TypedArray<Vector<int32_t>> &p_array
 	}
 	polygons.resize(p_array.size());
 	for (int i = 0; i < p_array.size(); i++) {
-		polygons.write[i].indices = p_array[i];
+		polygons.write[i] = p_array[i];
 	}
 }
 
@@ -107,7 +107,7 @@ TypedArray<Vector<int32_t>> NavigationPolygon::_get_polygons() const {
 	TypedArray<Vector<int32_t>> ret;
 	ret.resize(polygons.size());
 	for (int i = 0; i < ret.size(); i++) {
-		ret[i] = polygons[i].indices;
+		ret[i] = polygons[i];
 	}
 
 	return ret;
@@ -132,9 +132,7 @@ TypedArray<Vector<Vector2>> NavigationPolygon::_get_outlines() const {
 }
 
 void NavigationPolygon::add_polygon(const Vector<int> &p_polygon) {
-	Polygon polygon;
-	polygon.indices = p_polygon;
-	polygons.push_back(polygon);
+	polygons.push_back(p_polygon);
 	{
 		MutexLock lock(navigation_mesh_generation);
 		navigation_mesh.unref();
@@ -152,7 +150,7 @@ int NavigationPolygon::get_polygon_count() const {
 
 Vector<int> NavigationPolygon::get_polygon(int p_idx) {
 	ERR_FAIL_INDEX_V(p_idx, polygons.size(), Vector<int>());
-	return polygons[p_idx].indices;
+	return polygons[p_idx];
 }
 
 void NavigationPolygon::clear_polygons() {
@@ -190,13 +188,32 @@ Ref<NavigationMesh> NavigationPolygon::get_navigation_mesh() {
 		}
 		navigation_mesh->set_vertices(verts);
 
-		for (int i(0); i < get_polygon_count(); i++) {
-			navigation_mesh->add_polygon(get_polygon(i));
-		}
+		navigation_mesh->set_polygons(polygons);
 		navigation_mesh->set_cell_size(cell_size); // Needed to not fail the cell size check on the server
 	}
 
 	return navigation_mesh;
+}
+
+void NavigationPolygon::set_outlines(const Vector<Vector<Vector2>> &p_outlines) {
+	outlines = p_outlines;
+	rect_cache_dirty = true;
+}
+
+Vector<Vector<Vector2>> NavigationPolygon::get_outlines() const {
+	return outlines;
+}
+
+void NavigationPolygon::set_polygons(const Vector<Vector<int>> &p_polygons) {
+	polygons = p_polygons;
+	{
+		MutexLock lock(navigation_mesh_generation);
+		navigation_mesh.unref();
+	}
+}
+
+Vector<Vector<int>> NavigationPolygon::get_polygons() const {
+	return polygons;
 }
 
 void NavigationPolygon::add_outline(const Vector<Vector2> &p_outline) {
@@ -319,7 +336,7 @@ void NavigationPolygon::make_polygons_from_outlines() {
 	for (List<TPPLPoly>::Element *I = out_poly.front(); I; I = I->next()) {
 		TPPLPoly &tp = I->get();
 
-		struct Polygon p;
+		Vector<int> p;
 
 		for (int64_t i = 0; i < tp.GetNumPoints(); i++) {
 			HashMap<Vector2, int>::Iterator E = points.find(tp[i]);
@@ -327,7 +344,7 @@ void NavigationPolygon::make_polygons_from_outlines() {
 				E = points.insert(tp[i], vertices.size());
 				vertices.push_back(tp[i]);
 			}
-			p.indices.push_back(E->value);
+			p.push_back(E->value);
 		}
 
 		polygons.push_back(p);

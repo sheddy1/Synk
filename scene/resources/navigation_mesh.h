@@ -37,10 +37,7 @@ class NavigationMesh : public Resource {
 	GDCLASS(NavigationMesh, Resource);
 
 	Vector<Vector3> vertices;
-	struct Polygon {
-		Vector<int> indices;
-	};
-	Vector<Polygon> polygons;
+	Vector<Vector<int>> polygons;
 	Ref<ArrayMesh> debug_mesh;
 
 protected:
@@ -192,6 +189,8 @@ public:
 	int get_polygon_count() const;
 	Vector<int> get_polygon(int p_idx);
 	void clear_polygons();
+	void set_polygons(const Vector<Vector<int>> &p_polygons);
+	Vector<Vector<int>> get_polygons() const;
 
 	void clear();
 

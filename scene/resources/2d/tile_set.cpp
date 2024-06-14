@@ -6489,15 +6489,15 @@ Ref<NavigationPolygon> TileData::get_navigation_polygon(int p_layer_id, bool p_f
 		PackedVector2Array new_points = get_transformed_vertices(layer_tile_data.navigation_polygon->get_vertices(), p_flip_h, p_flip_v, p_transpose);
 		transformed_polygon->set_vertices(new_points);
 
-		int num_polygons = layer_tile_data.navigation_polygon->get_polygon_count();
-		for (int i = 0; i < num_polygons; ++i) {
-			transformed_polygon->add_polygon(layer_tile_data.navigation_polygon->get_polygon(i));
-		}
+		transformed_polygon->set_polygons(layer_tile_data.navigation_polygon->get_polygons());
 
-		for (int i = 0; i < layer_tile_data.navigation_polygon->get_outline_count(); i++) {
-			PackedVector2Array new_outline = get_transformed_vertices(layer_tile_data.navigation_polygon->get_outline(i), p_flip_h, p_flip_v, p_transpose);
-			transformed_polygon->add_outline(new_outline);
+		int outline_count = layer_tile_data.navigation_polygon->get_outline_count();
+		Vector<Vector<Vector2>> new_outlines;
+		new_outlines.resize(outline_count);
+		for (int i = 0; i < outline_count; i++) {
+			new_outlines.write[i] = get_transformed_vertices(layer_tile_data.navigation_polygon->get_outline(i), p_flip_h, p_flip_v, p_transpose);
 		}
+		transformed_polygon->set_outlines(new_outlines);
 
 		layer_tile_data.transformed_navigation_polygon[key] = transformed_polygon;
 		return transformed_polygon;
