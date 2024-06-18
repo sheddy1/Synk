@@ -65,8 +65,8 @@ class Ref {
 		unref();
 
 		reference = p_from.reference;
-		if (reference) {
-			reference->reference();
+		if (reference != nullptr && !reference->reference()) {
+			reference = nullptr;
 		}
 	}
 
