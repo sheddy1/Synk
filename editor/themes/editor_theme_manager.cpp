@@ -2284,6 +2284,14 @@ void EditorThemeManager::_populate_editor_styles(const Ref<EditorTheme> &p_theme
 		p_theme->set_stylebox("BottomPanelDebuggerOverride", EditorStringName(EditorStyles), invisible_top_panel_style);
 	}
 
+	// Quick Open Dialog.
+	{
+		Ref<StyleBoxFlat> quick_open_panel_style = p_config.content_panel_style->duplicate();
+		quick_open_panel_style->set_content_margin_all(0);
+		quick_open_panel_style->set_bg_color(p_config.dark_color_1);
+		p_theme->set_stylebox("QuickOpenBackgroundPanel", EditorStringName(EditorStyles), quick_open_panel_style);
+	}
+
 	// Resource and node editors.
 	{
 		// TextureRegion editor.
