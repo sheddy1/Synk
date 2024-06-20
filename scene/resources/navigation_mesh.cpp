@@ -60,6 +60,8 @@ void NavigationMesh::create_from_mesh(const Ref<Mesh> &p_mesh) {
 		int rlen = iarr.size();
 		const int *r = iarr.ptr();
 
+		Vector<Vector<int>> new_polygons;
+		new_polygons.resize(rlen / 3);
 		for (int j = 0; j < rlen; j += 3) {
 			Vector<int> vi;
 			vi.resize(3);
@@ -67,8 +69,9 @@ void NavigationMesh::create_from_mesh(const Ref<Mesh> &p_mesh) {
 			vi.write[1] = r[j + 1] + from;
 			vi.write[2] = r[j + 2] + from;
 
-			add_polygon(vi);
+			polygons.write[j / 3] = vi;
 		}
+		set_polygons(polygons);
 	}
 }
 
@@ -315,7 +318,7 @@ Vector<Vector3> NavigationMesh::get_vertices() const {
 void NavigationMesh::_set_polygons(const Array &p_array) {
 	polygons.resize(p_array.size());
 	for (int i = 0; i < p_array.size(); i++) {
-		polygons.write[i].indices = p_array[i];
+		polygons.write[i] = p_array[i];
 	}
 	notify_property_list_changed();
 }
@@ -324,16 +327,23 @@ Array NavigationMesh::_get_polygons() const {
 	Array ret;
 	ret.resize(polygons.size());
 	for (int i = 0; i < ret.size(); i++) {
-		ret[i] = polygons[i].indices;
+		ret[i] = polygons[i];
 	}
 
 	return ret;
 }
 
+void NavigationMesh::set_polygons(const Vector<Vector<int>> &p_polygons) {
+	polygons = p_polygons;
+	notify_property_list_changed();
+}
+
+Vector<Vector<int>> NavigationMesh::get_polygons() const {
+	return polygons;
+}
+
 void NavigationMesh::add_polygon(const Vector<int> &p_polygon) {
-	Polygon polygon;
-	polygon.indices = p_polygon;
-	polygons.push_back(polygon);
+	polygons.push_back(p_polygon);
 	notify_property_list_changed();
 }
 
@@ -343,7 +353,7 @@ int NavigationMesh::get_polygon_count() const {
 
 Vector<int> NavigationMesh::get_polygon(int p_idx) {
 	ERR_FAIL_INDEX_V(p_idx, polygons.size(), Vector<int>());
-	return polygons[p_idx].indices;
+	return polygons[p_idx];
 }
 
 void NavigationMesh::clear_polygons() {

@@ -915,6 +915,7 @@ void NavMeshGenerator3D::generator_bake_from_source_geometry_data(Ref<Navigation
 	p_navigation_mesh->set_vertices(nav_vertices);
 	p_navigation_mesh->clear_polygons();
 
+	Vector<Vector<int>> nav_polygons;
 	for (int i = 0; i < detail_mesh->nmeshes; i++) {
 		const unsigned int *detail_mesh_m = &detail_mesh->meshes[i * 4];
 		const unsigned int detail_mesh_bverts = detail_mesh_m[0];
@@ -933,9 +934,10 @@ void NavMeshGenerator3D::generator_bake_from_source_geometry_data(Ref<Navigation
 			nav_indices.write[1] = recast_index_to_native_index[index2];
 			nav_indices.write[2] = recast_index_to_native_index[index3];
 
-			p_navigation_mesh->add_polygon(nav_indices);
+			nav_polygons.push_back(nav_indices);
 		}
 	}
+	p_navigation_mesh->set_polygons(nav_polygons);
 
 	bake_state = "Cleanup..."; // step #11
 

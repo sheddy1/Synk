@@ -38,10 +38,7 @@ class NavigationPolygon : public Resource {
 	GDCLASS(NavigationPolygon, Resource);
 
 	Vector<Vector2> vertices;
-	struct Polygon {
-		Vector<int> indices;
-	};
-	Vector<Polygon> polygons;
+	Vector<Vector<int>> polygons;
 	Vector<Vector<Vector2>> outlines;
 	Vector<Vector<Vector2>> baked_outlines;
 
@@ -108,6 +105,8 @@ public:
 	Vector<Vector2> get_outline(int p_idx) const;
 	void remove_outline(int p_idx);
 	int get_outline_count() const;
+	void set_outlines(const Vector<Vector<Vector2>> &p_outlines);
+	Vector<Vector<Vector2>> get_outlines() const;
 
 	void clear_outlines();
 #ifndef DISABLE_DEPRECATED
@@ -115,7 +114,7 @@ public:
 #endif // DISABLE_DEPRECATED
 
 	void set_polygons(const Vector<Vector<int>> &p_polygons);
-	const Vector<Vector<int>> &get_polygons() const;
+	Vector<Vector<int>> get_polygons() const;
 	Vector<int> get_polygon(int p_idx);
 	void clear_polygons();
 
