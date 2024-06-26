@@ -12,19 +12,18 @@ public partial class VariantUtils
 
     internal static class GenericConversion<T>
     {
+        internal delegate godot_variant ToVariantConverter(scoped in T from);
+        internal delegate T FromVariantConverter(in godot_variant from);
+
         public static unsafe godot_variant ToVariant(scoped in T from) =>
-#pragma warning disable CS9088 // the delegate pointer cannot be marked scoped, but it should be
-            ToVariantCb != null ? ToVariantCb(from) : throw UnsupportedType<T>();
-#pragma warning restore CS9088
+             ToVariantCb != null ? ToVariantCb(from) : throw UnsupportedType<T>();
 
         public static unsafe T FromVariant(in godot_variant variant) =>
             FromVariantCb != null ? FromVariantCb(variant) : throw UnsupportedType<T>();
 
-        // ReSharper disable once StaticMemberInGenericType
-        internal static unsafe delegate*<in T, godot_variant> ToVariantCb;
+        internal static ToVariantConverter? ToVariantCb;
 
-        // ReSharper disable once StaticMemberInGenericType
-        internal static unsafe delegate*<in godot_variant, T> FromVariantCb;
+        internal static FromVariantConverter? FromVariantCb;
 
         static GenericConversion()
         {

@@ -1052,7 +1052,7 @@ namespace Godot.Collections
         IEnumerable<T>,
         IGenericGodotArray
     {
-        private static godot_variant ToVariantFunc(in Array<T> godotArray) =>
+        private static godot_variant ToVariantFunc(scoped in Array<T> godotArray) =>
             VariantUtils.CreateFromArray(godotArray);
 
         private static Array<T> FromVariantFunc(in godot_variant variant) =>
@@ -1060,8 +1060,8 @@ namespace Godot.Collections
 
         static unsafe Array()
         {
-            VariantUtils.GenericConversion<Array<T>>.ToVariantCb = &ToVariantFunc;
-            VariantUtils.GenericConversion<Array<T>>.FromVariantCb = &FromVariantFunc;
+            VariantUtils.GenericConversion<Array<T>>.ToVariantCb = ToVariantFunc;
+            VariantUtils.GenericConversion<Array<T>>.FromVariantCb = FromVariantFunc;
         }
 
         private readonly Array _underlyingArray;
