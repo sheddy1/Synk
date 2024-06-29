@@ -305,6 +305,9 @@ public:
 	virtual PackedByteArray generate_buffer(Ref<GLTFState> p_state);
 	virtual Error write_to_filesystem(Ref<GLTFState> p_state, const String &p_path);
 
+	Ref<GLTFObjectModelProperty> import_object_model_property(Ref<GLTFState> p_state, const String &p_json_pointer);
+	Ref<GLTFObjectModelProperty> export_object_model_property(Ref<GLTFState> p_state, const NodePath &p_node_path, const Node *p_godot_node, GLTFNodeIndex p_gltf_node_index);
+
 public:
 	Error _parse_gltf_state(Ref<GLTFState> p_state, const String &p_search_path);
 	Error _parse_asset_header(Ref<GLTFState> p_state);
@@ -313,6 +316,7 @@ public:
 	Node *_generate_scene_node_tree(Ref<GLTFState> p_state);
 	void _generate_scene_node(Ref<GLTFState> p_state, const GLTFNodeIndex p_node_index, Node *p_scene_parent, Node *p_scene_root);
 	void _generate_skeleton_bone_node(Ref<GLTFState> p_state, const GLTFNodeIndex p_node_index, Node *p_scene_parent, Node *p_scene_root);
+	NodePath _find_material_node_path(Ref<GLTFState> p_state, Ref<Material> p_material);
 	void _import_animation(Ref<GLTFState> p_state, AnimationPlayer *p_animation_player,
 			const GLTFAnimationIndex p_index, const bool p_trimming, const bool p_remove_immutable_tracks);
 	void _convert_mesh_instances(Ref<GLTFState> p_state);
