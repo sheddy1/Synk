@@ -38,8 +38,8 @@ void GLTFDocumentExtension::_bind_methods() {
 	GDVIRTUAL_BIND(_parse_image_data, "state", "image_data", "mime_type", "ret_image");
 	GDVIRTUAL_BIND(_get_image_file_extension);
 	GDVIRTUAL_BIND(_parse_texture_json, "state", "texture_json", "ret_gltf_texture");
-	GDVIRTUAL_BIND(_generate_scene_node, "state", "gltf_node", "scene_parent");
 	GDVIRTUAL_BIND(_import_post_parse, "state");
+	GDVIRTUAL_BIND(_generate_scene_node, "state", "gltf_node", "scene_parent");
 	GDVIRTUAL_BIND(_import_node, "state", "gltf_node", "json", "node");
 	GDVIRTUAL_BIND(_import_post, "state", "root");
 	// Export process.
@@ -98,19 +98,19 @@ Error GLTFDocumentExtension::parse_texture_json(Ref<GLTFState> p_state, const Di
 	return err;
 }
 
+Error GLTFDocumentExtension::import_post_parse(Ref<GLTFState> p_state) {
+	ERR_FAIL_NULL_V(p_state, ERR_INVALID_PARAMETER);
+	Error err = OK;
+	GDVIRTUAL_CALL(_import_post_parse, p_state, err);
+	return err;
+}
+
 Node3D *GLTFDocumentExtension::generate_scene_node(Ref<GLTFState> p_state, Ref<GLTFNode> p_gltf_node, Node *p_scene_parent) {
 	ERR_FAIL_NULL_V(p_state, nullptr);
 	ERR_FAIL_NULL_V(p_gltf_node, nullptr);
 	Node3D *ret_node = nullptr;
 	GDVIRTUAL_CALL(_generate_scene_node, p_state, p_gltf_node, p_scene_parent, ret_node);
 	return ret_node;
-}
-
-Error GLTFDocumentExtension::import_post_parse(Ref<GLTFState> p_state) {
-	ERR_FAIL_NULL_V(p_state, ERR_INVALID_PARAMETER);
-	Error err = OK;
-	GDVIRTUAL_CALL(_import_post_parse, p_state, err);
-	return err;
 }
 
 Error GLTFDocumentExtension::import_node(Ref<GLTFState> p_state, Ref<GLTFNode> p_gltf_node, Dictionary &r_dict, Node *p_node) {

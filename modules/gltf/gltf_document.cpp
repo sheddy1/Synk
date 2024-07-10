@@ -2879,40 +2879,41 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 	Array meshes = p_state->json["meshes"];
 	for (GLTFMeshIndex i = 0; i < meshes.size(); i++) {
 		print_verbose("glTF: Parsing mesh: " + itos(i));
-		Dictionary d = meshes[i];
+		Dictionary mesh_dict = meshes[i];
 
 		Ref<GLTFMesh> mesh;
 		mesh.instantiate();
 		bool has_vertex_color = false;
 
-		ERR_FAIL_COND_V(!d.has("primitives"), ERR_PARSE_ERROR);
+		ERR_FAIL_COND_V(!mesh_dict.has("primitives"), ERR_PARSE_ERROR);
 
-		Array primitives = d["primitives"];
-		const Dictionary &extras = d.has("extras") ? (Dictionary)d["extras"] : Dictionary();
+		Array primitives = mesh_dict["primitives"];
+		const Dictionary &extras = mesh_dict.has("extras") ? (Dictionary)mesh_dict["extras"] : Dictionary();
 		Ref<ImporterMesh> import_mesh;
 		import_mesh.instantiate();
 		String mesh_name = "mesh";
-		if (d.has("name") && !String(d["name"]).is_empty()) {
-			mesh_name = d["name"];
+		if (mesh_dict.has("name") && !String(mesh_dict["name"]).is_empty()) {
+			mesh_name = mesh_dict["name"];
 			mesh->set_original_name(mesh_name);
 		}
 		import_mesh->set_name(_gen_unique_name(p_state, vformat("%s_%s", p_state->scene_name, mesh_name)));
 		mesh->set_name(import_mesh->get_name());
+		TypedArray<Material> instance_materials;
 
 		for (int j = 0; j < primitives.size(); j++) {
 			uint64_t flags = RS::ARRAY_FLAG_COMPRESS_ATTRIBUTES;
-			Dictionary p = primitives[j];
+			Dictionary mesh_prim = primitives[j];
 
 			Array array;
 			array.resize(Mesh::ARRAY_MAX);
 
-			ERR_FAIL_COND_V(!p.has("attributes"), ERR_PARSE_ERROR);
+			ERR_FAIL_COND_V(!mesh_prim.has("attributes"), ERR_PARSE_ERROR);
 
-			Dictionary a = p["attributes"];
+			Dictionary a = mesh_prim["attributes"];
 
 			Mesh::PrimitiveType primitive = Mesh::PRIMITIVE_TRIANGLES;
-			if (p.has("mode")) {
-				const int mode = p["mode"];
+			if (mesh_prim.has("mode")) {
+				const int mode = mesh_prim["mode"];
 				ERR_FAIL_INDEX_V(mode, 7, ERR_FILE_CORRUPT);
 				// Convert mesh.primitive.mode to Godot Mesh enum. See:
 				// https://www.khronos.org/registry/glTF/specs/2.0/glTF-2.0.html#_mesh_primitive_mode
@@ -2943,8 +2944,8 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 			Vector<int> indices_mapping;
 			Vector<int> indices_rev_mapping;
 			Vector<int> indices_vec4_mapping;
-			if (p.has("indices")) {
-				indices = _decode_accessor_as_ints(p_state, p["indices"], false);
+			if (mesh_prim.has("indices")) {
+				indices = _decode_accessor_as_ints(p_state, mesh_prim["indices"], false);
 				const int is = indices.size();
 
 				if (primitive == Mesh::PRIMITIVE_TRIANGLES) {
@@ -3202,7 +3203,7 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 				}
 			}
 
-			if (p_state->force_disable_compression || is_mesh_2d || !a.has("POSITION") || !a.has("NORMAL") || p.has("targets") || (a.has("JOINTS_0") || a.has("JOINTS_1"))) {
+			if (p_state->force_disable_compression || is_mesh_2d || !a.has("POSITION") || !a.has("NORMAL") || mesh_prim.has("targets") || (a.has("JOINTS_0") || a.has("JOINTS_1"))) {
 				flags &= ~RS::ARRAY_FLAG_COMPRESS_ATTRIBUTES;
 			}
 
@@ -3234,9 +3235,9 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 
 			Array morphs;
 			// Blend shapes
-			if (p.has("targets")) {
+			if (mesh_prim.has("targets")) {
 				print_verbose("glTF: Mesh has targets");
-				const Array &targets = p["targets"];
+				const Array &targets = mesh_prim["targets"];
 
 				import_mesh->set_blend_shape_mode(Mesh::BLEND_SHAPE_MODE_NORMALIZED);
 
@@ -3367,8 +3368,8 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 			Ref<Material> mat;
 			String mat_name;
 			if (!p_state->discard_meshes_and_materials) {
-				if (p.has("material")) {
-					const int material = p["material"];
+				if (mesh_prim.has("material")) {
+					const int material = mesh_prim["material"];
 					ERR_FAIL_INDEX_V(material, p_state->materials.size(), ERR_FILE_CORRUPT);
 					Ref<Material> mat3d = p_state->materials[material];
 					ERR_FAIL_NULL_V(mat3d, ERR_FILE_CORRUPT);
@@ -3388,6 +3389,7 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 					mat = mat3d;
 				}
 				ERR_FAIL_NULL_V(mat, ERR_FILE_CORRUPT);
+				instance_materials.append(mat);
 				mat_name = mat->get_name();
 			}
 			import_mesh->add_surface(primitive, array, morphs,
@@ -3400,8 +3402,8 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 			blend_weights.write[weight_i] = 0.0f;
 		}
 
-		if (d.has("weights")) {
-			const Array &weights = d["weights"];
+		if (mesh_dict.has("weights")) {
+			const Array &weights = mesh_dict["weights"];
 			for (int j = 0; j < weights.size(); j++) {
 				if (j >= blend_weights.size()) {
 					break;
@@ -3410,6 +3412,7 @@ Error GLTFDocument::_parse_meshes(Ref<GLTFState> p_state) {
 			}
 		}
 		mesh->set_blend_weights(blend_weights);
+		mesh->set_instance_materials(instance_materials);
 		mesh->set_mesh(import_mesh);
 
 		p_state->meshes.push_back(mesh);
@@ -7533,6 +7536,7 @@ Error GLTFDocument::_parse_gltf_extensions(Ref<GLTFState> p_state) {
 		p_state->extensions_required = ext_array;
 	}
 	HashSet<String> supported_extensions;
+	supported_extensions.insert("GODOT_single_root");
 	supported_extensions.insert("KHR_lights_punctual");
 	supported_extensions.insert("KHR_materials_pbrSpecularGlossiness");
 	supported_extensions.insert("KHR_texture_transform");

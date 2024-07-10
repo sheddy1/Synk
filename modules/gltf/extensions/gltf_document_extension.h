@@ -71,8 +71,8 @@ public:
 	GDVIRTUAL4R(Error, _parse_image_data, Ref<GLTFState>, PackedByteArray, String, Ref<Image>);
 	GDVIRTUAL0R(String, _get_image_file_extension);
 	GDVIRTUAL3R(Error, _parse_texture_json, Ref<GLTFState>, Dictionary, Ref<GLTFTexture>);
-	GDVIRTUAL3R(Node3D *, _generate_scene_node, Ref<GLTFState>, Ref<GLTFNode>, Node *);
 	GDVIRTUAL1R(Error, _import_post_parse, Ref<GLTFState>);
+	GDVIRTUAL3R(Node3D *, _generate_scene_node, Ref<GLTFState>, Ref<GLTFNode>, Node *);
 	GDVIRTUAL4R(Error, _import_node, Ref<GLTFState>, Ref<GLTFNode>, Dictionary, Node *);
 	GDVIRTUAL2R(Error, _import_post, Ref<GLTFState>, Node *);
 	// Export process.
