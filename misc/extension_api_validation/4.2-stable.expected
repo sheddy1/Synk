@@ -379,3 +379,11 @@ GH-93982
 Validate extension JSON: Error: Field 'classes/Sprite3D/properties/frame_coords': type changed value in new API, from "Vector2" to "Vector2i".
 
 The type was wrong to begin with and has been corrected. Vector2 and Vector2i are convertible, so it should be compatible.
+
+
+GH-89919
+--------
+Validate extension JSON: Error: Field 'classes/LightmapGIData/methods/add_user/arguments': size changed value in new API, from 4 to 5.
+Validate extension JSON: Error: Field 'classes/RenderingServer/methods/instance_geometry_set_lightmap/arguments': size changed value in new API, from 4 to 5.
+
+Optional arguments added. Compatibility methods registered.
