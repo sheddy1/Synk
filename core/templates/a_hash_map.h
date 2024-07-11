@@ -206,7 +206,7 @@ private:
 		Memory::free_static(old_map_data);
 	}
 
-	_FORCE_INLINE_ int32_t _insert_element(const TKey &p_key, const TValue &p_value, uint32_t hash) {
+	_FORCE_INLINE_ int32_t _insert_element(const TKey &p_key, const TValue &p_value, uint32_t p_hash) {
 		if (unlikely(elements == nullptr)) {
 			// Allocate on demand to save memory.
 
@@ -223,7 +223,7 @@ private:
 
 		memnew_placement(&elements[num_elements], MapKeyValue(p_key, p_value));
 
-		_insert_with_hash(hash, num_elements);
+		_insert_with_hash(p_hash, num_elements);
 		num_elements++;
 		return num_elements - 1;
 	}
@@ -241,9 +241,9 @@ private:
 		elements = reinterpret_cast<MapKeyValue *>(Memory::alloc_static(sizeof(MapKeyValue) * (_get_resize_count(capacity) + 1)));
 
 		if constexpr (std::is_trivially_copyable_v<TKey> && std::is_trivially_copyable_v<TValue>) {
-			void *source = elements;
-			const void *destination = p_other.elements;
-			memcpy(source, destination, sizeof(MapKeyValue) * num_elements);
+			void *destination = elements;
+			const void *source = p_other.elements;
+			memcpy(destination, source, sizeof(MapKeyValue) * num_elements);
 		} else {
 			for (uint32_t i = 0; i < num_elements; i++) {
 				memnew_placement(&elements[i], MapKeyValue(p_other.elements[i]));
@@ -594,6 +594,12 @@ public:
 			elements[pos].value = p_value;
 		}
 		return Iterator(elements + pos, elements, elements + num_elements);
+	}
+
+	// Inserts element unchecked if already exist.
+	void set_new(const TKey &p_key, const TValue &p_value) {
+		uint32_t hash = _hash(p_key);
+		_insert_element(p_key, p_value, hash);
 	}
 
 	/* Constructors */

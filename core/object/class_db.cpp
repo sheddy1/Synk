@@ -1822,7 +1822,7 @@ MethodBind *ClassDB::bind_methodfi(uint32_t p_flags, MethodBind *p_bind, bool p_
 	if (p_compatibility) {
 		_bind_compatibility(type, p_bind);
 	} else {
-		type->method_map[mdname] = p_bind;
+		type->method_map.set_new(mdname, p_bind);
 	}
 
 	Vector<Variant> defvals;
