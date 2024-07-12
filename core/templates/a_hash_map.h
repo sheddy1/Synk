@@ -596,7 +596,7 @@ public:
 		return Iterator(elements + pos, elements, elements + num_elements);
 	}
 
-	// Inserts element unchecked if already exist.
+	//Inserts an element without checking if it already exists.
 	void set_new(const TKey &p_key, const TValue &p_value) {
 		uint32_t hash = _hash(p_key);
 		_insert_element(p_key, p_value, hash);
