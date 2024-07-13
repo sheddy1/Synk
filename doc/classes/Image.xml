@@ -48,6 +48,7 @@
 			<param index="2" name="dst" type="Vector2i" />
 			<description>
 				Copies [param src_rect] from [param src] image to this image at coordinates [param dst], clipped accordingly to both image bounds. This image and [param src] image [b]must[/b] have the same format. [param src_rect] with non-positive size is treated as empty.
+        [b]Note:[/b] Any alpha channel data in [param src] will overwrite the corresponding coordinates in the original image. In order to blend alpha channels see [method blend_rect] instead.
 			</description>
 		</method>
 		<method name="blit_rect_mask">
