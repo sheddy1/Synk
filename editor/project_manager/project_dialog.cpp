@@ -54,15 +54,15 @@ void ProjectDialog::_set_message(const String &p_msg, MessageType p_type, InputT
 	Ref<Texture2D> new_icon;
 	switch (p_type) {
 		case MESSAGE_ERROR: {
-			msg->add_theme_color_override("font_color", get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
+			msg->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("error_color"), EditorStringName(Editor)));
 			new_icon = get_editor_theme_icon(SNAME("StatusError"));
 		} break;
 		case MESSAGE_WARNING: {
-			msg->add_theme_color_override("font_color", get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
+			msg->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("warning_color"), EditorStringName(Editor)));
 			new_icon = get_editor_theme_icon(SNAME("StatusWarning"));
 		} break;
 		case MESSAGE_SUCCESS: {
-			msg->add_theme_color_override("font_color", get_theme_color(SNAME("success_color"), EditorStringName(Editor)));
+			msg->add_theme_color_override(SceneStringName(font_color), get_theme_color(SNAME("success_color"), EditorStringName(Editor)));
 			new_icon = get_editor_theme_icon(SNAME("StatusSuccess"));
 		} break;
 	}
@@ -315,6 +315,8 @@ void ProjectDialog::_create_dir_toggled(bool p_pressed) {
 			target_path = target_path.path_join(last_custom_target_dir);
 		}
 	} else {
+		// Strip any trailing slash.
+		target_path = target_path.rstrip("/\\");
 		// Save and remove target dir name.
 		if (target_path.get_file() == auto_dir) {
 			last_custom_target_dir = "";
@@ -462,7 +464,7 @@ void ProjectDialog::ok_pressed() {
 		ConfirmationDialog *cd = memnew(ConfirmationDialog);
 		cd->set_title(TTR("Warning: This folder is not empty"));
 		cd->set_text(TTR("You are about to create a Godot project in a non-empty folder.\nThe entire contents of this folder will be imported as project resources!\n\nAre you sure you wish to continue?"));
-		cd->get_ok_button()->connect("pressed", callable_mp(this, &ProjectDialog::_nonempty_confirmation_ok_pressed));
+		cd->get_ok_button()->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_nonempty_confirmation_ok_pressed));
 		get_parent()->add_child(cd);
 		cd->popup_centered();
 		return;
@@ -778,6 +780,16 @@ void ProjectDialog::show_dialog() {
 	popup_centered(Size2(500, 0) * EDSCALE);
 }
 
+void ProjectDialog::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_THEME_CHANGED: {
+			create_dir->set_icon(get_editor_theme_icon(SNAME("FolderCreate")));
+			project_browse->set_icon(get_editor_theme_icon(SNAME("FolderBrowse")));
+			install_browse->set_icon(get_editor_theme_icon(SNAME("FolderBrowse")));
+		} break;
+	}
+}
+
 void ProjectDialog::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("project_created"));
 	ADD_SIGNAL(MethodInfo("projects_updated"));
@@ -845,7 +857,7 @@ ProjectDialog::ProjectDialog() {
 
 	project_browse = memnew(Button);
 	project_browse->set_text(TTR("Browse"));
-	project_browse->connect("pressed", callable_mp(this, &ProjectDialog::_browse_project_path));
+	project_browse->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_browse_project_path));
 	pphb->add_child(project_browse);
 
 	// install status icon
@@ -855,7 +867,7 @@ ProjectDialog::ProjectDialog() {
 
 	install_browse = memnew(Button);
 	install_browse->set_text(TTR("Browse"));
-	install_browse->connect("pressed", callable_mp(this, &ProjectDialog::_browse_install_path));
+	install_browse->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_browse_install_path));
 	iphb->add_child(install_browse);
 
 	msg = memnew(Label);
@@ -890,7 +902,7 @@ ProjectDialog::ProjectDialog() {
 	rs_button->set_disabled(true);
 #endif
 	rs_button->set_meta(SNAME("rendering_method"), "forward_plus");
-	rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
+	rs_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_renderer_selected));
 	rvb->add_child(rs_button);
 	if (default_renderer_type == "forward_plus") {
 		rs_button->set_pressed(true);
@@ -902,7 +914,7 @@ ProjectDialog::ProjectDialog() {
 	rs_button->set_disabled(true);
 #endif
 	rs_button->set_meta(SNAME("rendering_method"), "mobile");
-	rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
+	rs_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_renderer_selected));
 	rvb->add_child(rs_button);
 	if (default_renderer_type == "mobile") {
 		rs_button->set_pressed(true);
@@ -914,7 +926,7 @@ ProjectDialog::ProjectDialog() {
 	rs_button->set_disabled(true);
 #endif
 	rs_button->set_meta(SNAME("rendering_method"), "gl_compatibility");
-	rs_button->connect("pressed", callable_mp(this, &ProjectDialog::_renderer_selected));
+	rs_button->connect(SceneStringName(pressed), callable_mp(this, &ProjectDialog::_renderer_selected));
 	rvb->add_child(rs_button);
 #if defined(GLES3_ENABLED)
 	if (default_renderer_type == "gl_compatibility") {
@@ -965,9 +977,9 @@ ProjectDialog::ProjectDialog() {
 	add_child(fdialog_project);
 	add_child(fdialog_install);
 
-	project_name->connect("text_changed", callable_mp(this, &ProjectDialog::_project_name_changed).unbind(1));
-	project_path->connect("text_changed", callable_mp(this, &ProjectDialog::_project_path_changed).unbind(1));
-	install_path->connect("text_changed", callable_mp(this, &ProjectDialog::_install_path_changed).unbind(1));
+	project_name->connect(SceneStringName(text_changed), callable_mp(this, &ProjectDialog::_project_name_changed).unbind(1));
+	project_path->connect(SceneStringName(text_changed), callable_mp(this, &ProjectDialog::_project_path_changed).unbind(1));
+	install_path->connect(SceneStringName(text_changed), callable_mp(this, &ProjectDialog::_install_path_changed).unbind(1));
 	fdialog_project->connect("dir_selected", callable_mp(this, &ProjectDialog::_project_path_selected));
 	fdialog_project->connect("file_selected", callable_mp(this, &ProjectDialog::_project_path_selected));
 	fdialog_install->connect("dir_selected", callable_mp(this, &ProjectDialog::_install_path_selected));

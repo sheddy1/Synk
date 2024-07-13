@@ -25,6 +25,8 @@
 
 #ifdef THORVG_THREAD_SUPPORT
 
+#define _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
+
 #include <mutex>
 
 namespace tvg {
@@ -68,3 +70,4 @@ namespace tvg {
 #endif //THORVG_THREAD_SUPPORT
 
 #endif //_TVG_LOCK_H_
+
