@@ -149,6 +149,7 @@ class GridMap : public Node3D {
 		OctantKey() {}
 	};
 
+	uint32_t render_layer = 1;
 	uint32_t collision_layer = 1;
 	uint32_t collision_mask = 1;
 	real_t collision_priority = 1.0;
@@ -186,6 +187,7 @@ class GridMap : public Node3D {
 		return Vector3(p_key.x, p_key.y, p_key.z) * cell_size * octant_size;
 	}
 
+	void _update_meshes_render_layer();
 	void _update_physics_bodies_collision_properties();
 	void _update_physics_bodies_characteristics();
 	void _octant_enter_world(const OctantKey &p_key);
@@ -231,6 +233,12 @@ public:
 	enum {
 		INVALID_CELL_ITEM = -1
 	};
+
+	void set_render_layer(uint32_t p_layer);
+	uint32_t get_render_layer() const;
+
+	void set_render_layer_value(int p_layer_number, bool p_value);
+	bool get_render_layer_value(int p_layer_number) const;
 
 	void set_collision_layer(uint32_t p_layer);
 	uint32_t get_collision_layer() const;
