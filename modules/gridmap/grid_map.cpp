@@ -68,12 +68,17 @@ bool GridMap::_set(const StringName &p_name, const Variant &p_value) {
 		Array meshes = p_value;
 
 		for (int i = 0; i < meshes.size(); i++) {
+			Array pair = meshes[i];
 			BakedMesh bm;
-			bm.mesh = meshes[i];
+			bm.mesh = pair[0];
+			bm.item = pair[1];
 			ERR_CONTINUE(!bm.mesh.is_valid());
 			bm.instance = RS::get_singleton()->instance_create();
 			RS::get_singleton()->instance_set_base(bm.instance, bm.mesh->get_rid());
 			RS::get_singleton()->instance_attach_object_instance_id(bm.instance, get_instance_id());
+			if (mesh_library.is_valid()) {
+				RS::get_singleton()->instance_set_layer_mask(bm.instance, mesh_library->get_item_render_layers(bm.item));
+			}
 			if (is_inside_tree()) {
 				RS::get_singleton()->instance_set_scenario(bm.instance, get_world_3d()->get_scenario());
 				RS::get_singleton()->instance_set_transform(bm.instance, get_global_transform());
@@ -115,7 +120,10 @@ bool GridMap::_get(const StringName &p_name, Variant &r_ret) const {
 		Array ret;
 		ret.resize(baked_meshes.size());
 		for (int i = 0; i < baked_meshes.size(); i++) {
-			ret[i] = baked_meshes[i].mesh;
+			Array pair;
+			pair.append(baked_meshes[i].mesh);
+			pair.append(baked_meshes[i].item);
+			ret[i] = pair;
 		}
 		r_ret = ret;
 
@@ -132,33 +140,6 @@ void GridMap::_get_property_list(List<PropertyInfo> *p_list) const {
 	}
 
 	p_list->push_back(PropertyInfo(Variant::DICTIONARY, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE));
-}
-
-void GridMap::set_render_layer(uint32_t p_layer) {
-	render_layer = p_layer;
-	_update_meshes_render_layer();
-}
-
-uint32_t GridMap::get_render_layer() const {
-	return render_layer;
-}
-
-void GridMap::set_render_layer_value(int p_layer_number, bool p_value) {
-	ERR_FAIL_COND_MSG(p_layer_number < 1, "Render layer number must be between 1 and 32 inclusive.");
-	ERR_FAIL_COND_MSG(p_layer_number > 32, "Render layer number must be between 1 and 32 inclusive.");
-	uint32_t render_layer_new = get_render_layer();
-	if (p_value) {
-		render_layer_new |= 1 << (p_layer_number - 1);
-	} else {
-		render_layer_new &= ~(1 << (p_layer_number - 1));
-	}
-	set_render_layer(render_layer_new);
-}
-
-bool GridMap::get_render_layer_value(int p_layer_number) const {
-	ERR_FAIL_COND_V_MSG(p_layer_number < 1, false, "Render layer number must be between 1 and 32 inclusive.");
-	ERR_FAIL_COND_V_MSG(p_layer_number > 32, false, "Render layer number must be between 1 and 32 inclusive.");
-	return get_render_layer() & (1 << (p_layer_number - 1));
 }
 
 void GridMap::set_collision_layer(uint32_t p_layer) {
@@ -735,7 +716,7 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 
 			RID instance = RS::get_singleton()->instance_create();
 			RS::get_singleton()->instance_set_base(instance, mm);
-			RS::get_singleton()->instance_set_layer_mask(instance, render_layer);
+			RS::get_singleton()->instance_set_layer_mask(instance, mesh_library->get_item_render_layers(E.key));
 
 			if (is_inside_tree()) {
 				RS::get_singleton()->instance_set_scenario(instance, get_world_3d()->get_scenario());
@@ -764,18 +745,6 @@ bool GridMap::_octant_update(const OctantKey &p_key) {
 	g.dirty = false;
 
 	return false;
-}
-
-void GridMap::_update_meshes_render_layer() {
-	for (const KeyValue<OctantKey, Octant *> &E : octant_map) {
-		for (const Octant::MultimeshInstance &mmi : E.value->multimesh_instances) {
-			RS::get_singleton()->instance_set_layer_mask(mmi.instance, render_layer);
-		}
-	}
-
-	for (const BakedMesh &bm : baked_meshes) {
-		RS::get_singleton()->instance_set_layer_mask(bm.instance, render_layer);
-	}
 }
 
 void GridMap::_update_physics_bodies_collision_properties() {
@@ -1086,12 +1055,6 @@ void GridMap::_update_octants_callback() {
 }
 
 void GridMap::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_render_layer", "layer"), &GridMap::set_render_layer);
-	ClassDB::bind_method(D_METHOD("get_render_layer"), &GridMap::get_render_layer);
-
-	ClassDB::bind_method(D_METHOD("set_render_mask_value", "layer_number", "value"), &GridMap::set_render_layer_value);
-	ClassDB::bind_method(D_METHOD("get_render_mask_value", "layer_number"), &GridMap::get_render_layer_value);
-
 	ClassDB::bind_method(D_METHOD("set_collision_layer", "layer"), &GridMap::set_collision_layer);
 	ClassDB::bind_method(D_METHOD("get_collision_layer"), &GridMap::get_collision_layer);
 
@@ -1176,8 +1139,6 @@ void GridMap::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority"), "set_collision_priority", "get_collision_priority");
 	ADD_GROUP("Navigation", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "bake_navigation"), "set_bake_navigation", "is_baking_navigation");
-	ADD_GROUP("Visual", "visual_");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "visual_layer", PROPERTY_HINT_LAYERS_3D_RENDER), "set_render_layer", "get_render_layer");
 
 	BIND_CONSTANT(INVALID_CELL_ITEM);
 
@@ -1277,7 +1238,7 @@ void GridMap::make_baked_meshes(bool p_gen_lightmap_uv, float p_lightmap_uv_texe
 	}
 
 	//generate
-	HashMap<OctantKey, HashMap<Ref<Material>, Ref<SurfaceTool>>, OctantKey> surface_map;
+	HashMap<SurfaceMapKey, Pair<int, HashMap<Ref<Material>, Ref<SurfaceTool>>>, SurfaceMapKey> surface_map;
 
 	for (KeyValue<IndexKey, Cell> &E : cell_map) {
 		IndexKey key = E.key;
@@ -1301,16 +1262,17 @@ void GridMap::make_baked_meshes(bool p_gen_lightmap_uv, float p_lightmap_uv_texe
 		xform.set_origin(cellpos * cell_size + ofs);
 		xform.basis.scale(Vector3(cell_scale, cell_scale, cell_scale));
 
-		OctantKey ok;
-		ok.x = key.x / octant_size;
-		ok.y = key.y / octant_size;
-		ok.z = key.z / octant_size;
+		SurfaceMapKey smk;
+		smk.octant_x = key.x / octant_size;
+		smk.octant_y = key.y / octant_size;
+		smk.octant_z = key.z / octant_size;
+		smk.render_layer = mesh_library->get_item_render_layers(item);
 
-		if (!surface_map.has(ok)) {
-			surface_map[ok] = HashMap<Ref<Material>, Ref<SurfaceTool>>();
+		if (!surface_map.has(smk)) {
+			surface_map[smk] = Pair<int, HashMap<Ref<Material>, Ref<SurfaceTool>>>(item, HashMap<Ref<Material>, Ref<SurfaceTool>>());
 		}
 
-		HashMap<Ref<Material>, Ref<SurfaceTool>> &mat_map = surface_map[ok];
+		HashMap<Ref<Material>, Ref<SurfaceTool>> &mat_map = surface_map[smk].second;
 
 		for (int i = 0; i < mesh->get_surface_count(); i++) {
 			if (mesh->surface_get_primitive_type(i) != Mesh::PRIMITIVE_TRIANGLES) {
@@ -1330,19 +1292,20 @@ void GridMap::make_baked_meshes(bool p_gen_lightmap_uv, float p_lightmap_uv_texe
 		}
 	}
 
-	for (KeyValue<OctantKey, HashMap<Ref<Material>, Ref<SurfaceTool>>> &E : surface_map) {
+	for (KeyValue<SurfaceMapKey, Pair<int, HashMap<Ref<Material>, Ref<SurfaceTool>>>> &E : surface_map) {
 		Ref<ArrayMesh> mesh;
 		mesh.instantiate();
-		for (KeyValue<Ref<Material>, Ref<SurfaceTool>> &F : E.value) {
+		for (KeyValue<Ref<Material>, Ref<SurfaceTool>> &F : E.value.second) {
 			F.value->commit(mesh);
 		}
 
 		BakedMesh bm;
 		bm.mesh = mesh;
 		bm.instance = RS::get_singleton()->instance_create();
+		bm.item = E.value.first;
 		RS::get_singleton()->instance_set_base(bm.instance, bm.mesh->get_rid());
 		RS::get_singleton()->instance_attach_object_instance_id(bm.instance, get_instance_id());
-		RS::get_singleton()->instance_set_layer_mask(bm.instance, render_layer);
+		RS::get_singleton()->instance_set_layer_mask(bm.instance, mesh_library->get_item_render_layers(bm.item));
 		if (is_inside_tree()) {
 			RS::get_singleton()->instance_set_scenario(bm.instance, get_world_3d()->get_scenario());
 			RS::get_singleton()->instance_set_transform(bm.instance, get_global_transform());
