@@ -49,6 +49,7 @@
 #include "editor/gui/editor_scene_tabs.h"
 #include "editor/import/3d/scene_import_settings.h"
 #include "editor/import_dock.h"
+#include "editor/plugins/editor_context_menu_plugin.h"
 #include "editor/plugins/editor_resource_tooltip_plugins.h"
 #include "editor/scene_create_dialog.h"
 #include "editor/scene_tree_dock.h"
@@ -2538,6 +2539,9 @@ void FileSystemDock::_file_option(int p_option, const Vector<String> &p_selected
 			String dir = ProjectSettings::get_singleton()->globalize_path(fpath);
 			ScriptEditor::get_singleton()->open_text_file_create_dialog(dir);
 		} break;
+		default:
+			EditorContextMenu::options_pressed(EditorContextMenu::CONTEXT_SLOT_FILESYSTEM, p_option, p_selected);
+			break;
 	}
 }
 
@@ -3160,6 +3164,9 @@ void FileSystemDock::_file_and_folders_fill_popup(PopupMenu *p_popup, const Vect
 		new_menu->add_icon_item(get_editor_theme_icon(SNAME("Script")), TTR("Script..."), FILE_NEW_SCRIPT);
 		new_menu->add_icon_item(get_editor_theme_icon(SNAME("Object")), TTR("Resource..."), FILE_NEW_RESOURCE);
 		new_menu->add_icon_item(get_editor_theme_icon(SNAME("TextFile")), TTR("TextFile..."), FILE_NEW_TEXTFILE);
+
+		// Support plugins in create new...
+		EditorContextMenu::handle_plugins(EditorContextMenu::CONTEXT_SLOT_FILESYSTEM, p_paths, p_popup, EditorContextMenuPlugin::SUBMENU_SLOT_FILESYSTEM_CREATE, new_menu);
 		p_popup->add_separator();
 	}
 
@@ -3299,6 +3306,8 @@ void FileSystemDock::_file_and_folders_fill_popup(PopupMenu *p_popup, const Vect
 
 		current_path = fpath;
 	}
+
+	EditorContextMenu::handle_plugins(EditorContextMenu::CONTEXT_SLOT_FILESYSTEM, p_paths, p_popup);
 }
 
 void FileSystemDock::_tree_rmb_select(const Vector2 &p_pos, MouseButton p_button) {
