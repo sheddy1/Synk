@@ -1260,7 +1260,7 @@
 				[/codeblock]
 				Compared to [method ease] with a curve value of [code]-1.6521[/code], [method smoothstep] returns the smoothest possible curve with no sudden changes in the derivative. If you need to perform more advanced transitions, use [Tween] or [AnimationPlayer].
 				[url=https://raw.githubusercontent.com/godotengine/godot-docs/master/img/smoothstep_ease_comparison.png]Comparison between smoothstep() and ease(x, -1.6521) return values[/url]
-				[url=https://raw.githubusercontent.com/godotengine/godot-docs/master/img/smoothstep_range.webp]Smoothstep() return values with positive, zero, and negative ranges[/url]
+				[url=https://raw.githubusercontent.com/godotengine/godot-docs/master/img/smoothstep_range.webp]smoothstep() return values with positive, zero, and negative ranges[/url]
 			</description>
 		</method>
 		<method name="snapped">
