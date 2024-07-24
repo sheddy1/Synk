@@ -3,7 +3,7 @@
 using _BINDINGS_NAMESPACE_;
 using System;
 
-[Godot.Tool]
+[Tool]
 public partial class VisualShaderNode_CLASS_ : _BASE_
 {
     public override string _GetName()
