@@ -36,7 +36,7 @@ public partial class VisualShaderNode_CLASS_ : _BASE_
         return "";
     }
 
-    public override Godot.VisualShaderNode.PortType _GetInputPortType(int port)
+    public override VisualShaderNode.PortType _GetInputPortType(int port)
     {
         return 0;
     }
