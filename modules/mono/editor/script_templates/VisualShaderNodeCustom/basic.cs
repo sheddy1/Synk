@@ -21,7 +21,7 @@ public partial class VisualShaderNode_CLASS_ : _BASE_
         return "";
     }
 
-    public override Godot.VisualShaderNode.PortType _GetReturnIconType()
+    public override VisualShaderNode.PortType _GetReturnIconType()
     {
         return 0;
     }
