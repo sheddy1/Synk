@@ -1766,8 +1766,7 @@ void EditorFileSystem::_update_file_icon_path(EditorFileSystemDirectory::FileInf
 	String icon_path;
 	if (file_info->resource_script_class != StringName()) {
 		icon_path = EditorNode::get_editor_data().script_class_get_icon_path(file_info->resource_script_class);
-	}
-	else if (file_info->script_class_icon_path.is_empty() && !file_info->deps.is_empty()) {
+	} else if (file_info->script_class_icon_path.is_empty() && !file_info->deps.is_empty()) {
 		const String &script_dep = file_info->deps[0]; // Assuming the first dependency is a script.
 		const String &script_path = script_dep.contains("::") ? script_dep.get_slice("::", 2) : script_dep;
 		if (!script_path.is_empty()) {
