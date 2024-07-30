@@ -554,6 +554,12 @@ class AnimationTrackEditor : public VBoxContainer {
 
 	////////////// edit menu stuff
 
+	ConfirmationDialog *convert_to_bezier_dialog = nullptr;
+	Tree *track_convert_select = nullptr;
+	OptionButton *track_convert_handles_mode = nullptr;
+	// Vector2 *track_convert_in_handles = nullptr;
+	// Vector2 *track_convert_out_handles = nullptr;
+
 	ConfirmationDialog *bake_dialog = nullptr;
 	CheckBox *bake_trs = nullptr;
 	CheckBox *bake_blendshape = nullptr;
@@ -693,7 +699,15 @@ public:
 		EDIT_OPTIMIZE_ANIMATION,
 		EDIT_OPTIMIZE_ANIMATION_CONFIRM,
 		EDIT_CLEAN_UP_ANIMATION,
-		EDIT_CLEAN_UP_ANIMATION_CONFIRM
+		EDIT_CLEAN_UP_ANIMATION_CONFIRM,
+		EDIT_CONVERT_TO_BEZIER,
+		EDIT_CONVERT_TO_BEZIER_CONFIRM
+	};
+
+	enum ConvertToBezierMode {
+		CONVERT_MODE_LINEAR,
+		CONVERT_MODE_BALANCED,
+		CONVERT_MODE_MIRRORED,
 	};
 
 	void add_track_edit_plugin(const Ref<AnimationTrackEditPlugin> &p_plugin);
@@ -718,6 +732,7 @@ public:
 	bool has_track(Node3D *p_node, const String &p_sub, const Animation::TrackType p_type);
 	void make_insert_queue();
 	void commit_insert_queue();
+	void create_bezier_track(Ref<Animation> anim, String path, int idx, Animation::HandleMode handle_mode);
 
 	void show_select_node_warning(bool p_show);
 	void show_dummy_player_warning(bool p_show);
