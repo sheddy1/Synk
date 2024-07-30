@@ -1040,7 +1040,7 @@ Ref<Image> TextureStorage::texture_2d_get(RID p_texture) const {
 
 		ERR_FAIL_COND_V(data.is_empty(), Ref<Image>());
 		image = Image::create_from_data(texture->width, texture->height, texture->mipmaps > 1, texture->real_format, data);
-		ERR_FAIL_COND_V(image->is_empty(), Ref<Image>());
+		ERR_FAIL_COND_V_MSG(image->is_empty(), Ref<Image>(), "Returning empty instance for texture image " + texture->path);
 		if (texture->format != texture->real_format) {
 			image->convert(texture->format);
 		}
@@ -1096,7 +1096,7 @@ Ref<Image> TextureStorage::texture_2d_get(RID p_texture) const {
 
 		ERR_FAIL_COND_V(data.is_empty(), Ref<Image>());
 		image = Image::create_from_data(texture->width, texture->height, false, Image::FORMAT_RGBA8, data);
-		ERR_FAIL_COND_V(image->is_empty(), Ref<Image>());
+		ERR_FAIL_COND_V_MSG(image->is_empty(), Ref<Image>(), "Returning empty instance for texture image " + texture->path);
 
 		if (texture->format != Image::FORMAT_RGBA8) {
 			image->convert(texture->format);
@@ -1168,7 +1168,7 @@ Ref<Image> TextureStorage::texture_2d_layer_get(RID p_texture, int p_layer) cons
 
 	ERR_FAIL_COND_V(data.is_empty(), Ref<Image>());
 	Ref<Image> image = Image::create_from_data(texture->width, texture->height, false, Image::FORMAT_RGBA8, data);
-	ERR_FAIL_COND_V(image->is_empty(), Ref<Image>());
+	ERR_FAIL_COND_V_MSG(image->is_empty(), Ref<Image>(), "Returning empty instance for texture image " + texture->path);
 
 	if (texture->format != Image::FORMAT_RGBA8) {
 		image->convert(texture->format);
