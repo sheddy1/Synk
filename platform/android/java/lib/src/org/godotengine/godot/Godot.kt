@@ -65,7 +65,9 @@ import org.godotengine.godot.utils.beginBenchmarkMeasure
 import org.godotengine.godot.utils.benchmarkFile
 import org.godotengine.godot.utils.dumpBenchmark
 import org.godotengine.godot.utils.endBenchmarkMeasure
+import org.godotengine.godot.utils.signApk
 import org.godotengine.godot.utils.useBenchmark
+import org.godotengine.godot.utils.verifyApk
 import org.godotengine.godot.xr.XRMode
 import java.io.File
 import java.io.FileInputStream
@@ -1085,4 +1087,16 @@ class Godot(private val context: Context) : SensorEventListener {
 	private fun nativeDumpBenchmark(benchmarkFile: String) {
 		dumpBenchmark(fileAccessHandler, benchmarkFile)
 	}
+
+	@Keep
+	private fun nativeSignApk(inputPath: String,
+							  outputPath: String,
+							  keystorePath: String,
+							  keystoreUser: String,
+							  keystorePassword: String): Boolean {
+		return signApk(fileAccessHandler, inputPath, outputPath, keystorePath, keystoreUser, keystorePassword)
+	}
+
+	@Keep
+	private fun nativeVerifyApk(apkPath: String) = verifyApk(fileAccessHandler, apkPath)
 }
