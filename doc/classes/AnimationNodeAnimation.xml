@@ -17,6 +17,9 @@
 		</member>
 		<member name="loop_mode" type="int" setter="set_loop_mode" getter="get_loop_mode" enum="Animation.LoopMode">
 			If [member use_custom_timeline] is [code]true[/code], override the loop settings of the original [Animation] resource with the value.
+			[b]Note:[/b] The [member loop_mode] does not duplicate the [Animation] with the overriding options, but rather performs a loop on the result played back on the [AnimationTree] like a post process.
+			For example, if you actually set a loop in the [Animation] or not, the behavior of setting by [method Animation.track_set_interpolation_loop_wrap] and processing the ends key or not will be different.
+			This is because the key value acquisition is not done by [AnimationTree], but by [Animation]. If you cannot get the expected behavior, consider duplicating the [Animation] resource and changing loop settings.
 		</member>
 		<member name="play_mode" type="int" setter="set_play_mode" getter="get_play_mode" enum="AnimationNodeAnimation.PlayMode" default="0">
 			Determines the playback direction of the animation.
