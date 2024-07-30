@@ -37,7 +37,6 @@
 #include "servers/rendering/renderer_rd/shaders/canvas.glsl.gen.h"
 #include "servers/rendering/renderer_rd/shaders/canvas_occlusion.glsl.gen.h"
 #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
-#include "servers/rendering/renderer_rd/storage_rd/texture_storage.h"
 #include "servers/rendering/rendering_device.h"
 #include "servers/rendering/shader_compiler.h"
 
@@ -81,6 +80,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 
 		FLAGS_NINEPACH_DRAW_CENTER = (1 << 12),
 
+		FLAGS_USE_SKELETON = (1 << 15),
 		FLAGS_NINEPATCH_H_MODE_SHIFT = 16,
 		FLAGS_NINEPATCH_V_MODE_SHIFT = 18,
 		FLAGS_LIGHT_COUNT_SHIFT = 20,
@@ -370,49 +370,28 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 		uint32_t pad3;
 	};
 
-	struct TextureStateKey {
-		RID texture;
-		uint32_t other = 0;
-
-		TextureStateKey(RID p_texture, RS::CanvasItemTextureFilter p_base_filter, RS::CanvasItemTextureRepeat p_base_repeat, bool p_use_linear_colors, bool p_texture_is_data) {
-			texture = p_texture;
-			other = (uint32_t)(uint8_t)p_base_filter | ((uint32_t)(uint8_t)p_base_repeat << 8) | ((uint32_t)p_use_linear_colors << 16) | ((uint32_t)p_texture_is_data << 17);
-		}
-
-		bool operator==(const TextureStateKey &p_val) const {
-			return (texture == p_val.texture) && (other == p_val.other);
-		}
-
-		static uint32_t hash(const TextureStateKey &p_val) {
-			uint32_t h = hash_one_uint64(p_val.texture.get_id());
-			h = hash_murmur3_one_32(p_val.other, h);
-			return hash_fmix32(h);
-		}
-	};
-
-	struct TextureState {
-		TextureStateKey key;
-		RID diffuse;
-		RID normal;
-		RID specular;
-		RID sampler;
-		uint32_t specular_shininess = 0;
-		uint32_t flags = 0;
-		Vector2 texpixel_size;
-
-		TextureState(TextureStateKey p_key) :
-				key(p_key) {}
-	};
-
-	HashMap<TextureStateKey, TextureState, TextureStateKey> texture_states;
-
 	struct Batch {
 		// Position in the UBO measured in bytes
 		uint32_t start = 0;
 		uint32_t instance_count = 0;
 		uint32_t instance_buffer_index = 0;
 
-		TextureState const *tex_state = nullptr;
+		// The current texture for the batch. Will be assigned the default_canvas_texture if
+		// the texture is null.
+		RID tex;
+		RID tex_uniform_set;
+
+		// The following tex_ prefixed fields are used to cache the texture data for the current batch.
+		// These values are applied to new InstanceData for the batch
+
+		// The cached specular shininess derived from the current texture.
+		uint32_t tex_specular_shininess = 0;
+		// The cached texture flags, such as FLAGS_DEFAULT_SPECULAR_MAP_USED and FLAGS_DEFAULT_NORMAL_MAP_USED
+		uint32_t tex_flags = 0;
+		// The cached texture pixel size.
+		Vector2 tex_texpixel_size;
+		RS::CanvasItemTextureFilter filter = RS::CANVAS_ITEM_TEXTURE_FILTER_MAX;
+		RS::CanvasItemTextureRepeat repeat = RS::CANVAS_ITEM_TEXTURE_REPEAT_MAX;
 
 		Color modulate = Color(1.0, 1.0, 1.0, 1.0);
 
@@ -434,6 +413,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 			uint32_t mesh_instance_count;
 		};
 		bool has_blend = false;
+		bool tex_has_msdf = false;
 	};
 
 	struct DataBuffer {
@@ -526,7 +506,7 @@ class RendererCanvasRenderRD : public RendererCanvasRender {
 	void _render_batch_items(RenderTarget p_to_render_target, int p_item_count, const Transform2D &p_canvas_transform_inverse, Light *p_lights, bool &r_sdf_used, bool p_to_backbuffer = false, RenderingMethod::RenderInfo *r_render_info = nullptr);
 	void _record_item_commands(const Item *p_item, RenderTarget p_render_target, const Transform2D &p_base_transform, Item *&r_current_clip, Light *p_lights, uint32_t &r_index, bool &r_batch_broken, bool &r_sdf_used);
 	void _render_batch(RD::DrawListID p_draw_list, PipelineVariants *p_pipeline_variants, RenderingDevice::FramebufferFormatID p_framebuffer_format, Light *p_lights, Batch const *p_batch, RenderingMethod::RenderInfo *r_render_info = nullptr);
-	TextureState const *_get_texture_state(Batch *p_batch, RID p_texture, RS::CanvasItemTextureFilter p_base_filter, RS::CanvasItemTextureRepeat p_base_repeat, bool p_use_linear_colors, bool p_texture_is_data = false);
+	void _prepare_batch_texture(Batch *p_current_batch, RID p_texture, bool p_use_linear_colors) const;
 	void _bind_canvas_texture(RD::DrawListID p_draw_list, RID p_uniform_set);
 	[[nodiscard]] Batch *_new_batch(bool &r_batch_broken);
 	void _add_to_batch(uint32_t &r_index, bool &r_batch_broken, Batch *&r_current_batch);
