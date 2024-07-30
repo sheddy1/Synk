@@ -322,7 +322,7 @@ void GraphNode::_notification(int p_what) {
 			int port_h_offset = theme_cache.port_h_offset;
 
 			Rect2 titlebar_rect(Point2(), titlebar_hbox->get_size() + sb_titlebar->get_minimum_size());
-			Size2 body_size = get_size();
+			Size2 body_size = resizable ? get_size() : get_minimum_size();
 			titlebar_rect.size.width = body_size.width;
 			body_size.height -= titlebar_rect.size.height;
 			Rect2 body_rect(0, titlebar_rect.size.height, body_size.width, body_size.height);
@@ -333,7 +333,7 @@ void GraphNode::_notification(int p_what) {
 			// Draw title bar stylebox above.
 			draw_style_box(sb_to_draw_titlebar, titlebar_rect);
 
-			int width = get_size().width - sb_panel->get_minimum_size().x;
+			int width = body_size.width - sb_panel->get_minimum_size().x;
 
 			// Take the HboxContainer child into account.
 			if (get_child_count(false) > 0) {
