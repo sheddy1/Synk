@@ -342,8 +342,9 @@ void AnimationPlayerEditor::_animation_selected(int p_which) {
 
 			// Player shouldn't access parent if its scene root
 			if (!root || (player == get_tree()->get_edited_scene_root() && player->get_root_node() == SceneStringName(path_pp))) {
-				if (cached_player_root_node) {
-					player->set_root_node(player->get_path_to(cached_player_root_node));
+				NodePath cached_root_path = player->get_path_to(cached_player_root_node);
+				if (cached_player_root_node == player->get_node_or_null(cached_root_path)) {
+					player->set_root_node(cached_root_path);
 				} else {
 					player->set_root_node(SceneStringName(path_pp)); // No other choice, preventing crash
 				}
