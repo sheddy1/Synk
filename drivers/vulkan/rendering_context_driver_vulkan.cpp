@@ -550,6 +550,33 @@ void RenderingContextDriverVulkan::_check_driver_workarounds(const VkPhysicalDev
 			p_device_properties.deviceID >= 0x6000000 && // Adreno 6xx
 			p_device_properties.driverVersion < VK_MAKE_VERSION(512, 503, 0) &&
 			r_device.name.find("Turnip") < 0;
+
+	// Workaround for the Adreno 5XX family of devices.
+	//
+	//TODO:'vkCmdDrawIndexed' crash / 'RENDER_GRAPH_REORDER' ......
+	//
+	//TODO: check 'driverVersion'?
+	// no crash on Fujitsu F-01L - Adreno (TM) 506, Vulkan 1.0.61, driverVersion = 54185879
+	r_device.workarounds.avoid_render_graph_reorder =
+			r_device.vendor == VENDOR_QUALCOMM &&
+			p_device_properties.deviceID >= 0x5000000 && // Adreno 5xx
+			p_device_properties.deviceID <= 0x5999999;
+
+	//TODO: Dev-TEST
+	//r_device.workarounds.avoid_render_graph_reorder = true;
+
+	print_line("======== Workarounds ========");
+	print_line("avoid_compute_after_draw: ", r_device.workarounds.avoid_compute_after_draw);
+	print_line("avoid_render_graph_reorder: ", r_device.workarounds.avoid_render_graph_reorder);
+	print_line("-----------------------------");
+	print_line("name: ", r_device.name);
+	print_line("vendor: ", r_device.vendor);
+	print_line("deviceID: ", p_device_properties.deviceID);
+	uint32_t variant = VK_API_VERSION_VARIANT(p_device_properties.driverVersion);
+	uint32_t major = VK_API_VERSION_MAJOR(p_device_properties.driverVersion);
+	uint32_t minor = VK_API_VERSION_MINOR(p_device_properties.driverVersion);
+	uint32_t patch = VK_API_VERSION_PATCH(p_device_properties.driverVersion);
+	print_line("driverVersion: ", vformat("%d.%d.%d.%d", variant, major, minor, patch));
 }
 
 bool RenderingContextDriverVulkan::_use_validation_layers() const {
